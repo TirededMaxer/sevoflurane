@@ -1,5 +1,10 @@
 # Performance tooling
 
+Visibility-aware smoke benchmarks measure Sevoflurane’s Library, Store, and Friends UI under synthetic load. Main-queue timing and signposts connect slow interactions to thread stalls.
+
+<details>
+<summary>Benchmark and trace reference</summary>
+
 ## The smoke scenario
 
 Launch the app with `SEVO_ENABLE_BENCHMARKS=1`, then:
@@ -13,8 +18,8 @@ sevo benchmark --target store --iterations 2
 
 `POST :8764/benchmark/smoke?iterations=&target=&load=&qos=` is the endpoint underneath.
 
-What a run does before timing anything: brings the desktop forward, reads the page's
-`document.visibilityState`, and — when the window is covered — suspends WebKit's occlusion
+Before timing, the benchmark brings the desktop forward and reads the page's
+`document.visibilityState`. When the window is covered, it suspends WebKit's occlusion
 detection on the desktop for the run so animation frames keep coming (`desktopVisibility`
 in the report says `visible`, `forced`, or `hidden`; a `hidden` run reports every step as
 `skipped` instead of timing an invisible page). The Friends window is closed first so the
@@ -58,3 +63,5 @@ python3 Tools/perf/agg_timeprofile.py time-profile.xml 'Sevoflurane|WebKit|steam
 A 20 s all-process System Trace exports to ~1 GB of XML and aggregates in 4–5 min; a
 30 s all-process Time Profiler export is ~200 MB. The numbers are only comparable between
 runs with similar `hostBefore.loadAverage1m`.
+
+</details>

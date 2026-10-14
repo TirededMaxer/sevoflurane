@@ -1,8 +1,6 @@
 # sevobench
 
-Repeatable measurements of what the app and the engine cost, for comparing one
-build or setting against another. Stdlib Python; drives `sevo`, the control
-port, and the two logs the report zip carries.
+`sevobench` compares launch time, idle resource use, and game performance across Sevoflurane builds or settings. It uses Python’s standard library, `sevo`, the control port, and diagnostic logs.
 
 ```zsh
 python3 Tools/bench/sevobench.py --label baseline --iterations 3 launch
@@ -13,6 +11,10 @@ python3 Tools/bench/sevobench.py report --labels baseline candidate
 
 Every run appends one JSON line to `~/Library/Application Support/Sevoflurane/Bench/<scenario>.jsonl`
 (`SEVOBENCH_OUT` moves it). `report` prints medians, min and max per label.
+
+
+<details>
+<summary>Scenario and measurement reference</summary>
 
 ## Scenarios
 
@@ -52,3 +54,5 @@ identical runs is the noise floor, and a change smaller than it is not a result.
 Keep Debug mode the same across labels (it costs a little and adds the per-10 s
 present counters). Keep the renderer, window mode and upscaler the same too;
 `host.engine`, `host.app` and `host.debug` are recorded so a mixed set is visible.
+
+</details>
