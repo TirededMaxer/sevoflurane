@@ -4,7 +4,7 @@ Sevoflurane 为 Mac 带来类似 Proton 的体验，在同一个 Steam 界面中
 
 <a href="https://kagerou.glass/get/sevoflurane?from=readme"><img src=".github/download.zh-CN.svg" alt="下载 Mac 版 Sevoflurane" width="360" height="80"></a>
 
-![Steam 游戏库](.github/sevoflurane-library.png)
+![Mac 窗口里的 Steam 游戏库，筛选出能在这台 Mac 上玩的游戏；在游戏的版本菜单里选择 macOS 版，Steam 下载后点开始，它作为独立应用打开；DirectX 12 的 Windows 游戏《地平线 零之曙光》在 Mac 窗口里运行；视觉小说调整窗口大小](.github/sevoflurane-film.zh-CN.avif)
 
 ## 特色
 
