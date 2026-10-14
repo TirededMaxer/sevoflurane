@@ -105,7 +105,11 @@ final class SilentUpdates {
         github.tiptoe.onWillInstall = { pending in
             EventLog.enqueue(.update, "installing update \(pending.version)")
         }
-        justUpdatedVersion = github.tiptoe.justUpdatedTo
+        justUpdatedVersion = PostUpdateNotice.reconcile(
+            recordedVersion: github.tiptoe.justUpdatedTo,
+            runningVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+            acknowledge: { github.tiptoe.acknowledge() },
+        )
     }
 
     /// How often a held prompt looks again for a moment with no game up.
