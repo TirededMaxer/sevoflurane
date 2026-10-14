@@ -18,17 +18,22 @@ and play. Games appear as players share their runs.
 ## Mac or Windows, per game
 
 Plenty of a Steam library ships a native macOS version beside the Windows one.
-Sevoflurane's Steam installs either, and you choose per game: **Install** asks
-which version to get, with each download's size, how it runs and how it is
-rated.
+Sevoflurane's Steam installs either, and you choose per game: the ▾ beside
+**Install** lists both versions with each download's size, how it runs and how
+it is rated, and **Install** itself gets the version its mark shows.
 
-<p align="center"><img src=".github/sevoflurane-version-install.png" alt="A game page in Sevoflurane's Steam with the Install menu open, offering the macOS version (412 MB) and the Windows version (404 MB, recommended, playable through Sevoflurane)" width="820"><br><sub><b>install</b> ・ pick the version to download</sub></p>
+<p align="center"><img src=".github/sevoflurane-version-install.png" alt="A game page in Sevoflurane's Steam with the version menu open under the ▾ beside Install: the macOS version, built for macOS and rated Perfect, and the Windows version, run through Sevoflurane and rated Platinum, each 3.2 GB" width="820"><br><sub><b>install</b> ・ pick the version to download</sub></p>
+
+Steam downloads the chosen version like any other game, with its progress in
+the play bar and the version it is getting beside it.
+
+<p align="center"><img src=".github/sevoflurane-version-download.png" alt="The same game downloading its macOS version: Pause, Downloading 41% Complete, and Version macOS in the play bar" width="820"><br><sub><b>download</b> ・ Steam's own download, macOS version</sub></p>
 
 The **Version** button on the play bar switches an installed game later: the
 menu says how much Steam will download, and Steam fetches the other version as
 an update. Games with Steam Cloud keep their saves across the switch.
 
-<p align="center"><img src=".github/sevoflurane-version-switch.png" alt="An installed game's Version menu: the macOS version is recommended and rated Perfect, the Windows version is installed and rated Playable" width="820"><br><sub><b>switch</b> ・ the play bar's Version menu</sub></p>
+<p align="center"><img src=".github/sevoflurane-version-switch.png" alt="An installed game's Version menu: the macOS version is installed and rated Perfect, the Windows version, rated Platinum, is a 3.2 GB download" width="820"><br><sub><b>switch</b> ・ the play bar's Version menu</sub></p>
 
 A macOS version runs natively, outside Wine, and still signs in through
 Sevoflurane's Steam: achievements, stats and cloud saves work without a second

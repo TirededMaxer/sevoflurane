@@ -12,13 +12,17 @@
 
 ## Mac 版还是 Windows 版，每款游戏自己选
 
-Steam 游戏库里不少游戏在 Windows 版之外还有原生 macOS 版。Sevoflurane 的 Steam 两种都能安装，按游戏选择：点**安装**时会问要下载哪个版本，并列出每个版本的下载大小、运行方式和评级。
+Steam 游戏库里不少游戏在 Windows 版之外还有原生 macOS 版。Sevoflurane 的 Steam 两种都能安装，按游戏选择：**安装**旁边的 ▾ 会列出两个版本，以及每个版本的下载大小、运行方式和评级；直接点**安装**则下载按钮上标出的版本。
 
-<p align="center"><img src=".github/sevoflurane-version-install.png" alt="Sevoflurane 的 Steam 中一款游戏的页面，安装菜单已展开，提供 macOS 版本（412 MB）和 Windows 版本（404 MB，推荐，通过 Sevoflurane 可玩）" width="820"><br><sub><b>安装</b> ・ 选择要下载的版本</sub></p>
+<p align="center"><img src=".github/sevoflurane-version-install.png" alt="Sevoflurane 的 Steam 中一款游戏的页面，安装旁边的 ▾ 菜单已展开：macOS 版本为原生版本，评级“完美”；Windows 版本通过 Sevoflurane 运行，评级 Platinum，各 3.2 GB" width="820"><br><sub><b>安装</b> ・ 选择要下载的版本</sub></p>
+
+Steam 像下载其他游戏一样下载所选版本，进度显示在游戏栏里，旁边标出正在下载的版本。
+
+<p align="center"><img src=".github/sevoflurane-version-download.png" alt="同一款游戏正在下载 macOS 版本：游戏栏显示暂停、正在下载 41%，以及版本 macOS" width="820"><br><sub><b>下载</b> ・ Steam 自己的下载，macOS 版本</sub></p>
 
 之后可以用游戏栏里的**版本**按钮切换已安装的游戏：菜单会说明 Steam 需要下载多少，Steam 会把另一个版本作为更新下载。支持 Steam 云的游戏，切换后存档依然保留。
 
-<p align="center"><img src=".github/sevoflurane-version-switch.png" alt="已安装游戏的版本菜单：macOS 版本为推荐，评级“完美”；Windows 版本已安装，评级“可玩”" width="820"><br><sub><b>切换</b> ・ 游戏栏里的版本菜单</sub></p>
+<p align="center"><img src=".github/sevoflurane-version-switch.png" alt="已安装游戏的版本菜单：macOS 版本已安装，评级“完美”；Windows 版本评级 Platinum，需下载 3.2 GB" width="820"><br><sub><b>切换</b> ・ 游戏栏里的版本菜单</sub></p>
 
 macOS 版本在 Wine 之外原生运行，仍通过 Sevoflurane 的 Steam 登录：成就、统计和云存档都能用，不需要第二个客户端。无论是点 Steam 的“停止”按钮、用 Sevoflurane 的菜单，还是直接退出游戏，都能干净地结束。Valve 的 Steam for Mac 仍可作为选项，在**设置 › 通用 › Steam for Mac** 中开启。
 
