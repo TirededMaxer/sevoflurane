@@ -97,7 +97,24 @@ enum SteamCompatBadge {
 
     /// Everything both pages draw with: Steam's glyphs and strip styles, and
     /// the strip and Details panel built from a record.
-    private static let common = glyphs + """
+    private static let common = glyphs + SteamNativeBuilds.platformGlyphs
+        + "  var MAC_TOOL = \(JSLiteral.string(SteamPlayMacOS.toolName));\n" + """
+      /* The macOS version's mark: its medal once AppleGamingWiki rates it,
+         the apple while it is only available, as in the library: muted, and
+         blue once the game is set to it. The store page cannot read the
+         mapping, so there it stays muted. */
+      function nativeMark(badge, appid) {
+        if (badge.tier || badge.state !== "unknown") return mark(badge);
+        var set = false;
+        try {
+          var c = window.opener || window;
+          var d = c.appDetailsStore && c.appDetailsStore.GetAppDetails(Number(appid));
+          set = !!(d && d.strCompatToolName === MAC_TOOL);
+        } catch (e) {}
+        return '<span class="sevo-compat-icon sevo-compat-mac sevo-mac-' + (set ? "set" : "available") + '">'
+          + '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="' + PLATFORM_PATHS.macos + '" fill="currentColor"></path></svg></span>';
+      }
+
       var STYLE_ID = "sevo-compat-style";
       var SLOT_ID = "sevo-compat-slot";
       var STRIP_ID = "sevo-compat";
@@ -128,6 +145,8 @@ enum SteamCompatBadge {
         ".sevo-compat-row b{color:#fff;font-weight:600}",
         ".sevo-compat-link{color:#1a9fff;cursor:pointer;text-decoration:none;white-space:nowrap}",
         ".sevo-compat-link:hover{color:#00bbff}",
+        ".sevo-compat-mac.sevo-mac-available{color:#8b929a}",
+        ".sevo-compat-mac.sevo-mac-set{color:#1a9fff}",
         ".sevo-compat-note{font-style:italic;color:#8b929a;margin-inline-start:30px;line-height:18px}"
       ].join("\\n");
     
@@ -155,7 +174,7 @@ enum SteamCompatBadge {
         if (record.nativeBadge) {
           var play = record.nativeBadge.state !== "unsupported" && !playsInThisSteam()
             ? '<a class="sevo-compat-link sevo-compat-play" data-appid="' + esc(appid) + '">Play in Steam for Mac</a>' : "";
-          rows.push(row(mark(record.nativeBadge), "<b>macOS version:</b> " + esc(record.nativeBadge.reason), play));
+          rows.push(row(nativeMark(record.nativeBadge, appid), "<b>macOS version:</b> " + esc(record.nativeBadge.reason), play));
         } else if (arch && arch.intel32 === true && arch.intel64 !== true && arch.arm !== true) {
           rows.push(row(medal("borked"), "<b>macOS version:</b> 32-bit only, which no Apple silicon Mac can run. The Windows version is the one that plays here.", link(arch.pageURL, "PCGamingWiki")));
         }
@@ -198,9 +217,9 @@ enum SteamCompatBadge {
         return '<a class="sevo-compat-link" data-href="' + esc(url) + '">' + esc(text) + " ↗</a>";
       }
     
-      function cell(title, badge) {
+      function cell(title, badge, icon) {
         return '<div class="sevo-compat-title">' + esc(title) + "</div>"
-          + '<div class="sevo-compat-label">' + mark(badge) + "<span>" + esc(badge.label) + "</span></div>";
+          + '<div class="sevo-compat-label">' + (icon || mark(badge)) + "<span>" + esc(badge.label) + "</span></div>";
       }
     
       var SEP = '<span class="sevo-compat-sep"></span>';
@@ -212,7 +231,7 @@ enum SteamCompatBadge {
         /* With a macOS build beside it, each cell names the build it rates,
            so "Unknown" and "Native" read as two builds rather than one
            contradiction. */
-        strip.innerHTML = (native ? cell("Windows version", mac) + SEP + cell("macOS version", native) : cell("Mac Compatibility", mac))
+        strip.innerHTML = (native ? cell("Windows version", mac) + SEP + cell("macOS version", native, nativeMark(native, appid)) : cell("Mac Compatibility", mac))
           + SEP + cell("Anti-Cheat", ac)
           + '<div class="sevo-compat-details" role="button" tabindex="0">' + (open[appid] ? "Hide" : "Details") + "</div>";
         if (record) {
