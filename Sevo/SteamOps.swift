@@ -221,7 +221,8 @@ nonisolated enum SteamOps {
     /// MCP layers enforce that before calling here.
     static func uninstall(_ appid: Int) async throws {
         _ = try await SteamJS.eval(
-            "SteamClient.Installs.OpenUninstallWizard([\(appid)], true); 'ok'",
+            // The second argument is the client the uninstall is for, "0" being this one.
+            "SteamClient.Installs.OpenUninstallWizard([\(appid)], \"0\", true); 'ok'",
         )
     }
 
@@ -256,7 +257,8 @@ nonisolated enum SteamOps {
     /// PauseDownloads; per-app pausing is `PauseAppUpdate(appid)`.
     static func setDownloadsEnabled(_ enabled: Bool) async throws {
         _ = try await SteamJS.eval(
-            "SteamClient.Downloads.EnableAllDownloads(\(enabled)); 'ok'",
+            // The second argument is the client the downloads are on, "0" being this one.
+            "SteamClient.Downloads.EnableAllDownloads(\(enabled), \"0\"); 'ok'",
         )
     }
 
