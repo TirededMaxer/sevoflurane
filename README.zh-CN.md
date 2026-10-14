@@ -1,5 +1,7 @@
 # Sevoflurane
 
+[English](README.md) · **简体中文**
+
 Sevoflurane 为 Mac 带来类似 Proton 的体验，在同一个 Steam 界面中运行 Windows 和 macOS 游戏。原生 WebKit 窗口替代通过 Wine 渲染的 Chromium 界面，Steam 在后台运行，通知交给 macOS 显示。老游戏也能调整窗口大小，并开启画面放大与超分。
 
 <a href="https://kagerou.glass/get/sevoflurane?from=readme"><img src=".github/download.zh-CN.svg" alt="下载 Mac 版 Sevoflurane" width="360" height="80"></a>
@@ -41,4 +43,3 @@ Sevoflurane 为 Mac 带来类似 Proton 的体验，在同一个 Steam 界面中
 
 - [游戏兼容性](https://kagerou.glass/sevoflurane/games/?lang=zh-CN) · [渲染器、限制及命令行参考](REFERENCE.zh-CN.md)。
 - **设置 → 关于 → 保存诊断…**收集报告。[贡献指南](CONTRIBUTING.md)。
-- [English](README.md) · [简体中文](README.zh-CN.md)。

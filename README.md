@@ -1,5 +1,7 @@
 # Sevoflurane
 
+**English** · [简体中文](README.zh-CN.md)
+
 Sevoflurane brings a Proton-like experience to Mac, running Windows and macOS games from the same Steam interface. Native WebKit windows replace Steam’s Wine-rendered Chromium UI, while Steam runs in the background with macOS notifications. Older games get resizable windows and upscaling.
 
 <a href="https://kagerou.glass/get/sevoflurane?from=readme"><img src=".github/download.svg" alt="Download Sevoflurane for Mac" width="360" height="80"></a>
@@ -41,4 +43,3 @@ Sevoflurane brings a Proton-like experience to Mac, running Windows and macOS ga
 
 - [Game compatibility](https://kagerou.glass/sevoflurane/games/) · [Renderer choices and limits](REFERENCE.md#renderers).
 - **Settings → About → Save Diagnostics…** collects a report. [CLI/MCP reference](REFERENCE.md#command-line) · [Contributing](CONTRIBUTING.md).
-- [English](README.md) · [简体中文](README.zh-CN.md).
