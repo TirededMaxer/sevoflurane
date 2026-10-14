@@ -11809,6 +11809,146 @@
           }
         }
       }
+    },
+    "Click to show every game." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按以显示所有游戏。"
+          }
+        }
+      }
+    },
+    "Does not play on a Mac through Sevoflurane: it crashes, or its anti-cheat refuses to run." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法通过 Sevoflurane 在 Mac 上运行：它会崩溃，或其反作弊拒绝运行。"
+          }
+        }
+      }
+    },
+    "Keeps the games Mac players rate Verified or Playable, and those with a macOS version that runs on Apple silicon." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留 Mac 玩家评为已验证或可玩的游戏，以及有可在 Apple 芯片上运行的 macOS 版本的游戏。"
+          }
+        }
+      }
+    },
+    "macOS version available" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 macOS 版本"
+          }
+        }
+      }
+    },
+    "Playable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可玩"
+          }
+        }
+      }
+    },
+    "Plays on a Mac through Sevoflurane with some issues, or is rated on Linux only. The game's page says which." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过 Sevoflurane 在 Mac 上可以运行但有些问题，或仅有 Linux 上的评级。游戏页面会说明是哪种情况。"
+          }
+        }
+      }
+    },
+    "Plays well on a Mac through Sevoflurane, from Mac players' runs or the wiki." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过 Sevoflurane 在 Mac 上运行良好，依据是 Mac 玩家的运行记录或维基。"
+          }
+        }
+      }
+    },
+    "Set to its macOS version" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已设为其 macOS 版本"
+          }
+        }
+      }
+    },
+    "Show games that play on this Mac" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示可在这台 Mac 上运行的游戏"
+          }
+        }
+      }
+    },
+    "Showing games that play on this Mac" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在显示可在这台 Mac 上运行的游戏"
+          }
+        }
+      }
+    },
+    "Steam has a macOS version of this game that runs on Apple silicon. The version menu beside Install chooses it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steam 有这款游戏可在 Apple 芯片上运行的 macOS 版本。安装按钮旁的版本菜单可选择它。"
+          }
+        }
+      }
+    },
+    "Steam installs and plays this game's own macOS version." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steam 安装并运行这款游戏自己的 macOS 版本。"
+          }
+        }
+      }
+    },
+    "Unsupported" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支持"
+          }
+        }
+      }
+    },
+    "Verified" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已验证"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
