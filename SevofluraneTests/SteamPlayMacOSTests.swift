@@ -317,15 +317,21 @@ struct SteamPlayMacOSTests {
 
     /// Steam's platform module, its properties page list and its details
     /// store, faked just enough for the context script to run. Module sources
-    /// are the strings the script searches; `C` and `dt` are the functions
-    /// those sources name, so the stack the getter reads is a real one.
+    /// are the strings the script searches; the platform module's exports are
+    /// the real functions, so the script finds the Linux test by calling them,
+    /// and `dt` is the function the page source names, so the stack the
+    /// getter reads is a real one.
     private static let steam = """
     var window = this;
-    var TS = { PLATFORM: "windows" };
-    var platformSource = 'r.d(t,{CI:()=>C,TS:()=>a.TS});function w(){return"windows"==a.TS.PLATFORM}function C(){return"linux"==a.TS.PLATFORM}';
+    var TS = { PLATFORM: "windows", ARCH: "x64" };
+    function w() { return "windows" == TS.PLATFORM; }
+    function C() { return "linux" == TS.PLATFORM; }
+    function arm() { return TS.ARCH == "arm64"; }
+    var platformSource = 'r.d(t,{CI:()=>C,Qn:()=>w,mP:()=>arm,TS:()=>a.TS});function w(){return"windows"==a.TS.PLATFORM}function C(){return"linux"==a.TS.PLATFORM}';
     var pageSource = 'function dt(e){const{appId:t}=e,r=(0,p.T)(t);const o=[];return o.push({title:(0,A.we)("#AppProperties_GeneralPage")}),(0,f.CI)()&&o.push({title:(0,A.we)("#AppProperties_CompatibilityPage"),route:F.BV.AppProperties.Compatibility()}),o}';
     var modules = { 10: platformSource, 20: pageSource, 30: 'function other(){}' };
-    var req = function (id) { if (String(id) === "10") return { TS: TS }; throw new Error("not loaded"); };
+    var platformExports = { CI: C, Qn: w, mP: arm, TS: TS };
+    var req = function (id) { if (String(id) === "10") return platformExports; throw new Error("not loaded"); };
     req.m = modules;
     var webpackChunksteamui = { push: function (entry) { entry[2](req); } };
     var platforms = { 1: ["windows", "osx"], 2: ["windows"] };
@@ -470,12 +476,48 @@ struct SteamPlayMacOSTests {
         #expect(html.contains(#"sevo-native-current" role="menuitemradio" tabindex="0" aria-checked="true" data-platform="macos""#))
     }
 
+    /// The 2026-10 Steam build's spelling: the comparison the other way
+    /// round, `$` for the test's name and an arrow function for the page list.
     @Test
-    func `a Steam build without the shape leaves the platform alone`() throws {
+    func `the Linux test and the page list are found however the minifier spells them`() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(Self.steam)
+        context.evaluateScript("""
+        function $() { return TS.PLATFORM === "linux"; }
+        var F = (e) => { appDetailsStore.GetAppDetails(e); return $(); };
+        platformExports = { CI: $, Qn: w, TS: TS };
+        modules[10] = 'r.d(t,{CI:()=>$,Qn:()=>w,TS:()=>a.TS});function $(){return a.TS.PLATFORM=="linux"}';
+        modules[20] = 'F=(e)=>{const t=[];return(0,y.CI)()&&t.push({title:(0,c.we)("#AppProperties_CompatibilityPage")}),t}';
+        """)
+        #expect(context.evaluateScript(SteamNativeBuilds.contextScript)?.toString() == "installed")
+        #expect(context.evaluateScript("window.__sevoNativeBuilds.test")?.toString() == "$")
+        #expect(context.evaluateScript("JSON.stringify(window.__sevoNativeBuilds.pages)")?.toString() == "[\"F\"]")
+        #expect(context.evaluateScript("F(1)")?.toBool() == true)
+        #expect(context.evaluateScript("F(2)")?.toBool() == false)
+        #expect(context.evaluateScript("keyboard(1)")?.toBool() == false)
+        #expect(context.evaluateScript("TS.PLATFORM")?.toString() == "windows")
+    }
+
+    @Test
+    func `a Steam build without the page's label keeps native builds on and the platform alone`() throws {
         let context = try #require(JSContext())
         context.evaluateScript(Self.steam)
         context.evaluateScript("modules[20] = 'function dt(e){return (0,f.CI)()}';")
-        #expect(context.evaluateScript(SteamNativeBuilds.contextScript)?.toString() == "unavailable")
+        #expect(context.evaluateScript(SteamNativeBuilds.contextScript)?.toString()
+            == "installed without the Compatibility page: no function holds the page's label")
+        #expect(context.evaluateScript("window.__sevoNativeBuilds.enabled")?.toBool() == true)
         #expect(context.evaluateScript("dt(1)")?.toBool() == false)
+        #expect(context.evaluateScript("TS.PLATFORM")?.toString() == "windows")
+    }
+
+    @Test
+    func `a Steam build without a Linux test keeps native builds on`() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(Self.steam)
+        context.evaluateScript("platformExports = { Qn: w, TS: TS };")
+        #expect(context.evaluateScript(SteamNativeBuilds.contextScript)?.toString()
+            == "installed without the Compatibility page: no exported function answers as the Linux test")
+        #expect(context.evaluateScript("window.__sevoNativeBuilds.enabled")?.toBool() == true)
+        #expect(context.evaluateScript("TS.PLATFORM")?.toString() == "windows")
     }
 }

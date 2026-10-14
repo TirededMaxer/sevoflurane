@@ -25,7 +25,7 @@ import Foundation
 enum SteamNativeBuilds {
     /// What ``contextScript`` answers once it has run, the outcomes an
     /// installer stops retrying on.
-    static let settled: Set<String> = ["installed", "reapplied", "removed", "not installed", "unavailable"]
+    static let settled: Set<String> = ["installed", "installed without the Compatibility page", "reapplied", "removed", "not installed"]
 
     /// Simple platform marks, drawn in `currentColor`: the Apple logo for the
     /// macOS build, the Windows logo for the Windows one. Shared with the
@@ -44,20 +44,25 @@ enum SteamNativeBuilds {
 
     // MARK: - The context page
 
-    /// The context page's half: Steam's Properties › Compatibility page for
-    /// games with a macOS build.
+    /// The context page's half: switches native builds on for the desktop
+    /// half (``script``), then lists Steam's Properties › Compatibility page
+    /// for games with a macOS build.
     ///
-    /// The page list is built in one component (`dt` in this build), which
-    /// adds the Compatibility page when the platform module's Linux test
-    /// (`function C(){return"linux"==a.TS.PLATFORM}`) passes. The module's
-    /// exports are fixed getters, so the test itself cannot be replaced;
-    /// `TS.PLATFORM` is a plain property of the shared config object, and it
-    /// becomes a getter that answers `linux` to that one test called from
-    /// that one component, and the real platform to every other reader. The
-    /// caller is read off the stack: JavaScriptCore names each frame after its
-    /// function. Both names are found in the modules' own source at install
-    /// time, so a new Steam build that renames them still matches, and one
-    /// that changes the shape leaves every reader with the real platform.
+    /// The page list is built in one component, which adds the Compatibility
+    /// page when the platform module's Linux test passes. The module's exports
+    /// are fixed getters, so the test itself cannot be replaced; `PLATFORM` is
+    /// a plain property of the shared config object, and it becomes a getter
+    /// that answers `linux` to that one test called from that one component,
+    /// and the real platform to every other reader. The caller is read off the
+    /// stack: JavaScriptCore names each frame after its function.
+    ///
+    /// Both are found by what they are rather than how the minifier spelled
+    /// them. The test is the exported function that returns true with the
+    /// platform set to `linux` and false with it set to `windows` or `macos`;
+    /// the component is the function whose body holds the page's localization
+    /// key. A Steam build in which either cannot be found keeps the install
+    /// menu and the play bar's Version entry, and only the Properties page is
+    /// missing, as the result names.
     ///
     /// The page appears only for a game with a macOS build: Steam's details
     /// store is the one the component reads its game through, so the last
@@ -70,80 +75,149 @@ enum SteamNativeBuilds {
       var req = null;
       try { webpackChunksteamui.push([["sevo-native-" + Date.now()], {}, function (r) { req = r; }]); } catch (e) {}
       if (!req || !req.m) return "waiting";
-    
-      var gate = null, gateExport = null, platformModule = null, pages = [];
-      for (var id in req.m) {
-        var source = String(req.m[id]);
-        if (!gate && source.length < 20000) {
-          var test = source.match(/function (\\w+)\\(\\)\\{return"linux"==\\w+\\.TS\\.PLATFORM\\}/);
-          if (test) {
-            var exported = source.match(new RegExp("(\\\\w+):\\\\(\\\\)=>" + test[1] + "\\\\b"));
-            if (exported) { gate = test[1]; gateExport = exported[1]; platformModule = id; }
+
+      var PLATFORMS = ["windows", "macos", "linux"];
+      var LABEL = '"#AppProperties_CompatibilityPage"';
+
+      function eachExport(exports, visit) {
+        if (!exports || typeof exports !== "object") return;
+        Object.keys(exports).forEach(function (key) {
+          var value;
+          try { value = exports[key]; } catch (e) { return; }
+          visit(value);
+        });
+      }
+
+      /* Steam's Linux test and the config object it reads, from the small
+         modules that read the platform. */
+      function linuxTest() {
+        var modules = [];
+        for (var id in req.m) {
+          var source = String(req.m[id]);
+          if (source.length < 20000 && source.indexOf("PLATFORM") !== -1) {
+            try { modules.push(req(id)); } catch (e) {}
           }
         }
-        if (source.indexOf('"#AppProperties_CompatibilityPage"') !== -1) pages.push(source);
-      }
-      if (!gate) return "unavailable";
-    
-      /* The component that lists the page: the function around the gated
-         push of the Compatibility page. */
-      var names = [];
-      var site = new RegExp("\\\\(0,\\\\w+\\\\." + gateExport + "\\\\)\\\\(\\\\)&&\\\\w+\\\\.push\\\\(\\\\{title:\\\\(0,\\\\w+\\\\.\\\\w+\\\\)\\\\(\\"#AppProperties_CompatibilityPage\\"\\\\)", "g");
-      pages.forEach(function (source) {
-        var hit;
-        while ((hit = site.exec(source))) {
-          var start = source.lastIndexOf("function ", hit.index);
-          var name = start === -1 ? null : (source.slice(start, start + 64).match(/^function (\\w+)\\(/) || [])[1];
-          if (name && names.indexOf(name) === -1) names.push(name);
+        var configs = [];
+        modules.forEach(function (exports) {
+          eachExport(exports, function (value) {
+            if (value && typeof value === "object" && PLATFORMS.indexOf(value.PLATFORM) !== -1 && configs.indexOf(value) === -1) configs.push(value);
+          });
+        });
+        for (var c = 0; c < configs.length; c++) {
+          var config = configs[c], real = config.PLATFORM, found = null;
+          var answers = function (test, platform) {
+            config.PLATFORM = platform;
+            try { return test() === true; } catch (e) { return null; } finally { config.PLATFORM = real; }
+          };
+          modules.forEach(function (exports) {
+            eachExport(exports, function (value) {
+              if (found || typeof value !== "function" || value.length !== 0 || !value.name) return;
+              var source = String(value);
+              if (source.length > 200 || source.indexOf("PLATFORM") === -1) return;
+              if (answers(value, "linux") === true && answers(value, "windows") === false && answers(value, "macos") === false) found = value.name;
+            });
+          });
+          if (found) return { config: config, name: found };
         }
-      });
-      if (!names.length) return "unavailable";
-    
-      var ts = null;
-      try { ts = req(platformModule).TS; } catch (e) {}
-      var descriptor = ts && Object.getOwnPropertyDescriptor(ts, "PLATFORM");
-      if (!descriptor || !descriptor.configurable || !("value" in descriptor)) return "unavailable";
-    
-      var store = window.appDetailsStore;
-      var details = store.GetAppDetails;
-      var lastAsked = 0;
-      store.GetAppDetails = function (appid) {
-        lastAsked = appid;
-        return details.apply(this, arguments);
-      };
-    
-      function lastAskedHasMacBuild() {
-        try {
-          var d = lastAsked && details.call(store, lastAsked);
-          return !!(d && d.vecPlatforms && d.vecPlatforms.indexOf("osx") !== -1);
-        } catch (e) { return false; }
+        return null;
       }
-    
-      /* frames[0] is this function, [1] the getter, [2] the Linux test,
-         [3] its caller. Asked last: a stack trace on every read of PLATFORM costs more
-         than the app-details lookup that rules out most games. */
-      function askedByThePageList() {
-        var frames = String(new Error().stack || "").split("\\n");
-        if (frames.length < 4 || frames[2].indexOf(gate + "@") !== 0) return false;
-        for (var i = 0; i < names.length; i++) {
-          if (frames[3].indexOf(names[i] + "@") === 0) return true;
+
+      /* The function that owns the code at `at`: the walk out to the block
+         around it, then that block's head. */
+      function enclosingName(source, at) {
+        for (var i = at, depth = 0; i >= 0; i--) {
+          var ch = source.charAt(i);
+          if (ch === "}") depth++;
+          else if (ch === "{" && depth > 0) depth--;
+          else if (ch === "{") {
+            var head = source.slice(Math.max(0, i - 160), i);
+            var hit = head.match(/function\\s*([\\w$]+)\\s*\\([^()]*\\)\\s*$/)
+              || head.match(/([\\w$]+)\\s*=\\s*(?:async\\s*)?(?:function\\s*[\\w$]*\\s*)?\\([^()]*\\)\\s*(?:=>\\s*)?$/)
+              || head.match(/([\\w$]+)\\s*=\\s*(?:async\\s*)?[\\w$]+\\s*=>\\s*$/);
+            if (hit) return hit[1];
+          }
         }
-        return false;
+        return null;
       }
-    
-      var real = descriptor.value;
-      Object.defineProperty(ts, "PLATFORM", {
-        configurable: true,
-        enumerable: descriptor.enumerable,
-        get: function () {
-          if (lib.enabled && real !== "linux" && lastAskedHasMacBuild() && askedByThePageList()) return "linux";
-          return real;
-        },
-        set: function (value) { real = value; }
-      });
-    
-      lib = window.__sevoNativeBuilds = { enabled: true, pages: names };
-      return "installed";
+
+      function nearestFunction(source, at) {
+        var start = source.lastIndexOf("function ", at);
+        var hit = start === -1 ? null : source.slice(start, start + 64).match(/^function\\s*([\\w$]+)\\s*\\(/);
+        return hit ? hit[1] : null;
+      }
+
+      /* Every function that may list the page. Two readings of each owner,
+         so a brace inside a string that misleads the walk still leaves the
+         other; a name only counts when the stack shows it calling the test. */
+      function pageListers() {
+        var names = [];
+        for (var id in req.m) {
+          var source = String(req.m[id]);
+          for (var at = source.indexOf(LABEL); at !== -1; at = source.indexOf(LABEL, at + 1)) {
+            [enclosingName(source, at), nearestFunction(source, at)].forEach(function (name) {
+              if (name && names.indexOf(name) === -1) names.push(name);
+            });
+          }
+        }
+        return names;
+      }
+
+      /* Lists the page, or says why it cannot. */
+      function listPage() {
+        var test = linuxTest();
+        if (!test) return "no exported function answers as the Linux test";
+        var names = pageListers();
+        if (!names.length) return "no function holds the page's label";
+        var descriptor = Object.getOwnPropertyDescriptor(test.config, "PLATFORM");
+        if (!descriptor || !descriptor.configurable || !("value" in descriptor)) return "the platform is not a plain property";
+
+        var store = window.appDetailsStore;
+        var details = store.GetAppDetails;
+        var lastAsked = 0;
+        store.GetAppDetails = function (appid) {
+          lastAsked = appid;
+          return details.apply(this, arguments);
+        };
+
+        function lastAskedHasMacBuild() {
+          try {
+            var d = lastAsked && details.call(store, lastAsked);
+            return !!(d && d.vecPlatforms && d.vecPlatforms.indexOf("osx") !== -1);
+          } catch (e) { return false; }
+        }
+
+        /* Asked last: a stack trace on every read of PLATFORM costs more
+           than the app-details lookup that rules out most games. */
+        function askedByThePageList() {
+          var frames = String(new Error().stack || "").split("\\n");
+          for (var i = 1; i < frames.length - 1; i++) {
+            if (frames[i].indexOf(test.name + "@") !== 0) continue;
+            var caller = frames[i + 1];
+            return names.indexOf(caller.slice(0, caller.indexOf("@"))) !== -1;
+          }
+          return false;
+        }
+
+        var real = descriptor.value;
+        Object.defineProperty(test.config, "PLATFORM", {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get: function () {
+            if (lib.enabled && real !== "linux" && lastAskedHasMacBuild() && askedByThePageList()) return "linux";
+            return real;
+          },
+          set: function (value) { real = value; }
+        });
+        lib.page = true;
+        lib.test = test.name;
+        lib.pages = names;
+        return null;
+      }
+
+      lib = window.__sevoNativeBuilds = { enabled: true, page: false };
+      var missing = listPage();
+      return missing ? "installed without the Compatibility page: " + missing : "installed";
     })()
     """
 
@@ -374,7 +448,9 @@ enum SteamNativeBuilds {
           + item("macos", info, current, mode, installed)
           + item("windows", info, current, mode, installed)
           + (other ? '<div class="sevo-native-rule"></div>' + other : "")
-          + '<div class="sevo-native-foot">You can switch any time from the play bar or Properties › Compatibility.</div>';
+          + '<div class="sevo-native-foot">' + (ctx.__sevoNativeBuilds && ctx.__sevoNativeBuilds.page
+            ? "You can switch any time from the play bar or Properties › Compatibility."
+            : "You can switch any time from the play bar.") + "</div>";
       }
     
       function confirmHTML(target, info) {

@@ -267,13 +267,15 @@ extension SteamWebHost {
 
     /// Evaluates `script` in the context page until it answers one of
     /// `outcomes`, once a second for ten seconds: Steam's globals appear a
-    /// moment after the page does.
+    /// moment after the page does. A result's words before a colon are its
+    /// outcome; what follows is logged with it.
     func install(
         _ script: String, describedAs what: String, settledAt outcomes: Set<String>,
     ) {
         Task(name: "Install \(what)") {
             for _ in 1 ... 10 {
-                if let result = await evaluateInContext(script), outcomes.contains(result) {
+                if let result = await evaluateInContext(script),
+                   outcomes.contains(String(result.prefix { $0 != ":" })) {
                     EventLog.shared.log(.app, "\(what): \(result)")
                     return
                 }

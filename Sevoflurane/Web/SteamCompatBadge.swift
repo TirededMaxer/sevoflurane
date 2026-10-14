@@ -361,10 +361,12 @@ enum SteamCompatBadge {
       }
     
       /* The macOS build installs and plays through this Steam
-         (``SteamNativeBuilds``), so Steam for Mac is the way to it only when the
-         person turned that option on (``NativeSteam/isOffered``). */
+         (``SteamNativeBuilds``) on an engine that runs macOS builds, so Steam
+         for Mac is the way to it only when the person turned that option on
+         (``NativeSteam/isOffered``). */
       function playsInThisSteam() {
         if (window.__sevoSteamForMac === true) return false;
+        if (window.__sevoNativeBuildsOn === true) return true;
         try { return !!(ctx.__sevoNativeBuilds && ctx.__sevoNativeBuilds.enabled); } catch (e) { return false; }
       }
     
