@@ -717,7 +717,11 @@ enum SteamNativeBuilds {
       }
     
       function apply() {
-        if (!active()) { clear(); return; }
+        /* A copy another evaluation replaced leaves the page to its successor:
+           clearing here would take the successor's marks down at every change
+           it makes, and the two would redraw the play bar in turn. */
+        if (window.__sevoNativeMenu !== self) { observer.disconnect(); return; }
+        if (!self.enabled) { clear(); return; }
         if (!resolve() || !ensureStyle()) return;
         var appid = currentAppID();
         if (menu && menu.appid !== appid) closeMenu();
@@ -849,7 +853,8 @@ enum SteamNativeBuilds {
         }
       }
     
-      new MutationObserver(function () { schedule(); }).observe(document, { childList: true, subtree: true });
+      var observer = new MutationObserver(function () { schedule(); });
+      observer.observe(document, { childList: true, subtree: true });
       document.addEventListener("click", onClick, true);
       document.addEventListener("keydown", onKey, true);
       window.addEventListener("resize", function () { if (menu) place(); });
