@@ -68,24 +68,23 @@ enum SteamCompatBadge {
         return '<span class="sevo-compat-icon sevo-compat-' + s + '"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="' + PATHS[s] + '" fill="currentColor"></path></svg></span>';
       }
     
-      /* ProtonDB's medals in ProtonDB's own colors: a disc with a darker
-         inner ring, and a cross through Borked. Every shape is a filled path,
-         because Steam's row stylesheet strokes paths and the library resets
-         that; a stroked cross would vanish with it. */
+      /* ProtonDB's medals in ProtonDB's own colors: a disc with a star cut
+         into it, a cross for Borked. Every shape is a filled path, because
+         Steam's row stylesheet strokes paths and the library resets that; a
+         stroked cross would vanish with it. */
       var MEDAL_COLORS = { platinum: "#b4c7dc", gold: "#cfb53b", silver: "#a6a6a6", bronze: "#cd7f32", borked: "#ff0000" };
       var MEDAL_CSS = Object.keys(MEDAL_COLORS).map(function (tier) {
         return ".sevo-medal-" + tier + "{color:" + MEDAL_COLORS[tier] + "}";
       }).join("\\n");
       var MEDAL_DISC = "M1 10a9 9 0 1 0 18 0a9 9 0 1 0-18 0Z";
-      var MEDAL_RING = "M3.25 10a6.75 6.75 0 1 0 13.5 0a6.75 6.75 0 1 0-13.5 0ZM5 10a5 5 0 1 0 10 0a5 5 0 1 0-10 0Z";
+      var MEDAL_STAR = "M10 4.6L11.37 8.22L15.24 8.39L12.21 10.82L13.23 14.56L10 12.42L6.77 14.56L7.79 10.82L4.76 8.39L8.63 8.22Z";
       var MEDAL_CROSS = "M7.28 5.72L14.28 12.72L12.72 14.28L5.72 7.28ZM12.72 5.72L14.28 7.28L7.28 14.28L5.72 12.72Z";
     
       function medal(tier) {
         if (!MEDAL_COLORS[tier]) return glyph("unknown");
         return '<span class="sevo-compat-icon sevo-medal sevo-medal-' + tier + '"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">'
           + '<path d="' + MEDAL_DISC + '" fill="currentColor"></path>'
-          + '<path fill-rule="evenodd" clip-rule="evenodd" d="' + MEDAL_RING + '" fill="rgba(0,0,0,0.3)"></path>'
-          + (tier === "borked" ? '<path d="' + MEDAL_CROSS + '" fill="rgba(0,0,0,0.6)"></path>' : "")
+          + '<path d="' + (tier === "borked" ? MEDAL_CROSS : MEDAL_STAR) + '" fill="rgba(0,0,0,0.55)"></path>'
           + "</svg></span>";
       }
     
