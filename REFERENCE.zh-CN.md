@@ -12,7 +12,7 @@
 
 ## Mac 版还是 Windows 版，每款游戏自己选
 
-Steam 游戏库里不少游戏在 Windows 版之外还有原生 macOS 版。Sevoflurane 的 Steam 两种都能安装，按游戏选择：点**安装**时会问要下载哪个版本，并列出每个版本的下载大小和运行情况，推荐更合适的那个。
+Steam 游戏库里不少游戏在 Windows 版之外还有原生 macOS 版。Sevoflurane 的 Steam 两种都能安装，按游戏选择：点**安装**时会问要下载哪个版本，并列出每个版本的下载大小、运行方式和评级。
 
 <p align="center"><img src=".github/sevoflurane-version-install.png" alt="Sevoflurane 的 Steam 中一款游戏的页面，安装菜单已展开，提供 macOS 版本（412 MB）和 Windows 版本（404 MB，推荐，通过 Sevoflurane 可玩）" width="820"><br><sub><b>安装</b> ・ 选择要下载的版本</sub></p>
 
