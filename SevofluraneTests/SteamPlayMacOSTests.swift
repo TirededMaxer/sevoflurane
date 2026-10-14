@@ -266,16 +266,10 @@ struct SteamPlayMacOSTests {
     }
 
     @Test
-    func `the macOS build is suggested unless the Windows build is rated better`() {
+    func `each choice's line names how it runs and its rating`() {
         let perfect = GameCompatBadge(state: .verified, label: "Perfect", reason: "")
         let playable = GameCompatBadge(state: .playable, label: "Playable", reason: "")
-        let broken = GameCompatBadge(state: .unsupported, label: "Broken", reason: "")
         let unknown = GameCompatBadge(state: .unknown, label: "Unknown", reason: "")
-        #expect(NativeBuildInfo.recommendation(native: unknown, windows: unknown) == .macos)
-        #expect(NativeBuildInfo.recommendation(native: playable, windows: playable) == .macos)
-        #expect(NativeBuildInfo.recommendation(native: unknown, windows: playable) == .windows)
-        #expect(NativeBuildInfo.recommendation(native: broken, windows: unknown) == .windows)
-        #expect(NativeBuildInfo.recommendation(native: perfect, windows: playable) == .macos)
         #expect(NativeBuildInfo.macHint(perfect) == "Built for macOS · Perfect")
         #expect(NativeBuildInfo.macHint(unknown) == "Built for macOS")
         #expect(NativeBuildInfo.windowsHint(playable) == "Runs through Sevoflurane · Playable")
@@ -290,7 +284,6 @@ struct SteamPlayMacOSTests {
         )
         #expect(info.enabled && info.hasMacBuild && info.runnable && !info.sameFiles)
         #expect(info.installed == .macos)
-        #expect(info.recommended == .macos)
         #expect(info.tool == "sevoflurane_macos")
         let json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(info)) as? [String: Any])
         #expect(json["macDownload"] as? Int == 411_993_712)
@@ -390,7 +383,7 @@ struct SteamPlayMacOSTests {
         function MutationObserver() {} MutationObserver.prototype.observe = function () {};
         function addEventListener() {}
         var info = { enabled: true, hasMacBuild: true, runnable: true, sameFiles: false, installed: "windows",
-          recommended: "macos", macHint: "", windowsHint: "", tool: "sevoflurane_macos" };
+          macHint: "", windowsHint: "", tool: "sevoflurane_macos" };
         function fetch() { return Promise.resolve({ ok: true, json: function () { return Promise.resolve(info); } }); }
         var detailsOf7 = { vecPlatforms: ["windows", "osx"], strCompatToolName: "" };
         var appDetailsStore = { GetAppDetails: function () { return detailsOf7; } };

@@ -420,7 +420,6 @@ enum SteamNativeBuilds {
         var hint = platform === "macos" ? info.macHint : info.windowsHint;
         var tag = "";
         if (mode === "switch" && platform === installed) tag = '<span class="sevo-native-tag">Installed</span>';
-        else if (platform === info.recommended) tag = '<span class="sevo-native-tag">Recommended</span>';
         var amount = size(download(info, platform));
         /* A switch names what it downloads; the build already on disk needs no size. */
         var right = mode !== "switch" ? amount

@@ -22,9 +22,6 @@ nonisolated struct NativeBuildInfo: Codable, Sendable, Equatable {
     /// The build on disk, read from the depots the manifest lists; `nil`
     /// when the game is not installed or its depots serve both platforms.
     let installed: SteamPlayMacOS.Platform?
-    /// The build the verdicts favor: the macOS one unless the Windows build
-    /// is rated better.
-    let recommended: SteamPlayMacOS.Platform
     /// One short line under each choice.
     let macHint: String
     let windowsHint: String
@@ -107,21 +104,6 @@ nonisolated struct NativeBuildInfo: Codable, Sendable, Equatable {
 
     // MARK: - The verdicts
 
-    /// The build to suggest: the macOS one unless the Windows build is rated
-    /// better, since a native build skips the translation layers.
-    static func recommendation(native: GameCompatBadge?, windows: GameCompatBadge?) -> SteamPlayMacOS.Platform {
-        rank(windows?.state) > rank(native?.state) ? .windows : .macos
-    }
-
-    private static func rank(_ state: GameCompatBadge.State?) -> Int {
-        switch state {
-        case .verified: 3
-        case .playable: 2
-        case .unknown, nil: 1
-        case .unsupported: 0
-        }
-    }
-
     /// The line under the macOS choice.
     static func macHint(_ native: GameCompatBadge?) -> String {
         guard let native, native.state != .unknown else { return "Built for macOS" }
@@ -154,7 +136,6 @@ nonisolated struct NativeBuildInfo: Codable, Sendable, Equatable {
             windowsDownload: download(for: .windows, depots: depots),
             sameFiles: !depots.isEmpty && sameFiles(depots),
             installed: manifest.flatMap { installedBuild(manifest: $0, depots: depots) },
-            recommended: recommendation(native: record?.nativeBadge, windows: record?.mac),
             macHint: macHint(record?.nativeBadge),
             windowsHint: windowsHint(record?.mac),
             tool: SteamPlayMacOS.toolName,

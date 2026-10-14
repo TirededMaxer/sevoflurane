@@ -19,8 +19,8 @@ and play. Games appear as players share their runs.
 
 Plenty of a Steam library ships a native macOS version beside the Windows one.
 Sevoflurane's Steam installs either, and you choose per game: **Install** asks
-which version to get, with each download's size and how it runs, and recommends
-the better one.
+which version to get, with each download's size, how it runs and how it is
+rated.
 
 <p align="center"><img src=".github/sevoflurane-version-install.png" alt="A game page in Sevoflurane's Steam with the Install menu open, offering the macOS version (412 MB) and the Windows version (404 MB, recommended, playable through Sevoflurane)" width="820"><br><sub><b>install</b> ・ pick the version to download</sub></p>
 
