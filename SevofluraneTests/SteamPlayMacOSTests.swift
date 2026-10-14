@@ -356,8 +356,10 @@ struct SteamPlayMacOSTests {
     /// The desktop window, Steam's client calls and its stores, faked just
     /// enough for the version menu to open and a choice to run. `mapping` is
     /// what `SpecifyCompatTool` does: reject, apply, or resolve without the
-    /// details ever showing it.
-    private static func desktop(mapping: String) -> String {
+    /// details ever showing it. `wizard` is what Steam does once asked for
+    /// its installer: `shows` it with its event, stays `silent`, or has no
+    /// show event to subscribe to (`unsubscribable`).
+    private static func desktop(mapping: String, wizard: String = "shows") -> String {
         """
         var window = this;
         var innerWidth = 1000, innerHeight = 800;
@@ -390,10 +392,17 @@ struct SteamPlayMacOSTests {
         var appStore = { GetAppOverviewByAppID: function () { return { app_type: 1, display_name: "Seven", installed: false }; } };
         var MainWindowBrowserManager = { m_lastLocation: { pathname: "/library/app/7" } };
         var wizard = [];
+        var shown = [];
         var invalidated = 0;
         var __sevoLibraryCompat = { invalidate: function () { invalidated++; } };
         var SteamClient = {
-          Installs: { OpenInstallWizard: function (ids) { wizard.push(ids); } },
+          Installs: {
+            OpenInstallWizard: function (ids, client) {
+              wizard.push([ids, client]);
+              if (\(JSLiteral.string(wizard)) === "shows") shown.forEach(function (f) { f({ currentAppID: ids[0], eInstallState: 5 }); });
+            },
+            RegisterForShowInstallWizard: \(wizard == "unsubscribable" ? "undefined" : Self.showSubscription)
+          },
           Apps: { SpecifyCompatTool: function (appid, tool) {
             var mapping = \(JSLiteral.string(mapping));
             if (mapping === "reject") return Promise.reject(new Error("refused"));
@@ -403,6 +412,14 @@ struct SteamPlayMacOSTests {
         };
         """
     }
+
+    /// Steam's show-event subscription, handing back its unregister.
+    private static let showSubscription = """
+        function (f) {
+          shown.push(f);
+          return { unregister: function () { shown = shown.filter(function (g) { return g !== f; }); } };
+        }
+        """
 
     private static func openChooser(_ context: JSContext) {
         context.evaluateScript(SteamNativeBuilds.script)
@@ -436,8 +453,51 @@ struct SteamPlayMacOSTests {
         Self.openChooser(context)
         context.evaluateScript("__sevoNativeMenu.choose(7, 'macos', 'install');")
         func js(_ source: String) -> String? { context.evaluateScript(source)?.toString() }
-        #expect(js("JSON.stringify(wizard)") == "[[7]]")
+        #expect(js("JSON.stringify(wizard)") == #"[[[7],"0"]]"#)
         #expect(js("invalidated") == "1")
+        #expect(js("made.filter(function (e) { return e.isConnected; }).length") == "0")
+        #expect(js("shown.length") == "0")
+    }
+
+    @Test
+    func `Install on a game already set to the version goes straight to the wizard`() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(Self.desktop(mapping: "apply"))
+        context.evaluateScript(SteamNativeBuilds.script)
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install');")
+        context.evaluateScript("var anchor = new El(); anchor.isConnected = true;")
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install', anchor);")
+        func js(_ source: String) -> String? { context.evaluateScript(source)?.toString() }
+        #expect(js("JSON.stringify(wizard)") == #"[[[7],"0"]]"#)
+        #expect(js("made.filter(function (e) { return e.isConnected; }).length") == "0")
+    }
+
+    @Test
+    func `a wizard Steam never shows is said under the button`() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(Self.desktop(mapping: "apply", wizard: "silent"))
+        context.evaluateScript(SteamNativeBuilds.script)
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install');")
+        context.evaluateScript("var anchor = new El(); anchor.isConnected = true;")
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install', anchor); runTimers();")
+        func js(_ source: String) -> String? { context.evaluateScript(source)?.toString() }
+        #expect(js("wizard.length") == "1")
+        let panel = js("made.filter(function (e) { return e.isConnected; }).map(function (e) { return e.innerHTML; }).join()") ?? ""
+        #expect(panel.contains("Steam did not open its installer"))
+        #expect(panel.contains("sevo-native-retry"))
+        #expect(js("shown.length") == "0")
+    }
+
+    @Test
+    func `a Steam without the wizard's show event takes the call as opened`() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(Self.desktop(mapping: "apply", wizard: "unsubscribable"))
+        context.evaluateScript("var anchor = new El(); anchor.isConnected = true;")
+        context.evaluateScript(SteamNativeBuilds.script)
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install');")
+        context.evaluateScript("__sevoNativeMenu.choose(7, 'windows', 'install', anchor); runTimers();")
+        func js(_ source: String) -> String? { context.evaluateScript(source)?.toString() }
+        #expect(js("wizard.length") == "1")
         #expect(js("made.filter(function (e) { return e.isConnected; }).length") == "0")
     }
 

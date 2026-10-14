@@ -389,6 +389,10 @@ final class SteamWindow: NSObject {
                 active: ((args.first as? NSNumber)?.intValue ?? 0) != 0,
                 appID: string(args, 1),
             )
+        case "__steamCallFailure":
+            // A SteamClient call the client refused, from its console
+            // (SteamWebHost.callFailureScript).
+            host?.noteSteamCallFailure(string(args, 0))
         case "__installWizard":
             // The context page's install-wizard subscription
             // (SteamWebHost.installWizardScript): its state and app id.

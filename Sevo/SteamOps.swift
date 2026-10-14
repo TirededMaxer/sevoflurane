@@ -182,7 +182,8 @@ nonisolated enum SteamOps {
         let js = """
         (async () => {
           const pause = ms => new Promise(r => setTimeout(r, ms));
-          SteamClient.Installs.OpenInstallWizard([\(appid)]);
+          // The second argument is the client the install is for, "0" being this one.
+          SteamClient.Installs.OpenInstallWizard([\(appid)], "0");
           let info;
           for (let i = 0; i < 20; i++) {
             await pause(500);

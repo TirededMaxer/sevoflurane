@@ -246,6 +246,8 @@ enum SteamNativeBuilds {
             ("failedMacos", String(localized: "Steam did not set the macOS version")),
             ("failedWindows", String(localized: "Steam did not set the Windows version")),
             ("failedBody", String(localized: "The game stays on the version it had. Try again, or choose the version in Properties › Compatibility.")),
+            ("failedWizard", String(localized: "Steam did not open its installer")),
+            ("failedWizardBody", String(localized: "The version is set. Try again, or install from the game's menu in the library.")),
             ("retry", String(localized: "Try Again")),
             ("close", String(localized: "Close")),
         ]
@@ -473,10 +475,12 @@ enum SteamNativeBuilds {
 
       /* Steam refused the mapping, or never showed it: the game keeps the
          build it had, and the choice can be made again from here. */
-      function failedHTML(target, mode) {
+      function failedHTML(target, mode, what) {
+        var wizard = what === "wizard";
+        var title = wizard ? TEXT.failedWizard : target === "macos" ? TEXT.failedMacos : TEXT.failedWindows;
         return '<div class="sevo-native-confirm" role="alert">'
-          + '<div class="sevo-native-title">' + esc(target === "macos" ? TEXT.failedMacos : TEXT.failedWindows) + "</div>"
-          + '<div class="sevo-native-body">' + esc(TEXT.failedBody) + "</div>"
+          + '<div class="sevo-native-title">' + esc(title) + "</div>"
+          + '<div class="sevo-native-body">' + esc(wizard ? TEXT.failedWizardBody : TEXT.failedBody) + "</div>"
           + '<div class="sevo-native-buttons">'
           + '<button type="button" class="DialogButton _DialogLayout Primary sevo-native-retry" data-platform="' + target + '" data-mode="' + mode + '">' + esc(TEXT.retry) + "</button>"
           + '<button type="button" class="DialogButton _DialogLayout Secondary sevo-native-cancel">' + esc(TEXT.close) + "</button>"
@@ -538,13 +542,44 @@ enum SteamNativeBuilds {
          switch, which Steam answers by downloading the other build's depots.
          A refused or unconfirmed mapping leaves the game as it was and says
          so in the menu, with the choice one click away. */
-      function choose(appid, platform, mode) {
+      /* Steam's install wizard for one game on this computer: the second
+         argument names the client the install is for, "0" being this one.
+         Steam answers a wizard it opens with its show event, so one that
+         never comes is said under the button rather than left as a click
+         that did nothing. */
+      var THIS_CLIENT = "0";
+      var WIZARD_WITHIN = 8000;
+      function openWizard(appid, done) {
+        var installs = ctx.SteamClient && ctx.SteamClient.Installs;
+        var settled = false, registration = null, timer = 0;
+        function finish(opened) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          try { if (registration && registration.unregister) registration.unregister(); } catch (e) {}
+          done(opened);
+        }
+        if (!installs) { finish(false); return; }
+        try {
+          registration = installs.RegisterForShowInstallWizard(function (info) {
+            if (!info || !info.currentAppID || String(info.currentAppID) === String(appid)) finish(true);
+          });
+        } catch (e) {}
+        try { installs.OpenInstallWizard([appid], THIS_CLIENT); } catch (e) { finish(false); return; }
+        /* A Steam without the show event cannot confirm; the call is all there is. */
+        if (!registration) { finish(true); return; }
+        timer = setTimeout(function () { finish(false); }, WIZARD_WITHIN);
+      }
+
+      /* Sets the game to `platform`, then in install mode opens Steam's
+         wizard. `at` is where the progress and any failure show when no menu
+         is open: the Install button pressed directly. */
+      function choose(appid, platform, mode, at) {
         var info = answer(appid);
         var steam = ctx.SteamClient;
         if (!info || !steam || !steam.Apps) return;
         var tool = platform === "macos" ? info.tool : "";
-        var anchor = menu && menu.appid === appid ? menu.anchor : null;
-        showInMenu(appid, mode, anchor, workingHTML(platform));
+        var anchor = menu && menu.appid === appid ? menu.anchor : at || null;
         function effective() {
           var d = details(appid);
           if (!d) return false;
@@ -552,12 +587,19 @@ enum SteamNativeBuilds {
         }
         function confirmed() {
           delete answers[appid];
-          if (menu && menu.appid === appid) closeMenu();
           if (ctx.__sevoLibraryCompat && typeof ctx.__sevoLibraryCompat.invalidate === "function") {
             try { ctx.__sevoLibraryCompat.invalidate(); } catch (e) {}
           }
-          if (mode === "install") steam.Installs.OpenInstallWizard([appid]);
-          schedule();
+          if (mode !== "install") {
+            if (menu && menu.appid === appid) closeMenu();
+            schedule();
+            return;
+          }
+          openWizard(appid, function (opened) {
+            if (opened) { if (menu && menu.appid === appid) closeMenu(); }
+            else showInMenu(appid, mode, anchor, failedHTML(platform, mode, "wizard"));
+            schedule();
+          });
         }
         function failed() {
           delete answers[appid];
@@ -569,6 +611,9 @@ enum SteamNativeBuilds {
           if (waited >= CONFIRM_WITHIN) { failed(); return; }
           setTimeout(function () { check(waited + CONFIRM_EVERY); }, CONFIRM_EVERY);
         }
+        /* Already set to it: nothing to map, straight to the wizard. */
+        if (mode === "install" && effective()) { confirmed(); return; }
+        showInMenu(appid, mode, anchor, workingHTML(platform));
         Promise.resolve()
           .then(function () { return steam.Apps.SpecifyCompatTool(appid, tool); })
           .then(function () { check(0); }, failed);
@@ -635,7 +680,7 @@ enum SteamNativeBuilds {
           marker = document.createElement("span");
           marker.className = "sevo-install-platform";
           marker.dataset.platform = platform;
-          marker.title = "Installs the " + NAMES[platform] + ". Click to choose.";
+          marker.title = "Installs the " + NAMES[platform] + ". The ▾ chooses the other.";
           marker.innerHTML = platformGlyph(platform);
           button.appendChild(marker);
         }
@@ -786,14 +831,14 @@ enum SteamNativeBuilds {
         var d = pressed && !info && details(appid);
         var waiting = d && d.vecPlatforms && d.vecPlatforms.indexOf("osx") !== -1 && steamPlayOn() && answerOnItsWay(appid);
         if (waiting) {
-          /* Asked before the answer arrived: wait for it, then offer the
-             choice, or carry on into Steam's own wizard. */
+          /* Asked before the answer arrived: wait for it, then install the
+             version the game is set to, through Steam's own wizard either way. */
           event.preventDefault();
           event.stopPropagation();
           waiting.then(function () {
             var ready = offered(appid);
-            if (ready && currentAppID() === appid) openMenu(pressed.parentElement || pressed, appid, ready, "install");
-            else ctx.SteamClient.Installs.OpenInstallWizard([appid]);
+            if (ready && currentAppID() === appid) choose(appid, chosen(appid, ready), "install", pressed.parentElement || pressed);
+            else openWizard(appid, function () {});
           });
           return;
         }
@@ -819,15 +864,23 @@ enum SteamNativeBuilds {
           openMenu(box, appid, info, "install", selector);
           return;
         }
+        /* Install itself installs the version its mark names; the ▾ beside
+           it is where the choice is made. */
         var install = info && pressed;
-        var stat = target.closest && target.closest(".sevo-native-switch");
-        if (install || stat) {
+        if (install) {
           event.preventDefault();
           event.stopPropagation();
-          var anchor = install ? install.parentElement || install : stat;
-          if (menu && menu.anchor === anchor) { closeMenu(); return; }
-          if (stat && !info) return;
-          openMenu(anchor, appid, info, install ? "install" : "switch");
+          closeMenu();
+          choose(appid, chosen(appid, info), "install", install.parentElement || install);
+          return;
+        }
+        var stat = target.closest && target.closest(".sevo-native-switch");
+        if (stat) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (menu && menu.anchor === stat) { closeMenu(); return; }
+          if (!info) return;
+          openMenu(stat, appid, info, "switch");
           return;
         }
         if (menu) closeMenu();

@@ -365,6 +365,8 @@ final class SteamWebHost {
     /// An install whose wizard the page rebuild cancelled, reopened once the
     /// rebuilt Steam window is on screen.
     @ObservationIgnored var installWizardToReopen: String?
+    /// The refused-call messages already logged (``noteSteamCallFailure(_:)``).
+    @ObservationIgnored var loggedSteamCallFailures: Set<String> = []
     /// The latest pass of the energy preference mirror, which the next one
     /// waits behind.
     @ObservationIgnored var energyUpdate: Task<Void, Never>?

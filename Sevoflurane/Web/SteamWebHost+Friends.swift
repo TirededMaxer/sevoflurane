@@ -235,6 +235,11 @@ extension SteamWebHost {
             settledAt: ["registered", "already registered"],
         )
         install(
+            Self.callFailureScript,
+            describedAs: "Steam's refused calls",
+            settledAt: ["registered", "already registered"],
+        )
+        install(
             SteamChatAutoOpen.refusalScript,
             describedAs: "unasked chat windows",
             settledAt: SteamChatAutoOpen.settled,

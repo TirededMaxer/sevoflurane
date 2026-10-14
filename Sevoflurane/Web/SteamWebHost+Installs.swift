@@ -37,7 +37,8 @@ extension SteamWebHost {
         guard let appID = installWizardToReopen, let id = Int(appID) else { return }
         installWizardToReopen = nil
         Task(name: "Reopen the install wizard") {
-            _ = await evaluateInContext("SteamClient.Installs.OpenInstallWizard([\(id)]); 'ok'")
+            // The second argument is the client the install is for, "0" being this one.
+            _ = await evaluateInContext("SteamClient.Installs.OpenInstallWizard([\(id)], \"0\"); 'ok'")
             EventLog.shared.log(.window, "install wizard for app \(id) reopened in the Steam window")
         }
     }
