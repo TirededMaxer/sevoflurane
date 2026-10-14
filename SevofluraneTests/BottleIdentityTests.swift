@@ -225,9 +225,14 @@ struct BottleIdentityTests {
     }
 
     @Test
-    func `lsof's listeners are its p lines`() {
-        #expect(BottleIdentity.listenerPIDs(inLsofFields: "p73727\nf822\np73907\nf310\n") == [73727, 73907])
-        #expect(BottleIdentity.listenerPIDs(inLsofFields: "").isEmpty)
+    func `the CDP port's holder is told by its command line`() {
+        let helper = #"C:\Program Files (x86)\Steam\bin\cef\cef.win64\steamwebhelper.exe -nocrashdialog --remote-debugging-port=8765 --no-sandbox"#
+        let client = #"C:\Program Files (x86)\Steam\Steam.exe -silent -nocrashdialog -cef-enable-debugging -devtools-port 8765 -cef-disable-gpu"#
+        #expect(BottleIdentity.servesCDPPort(commandLine: helper, port: 8765))
+        #expect(BottleIdentity.servesCDPPort(commandLine: client, port: 8765))
+        #expect(!BottleIdentity.servesCDPPort(commandLine: helper, port: 8766))
+        #expect(!BottleIdentity.servesCDPPort(commandLine: "steamwebhelper.exe --remote-debugging-port=87650", port: 8765))
+        #expect(!BottleIdentity.servesCDPPort(commandLine: "/usr/bin/true", port: 8765))
     }
 
     // MARK: - Saying it

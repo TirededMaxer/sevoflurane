@@ -36,9 +36,16 @@ struct BottleScopeTests {
     }
 
     @Test
-    func `lsof's fields are grouped by process`() {
-        let output = "p12\nfcwd\nn/a/b\nf3\nn/c\np40\nftxt\nn/d\n"
-        let paths = ClientLifecycle.openPaths(inLsofFields: output)
-        #expect(paths == [12: ["/a/b", "/c"], 40: ["/d"]])
+    func `a process's open files are read from the kernel, this one's among them`() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appending(path: "bottle-scope-\(UUID().uuidString).txt")
+        try Data("open".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        // The kernel reports `/private/var/…` where Foundation says `/var/…`,
+        // so the match is on the file's unique name.
+        let paths = WineOrphans.openFilePaths(of: getpid())
+        #expect(paths.contains { $0.hasSuffix("/" + file.lastPathComponent) })
     }
 }

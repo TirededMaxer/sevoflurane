@@ -31,6 +31,7 @@ enum Subprocess {
         environment: [String: String]? = nil,
         capture: Capture = .stdout,
         timeout: Duration = .seconds(20),
+        reapGrace: Duration = .seconds(5),
     ) async -> (status: Int32?, output: String) {
         let tool = URL(fileURLWithPath: path).lastPathComponent
         let interval = PerfProbe.system.beginInterval(
@@ -59,15 +60,29 @@ enum Subprocess {
             }
         }
 
-        // Set once Foundation has reaped the child, which is the moment its
-        // PID becomes reusable; the watchdog reads it before signaling.
+        // `exited` is set once Foundation has reaped the child, which is the
+        // moment its PID becomes reusable; the watchdog reads it before
+        // signaling. `resumed` makes the one continuation safe to resume from
+        // either side: the handler, or the watchdog giving up on a child that
+        // `SIGKILL` cannot end — one blocked in an uninterruptible kernel wait
+        // dies only when that wait returns, which can be never, and a caller
+        // left waiting with it is the supervisor frozen (`lsof` on a wedged
+        // file system, 2026-10-14).
         let exited = OSAllocatedUnfairLock(initialState: false)
+        let resumed = OSAllocatedUnfairLock(initialState: false)
         var watchdog: Task<Void, Never>?
         var launchError: (any Error)?
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resumeOnce: @Sendable () -> Void = {
+                let first = resumed.withLock { already -> Bool in
+                    defer { already = true }
+                    return !already
+                }
+                if first { continuation.resume() }
+            }
             process.terminationHandler = { _ in
                 exited.withLock { $0 = true }
-                continuation.resume()
+                resumeOnce()
             }
             do {
                 try process.run()
@@ -83,6 +98,9 @@ enum Subprocess {
                     // handler.
                     if exited.withLock({ $0 }) { return }
                     kill(pid, SIGKILL)
+                    do { try await Task.sleep(for: reapGrace) } catch { return }
+                    if exited.withLock({ $0 }) { return }
+                    resumeOnce()
                 }
             } catch {
                 process.terminationHandler = nil
@@ -101,6 +119,7 @@ enum Subprocess {
         }
         pipe?.fileHandleForReading.readabilityHandler = nil
         if let launchError { return (nil, "\(launchError)") }
+        guard exited.withLock({ $0 }) else { return (nil, collected.text) }
         return (process.terminationStatus, collected.text)
     }
 

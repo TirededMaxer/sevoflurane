@@ -211,7 +211,7 @@ struct StatusCommand: AsyncParsableCommand {
 struct WaitCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "wait",
-        abstract: "Block until the client is healthy (or --gone: down), then report.",
+        abstract: "Block until the client is healthy (or --gone: down), then report; exits 2 when the wait runs out.",
     )
     @Flag(name: .customLong("gone"), help: "Wait for the client to be gone, not healthy.")
     var gone = false
@@ -220,15 +220,34 @@ struct WaitCommand: AsyncParsableCommand {
     @Flag(name: .customLong("no-app")) var noApp = false
     @Flag(name: .customLong("json"), help: "Machine-readable observation.") var asJSON = false
 
+    /// What the report that follows the wait may add to it: the status line
+    /// asks the daemon and the process table, each bounded, and the whole
+    /// verb is bounded with them so no caller waits past what it asked for.
+    static let reportAllowance = 20
+
     func run() async throws {
-        let sink = { narrate($0, asJSON: asJSON) }
-        let outcome: ClientOps.Outcome = if gone {
-            await ClientOps.waitGone(timeout: timeout, progress: sink)
-        } else if await ClientOps.supervisionIsRunning(noApp: noApp) {
-            await ClientOps.pollAppHealthy(intent: "wait", timeout: timeout, progress: sink)
-        } else {
-            await ClientOps.pollClientUp(intent: "wait", timeout: timeout, progress: sink)
+        let gone = gone, noApp = noApp, timeout = timeout, asJSON = asJSON
+        let sink: @Sendable (String) -> Void = { narrate($0, asJSON: asJSON) }
+        let outcome: ClientOps.Outcome
+        do {
+            outcome = try await withDeadline(.seconds(timeout + Self.reportAllowance)) {
+                let outcome: ClientOps.Outcome = if gone {
+                    await ClientOps.waitGone(timeout: timeout, progress: sink)
+                } else if await ClientOps.supervisionIsRunning(noApp: noApp) {
+                    await ClientOps.pollAppHealthy(intent: "wait", timeout: timeout, progress: sink)
+                } else {
+                    await ClientOps.pollClientUp(intent: "wait", timeout: timeout, progress: sink)
+                }
+                await StatusReport.emit(outcome, asJSON: asJSON)
+                return outcome
+            }
+        } catch is DeadlineExceeded {
+            throw ClientOps.Failure.message("wait: still not \(gone ? "gone" : "healthy") after \(timeout)s, and the report itself stalled — sevo doctor")
         }
-        await StatusReport.emit(outcome, asJSON: asJSON)
+        // A wait that ends on its clock is a failure to the caller: a script
+        // that waited for healthy must not go on as if it got it.
+        guard outcome.verdict == .confirmed else {
+            throw ExitCode(2)
+        }
     }
 }

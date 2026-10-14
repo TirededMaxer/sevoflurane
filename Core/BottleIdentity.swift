@@ -227,9 +227,19 @@ nonisolated enum BottleIdentity {
     }
 
     /// The pids `lsof -Fp` lists, one `p<pid>` line each.
-    static func listenerPIDs(inLsofFields output: String) -> [pid_t] {
-        output.split(whereSeparator: \.isNewline).compactMap { line in
-            line.first == "p" ? pid_t(line.dropFirst()) : nil
+    /// Whether a process's command line says it serves the CDP port: the
+    /// client is launched with `-devtools-port <port>` and spawns its
+    /// webhelper with `--remote-debugging-port=<port>`, so the port is in
+    /// the arguments of both. Read from the process table rather than from
+    /// `lsof`, which walks every mount and open file on the Mac and blocks
+    /// for good on one that is wedged (a stuck DeviceFS held thirty of them
+    /// in an uninterruptible wait on 2026-10-14, and the supervisor with
+    /// them).
+    static func servesCDPPort(commandLine: String, port: Int = BridgePorts.cdp) -> Bool {
+        let arguments = commandLine.split(whereSeparator: \.isWhitespace).map(String.init)
+        if arguments.contains("--remote-debugging-port=\(port)") { return true }
+        return zip(arguments, arguments.dropFirst()).contains { flag, value in
+            flag == "-devtools-port" && value == "\(port)"
         }
     }
 
@@ -265,15 +275,15 @@ nonisolated enum BottleIdentity {
         return BootedBottle.target?.name
     }
 
-    /// The prefix of the process listening on the CDP port. The client's
-    /// webhelper works inside its prefix; the wineserver, which holds the
-    /// socket too, works in its server directory, named through `known`.
+    /// The prefix of the process serving the CDP port, told by its command
+    /// line (``servesCDPPort(commandLine:port:)``). The client's webhelper
+    /// works inside its prefix; the wineserver, which holds the socket too,
+    /// works in its server directory, named through `known`.
     static func clientPrefix(known: [String: String]) async -> String? {
-        let out = await Subprocess.run(
-            "/usr/sbin/lsof", ["-nP", "-iTCP:\(BridgePorts.cdp)", "-sTCP:LISTEN", "-Fp"],
-            timeout: .seconds(10),
-        ).output
-        for pid in listenerPIDs(inLsofFields: out) {
+        let holders = WineOrphans.allProcessIDs().filter { pid in
+            WineOrphans.commandLine(of: pid).map { servesCDPPort(commandLine: $0) } ?? false
+        }
+        for pid in holders {
             guard let directory = WineOrphans.workingDirectory(of: pid) else { continue }
             let canonical = canonicalServerDirectory(directory)
             if let prefix = known[canonical] { return prefix }

@@ -145,6 +145,32 @@ nonisolated enum WineOrphans {
         return line.isEmpty ? nil : line
     }
 
+    /// The paths of the process's open files, read through `libproc` one
+    /// descriptor at a time. Only vnodes are named; sockets, pipes and kqueues
+    /// are skipped. Never `lsof`: it walks every mount and process on the Mac
+    /// and blocks uninterruptibly on a wedged file system, where this asks
+    /// the kernel only about this process's own descriptors.
+    static func openFilePaths(of pid: pid_t) -> [String] {
+        let bufferSize = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
+        guard bufferSize > 0 else { return [] }
+        let count = Int(bufferSize) / MemoryLayout<proc_fdinfo>.size
+        var descriptors = [proc_fdinfo](repeating: proc_fdinfo(), count: count)
+        let filled = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, &descriptors, bufferSize)
+        guard filled > 0 else { return [] }
+        var paths: [String] = []
+        for descriptor in descriptors.prefix(Int(filled) / MemoryLayout<proc_fdinfo>.size)
+            where descriptor.proc_fdtype == UInt32(PROX_FDTYPE_VNODE) {
+            var info = vnode_fdinfowithpath()
+            let size = Int32(MemoryLayout<vnode_fdinfowithpath>.size)
+            guard proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDVNODEPATHINFO, &info, size) == size else { continue }
+            let path = withUnsafeBytes(of: info.pvip.vip_path) { raw in
+                String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+            }
+            if !path.isEmpty { paths.append(path) }
+        }
+        return paths
+    }
+
     static func workingDirectory(of pid: pid_t) -> String? {
         var info = proc_vnodepathinfo()
         let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)

@@ -137,11 +137,11 @@ nonisolated enum ClientLifecycle {
     /// The pids among `candidates` that belong to one of `targets`.
     ///
     /// A process whose working directory lies in a prefix, or is a prefix's
-    /// wineserver directory, is decided without spawning anything. The rest
-    /// (a game working in a library folder outside the prefix, or a process
-    /// between directories) are read in one `lsof` over all of them: the
-    /// wineserver keeps the prefix itself open, and every other Wine process
-    /// has a file inside it.
+    /// wineserver directory, is decided by that alone. The rest (a game
+    /// working in a library folder outside the prefix, or a process between
+    /// directories) are decided by their open files, read through `libproc`:
+    /// the wineserver keeps the prefix itself open, and every other Wine
+    /// process has a file inside it.
     private static func inBottle(_ candidates: [pid_t], targets: [BottleTarget]) async -> [pid_t] {
         guard !candidates.isEmpty, !targets.isEmpty else { return [] }
         let roots = bottleRoots(targets)
@@ -160,14 +160,8 @@ nonisolated enum ClientLifecycle {
                 unsure.append(pid)
             }
         }
-        if !unsure.isEmpty {
-            let out = await Subprocess.run(
-                "/usr/sbin/lsof", ["-w", "-Fn", "-p", unsure.map(String.init).joined(separator: ",")],
-                timeout: .seconds(20),
-            ).output
-            for (pid, paths) in openPaths(inLsofFields: out) where isInBottle(openPaths: paths, roots: roots) {
-                scoped.append(pid)
-            }
+        for pid in unsure where isInBottle(openPaths: WineOrphans.openFilePaths(of: pid), roots: roots) {
+            scoped.append(pid)
         }
         return Set(scoped).sorted()
     }
@@ -188,23 +182,6 @@ nonisolated enum ClientLifecycle {
                 return path == directory || path.hasPrefix(directory + "/")
             }
         }
-    }
-
-    /// The names `lsof -Fn` lists per process: a `p<pid>` line opens a
-    /// process and each `n<name>` line after it is one of its files.
-    static func openPaths(inLsofFields output: String) -> [pid_t: [String]] {
-        var paths: [pid_t: [String]] = [:]
-        var current: pid_t?
-        for line in output.split(whereSeparator: \.isNewline) {
-            guard let tag = line.first else { continue }
-            let value = String(line.dropFirst())
-            switch tag {
-            case "p": current = pid_t(value)
-            case "n": if let current { paths[current, default: []].append(value) }
-            default: continue
-            }
-        }
-        return paths
     }
 
     /// What a force-quit reaches. `steam` takes the client down and leaves
