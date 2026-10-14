@@ -358,7 +358,7 @@ nonisolated enum GameCompatVerdict {
             )
         }
         let reason = "AppleGamingWiki rates the macOS version \(describe(tier))\(how)."
-        return GameCompatBadge(tier: GameCompatBadge.Tier(wiki: tier) ?? .silver, reason: reason)
+        return GameCompatBadge(state: nativeState(tier), label: nativeLabel(tier), reason: reason)
     }
 
     /// The library's verdict, from the same rules as the strip's badges.
@@ -442,6 +442,26 @@ nonisolated enum GameCompatVerdict {
 
     static func macs(_ count: Int) -> String {
         count == 1 ? "1 Mac" : "\(count.formatted()) Macs"
+    }
+
+    /// A macOS version keeps AppleGamingWiki's own word. ProtonDB's medals
+    /// grade a Windows build through a compatibility layer, which a macOS
+    /// version does not run through.
+    static func nativeLabel(_ tier: String) -> String {
+        switch tier {
+        case "perfect": "Perfect"
+        case "playable": "Playable"
+        case "runs": "Runs"
+        default: "Unplayable"
+        }
+    }
+
+    static func nativeState(_ tier: String) -> GameCompatBadge.State {
+        switch tier {
+        case "perfect": .verified
+        case "playable", "runs": .playable
+        default: .unsupported
+        }
     }
 
     /// The wiki's tier words as they read in a sentence.

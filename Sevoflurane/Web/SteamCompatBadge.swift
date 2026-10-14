@@ -99,12 +99,12 @@ enum SteamCompatBadge {
     /// the strip and Details panel built from a record.
     private static let common = glyphs + SteamNativeBuilds.platformGlyphs
         + "  var MAC_TOOL = \(JSLiteral.string(SteamPlayMacOS.toolName));\n" + """
-      /* The macOS version's mark: its medal once AppleGamingWiki rates it,
-         the apple while it is only available, as in the library: muted, and
-         blue once the game is set to it. The store page cannot read the
-         mapping, so there it stays muted. */
+      /* The macOS version's mark is the apple, as in the library: muted, and
+         blue once the game is set to it; its rating is the word beside it.
+         One that cannot be played keeps Steam's unsupported mark. The store
+         page cannot read the mapping, so there it stays muted. */
       function nativeMark(badge, appid) {
-        if (badge.tier || badge.state !== "unknown") return mark(badge);
+        if (badge.state === "unsupported") return glyph("unsupported");
         var set = false;
         try {
           var c = window.opener || window;
