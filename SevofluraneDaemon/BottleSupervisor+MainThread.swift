@@ -14,23 +14,40 @@ extension BottleSupervisor {
 
     /// Whether a client that probes healthy has stopped answering on its main
     /// thread: its services stay initialized and its page keeps answering while
-    /// that thread waits forever. A stuck client with no game running is
-    /// restarted; with a game running it is reported, since a restart takes
-    /// Steam away from the game.
+    /// that thread waits forever. The stall is sampled to a file beside the log
+    /// first, since the restart leaves nothing else to read. A stuck client
+    /// with no game running is restarted; with a game running it is reported,
+    /// since a restart takes Steam away from the game.
     func clientMainThreadIsStuck() async -> Bool {
         guard Date.now.timeIntervalSince(lastNativeProbe) >= MainThreadProbe.every else {
             return nativeSilences >= MainThreadProbe.silencesToAct
         }
         lastNativeProbe = .now
-        guard let answered = await PageProbe.nativeAnswers() else { return false }
-        if answered {
+        guard let answer = await PageProbe.nativeAnswers() else {
+            // The page not answering is the page probe's case, not a stall;
+            // said once per streak so a page that is reloading does not fill the log.
+            if !nativeProbeUnanswered {
+                nativeProbeUnanswered = true
+                log.log(.client, "the page gave no answer to the main-thread probe — asked again at the next probe")
+            }
+            return false
+        }
+        nativeProbeUnanswered = false
+        guard answer.stuck else {
             nativeSilences = 0
             return false
         }
         nativeSilences += 1
-        log.log(.client, "steam.exe left a main-thread question unanswered (\(nativeSilences) in a row)")
+        log.log(
+            .client,
+            "steam.exe left a main-thread question unanswered: \(answer.silent.joined(separator: ", ")) "
+                + "(\(nativeSilences) in a row)",
+        )
         guard nativeSilences >= MainThreadProbe.silencesToAct else { return false }
         if await sweptLostWakes() { return false }
+        if let sample = await StuckClientSample.capture() {
+            log.log(.client, "sampled the stuck steam.exe to \(sample.path)")
+        }
         if await Self.isGameRunning() {
             fault = .degraded("Steam stopped answering — restart the client when the game is done")
             transition(

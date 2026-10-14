@@ -50,12 +50,19 @@ nonisolated enum ClientOps {
             }
         }
         if await supervisionIsRunning(noApp: noApp) {
-            let alreadyHealthy = await (AppControl.status())?["health"] as? String == "healthy"
+            // The supervisor's verdict is read beside the client's own port: the
+            // verdict stands still while a restart ladder runs, so a client that
+            // died under one reads healthy until the ladder returns.
+            let reportedHealthy = await (AppControl.status())?["health"] as? String == "healthy"
+            let clientUp = await ClientLifecycle.probeClient() == .up
             guard await AppControl.post("/client/start") != nil else {
                 throw Failure.message("the daemon's control endpoint refused /client/start")
             }
-            if alreadyHealthy {
+            if reportedHealthy, clientUp {
                 return Outcome(verdict: .noEffect, intent: "start", note: "client was already healthy")
+            }
+            if reportedHealthy {
+                progress("the supervisor reports healthy but no client answers CDP — start requested")
             }
             progress("start requested via the daemon — waiting for healthy")
             return await pollAppHealthy(intent: "start", progress: progress)

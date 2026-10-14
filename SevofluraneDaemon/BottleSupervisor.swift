@@ -259,6 +259,9 @@ final class BottleSupervisor {
     /// how many in a row it left unanswered.
     var lastNativeProbe = Date.distantPast
     var nativeSilences = 0
+    /// Whether the last main-thread probe got no answer from the page, so the
+    /// next one that does not is not logged again.
+    var nativeProbeUnanswered = false
     var isRestarting = false
     /// A restart asked for while the ladder is mid-flight, with its reason.
     /// The running ladder stops waiting on the client it is bringing up and

@@ -41,6 +41,15 @@ extension BottleSupervisor {
     private func runRestartLadder(reason: String, fullWindows: Bool) async {
         let ladder = PerfProbe.supervisor.beginInterval("ClientRestart")
         defer { PerfProbe.supervisor.endInterval("ClientRestart", ladder) }
+        let watchdog = Task(name: "Restart ladder watchdog") { [weak self] in
+            try? await Task.sleep(for: LadderWatchdog.budget)
+            guard !Task.isCancelled, let self else { return }
+            await freeStalledPass()
+            try? await Task.sleep(for: LadderWatchdog.budget)
+            guard !Task.isCancelled else { return }
+            reportStalledPass()
+        }
+        defer { watchdog.cancel() }
 
         recentRestarts.removeAll { $0.timeIntervalSinceNow < -600 }
         guard recentRestarts.count < 3 else {
@@ -171,6 +180,46 @@ extension BottleSupervisor {
         // booting — is a state of the probe cycle, which has the guards and
         // the cadence for it.
         enterBoot(.awaitingClient)
+    }
+
+    enum LadderWatchdog {
+        /// How long one pass of the ladder may take before it counts as
+        /// stalled: the stop's rungs are bounded (the CDP ask's cap, the
+        /// grace polls, the signals), the identity check's `lsof` has ten
+        /// seconds, and the launch returns at the spawn, so a pass past this
+        /// is waiting on something the client it is replacing holds.
+        static let budget: Duration = .seconds(120)
+    }
+
+    /// A pass past its budget is freed the one way that does not depend on
+    /// what it waits for: the client's processes go by `SIGKILL`, which
+    /// returns every wait on them — a DevTools session into a wedged
+    /// renderer, a shutdown ask its main thread will never serve — and the
+    /// pass goes on to its launch with nothing left to stop. The phase says
+    /// so while it happens, because the health verdict is this phase for as
+    /// long as the pass runs.
+    private func freeStalledPass() async {
+        let phase = restartPhase
+        log.log(
+            .supervisor,
+            "restart ladder stalled at \"\(phase)\" for \(LadderWatchdog.budget.components.seconds)s "
+                + "— force-quitting the client to free it",
+        )
+        setRestartPhase("stalled at \(phase) — force-quitting the client")
+        let killed = await ClientLifecycle.forceQuit(.steam)
+        log.log(.client, "stalled ladder: SIGKILL'd \(killed.count) Steam process(es) \(killed)")
+    }
+
+    /// A pass still running a budget after the force-quit is waiting on
+    /// something that is not the client; the log and the phase say so, and
+    /// the pass is left to return on its own.
+    private func reportStalledPass() {
+        log.log(
+            .supervisor,
+            "restart ladder still stalled at \"\(restartPhase)\" after the force-quit — "
+                + "sample the helper (sevo diag) and relaunch Sevoflurane",
+        )
+        setRestartPhase("stalled — relaunch Sevoflurane")
     }
 
     /// Returns once no ladder is running. Quit waits here, so a ladder that

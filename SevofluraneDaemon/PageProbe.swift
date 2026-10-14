@@ -44,30 +44,19 @@ nonisolated enum PageProbe {
         return .answering(servicesUp: reply.v?.contains("true") == true)
     }
 
-    /// How long `steam.exe` has to answer ``nativeAnswers()``. The install
-    /// manager's state is one message to its main thread, answered in
-    /// milliseconds whenever that thread runs.
-    static let nativeTimeout: Duration = .seconds(5)
-
-    /// Whether `steam.exe` itself answers: a call its main thread serves, timed.
-    /// Services stay initialized while that thread is stuck in a wait, and the
-    /// page keeps answering evals, so this is the one probe that sees it. Nil
-    /// when the page gives no answer at all.
-    static func nativeAnswers() async -> Bool? {
-        let milliseconds = Int(nativeTimeout.components.seconds * 1000)
+    /// What `steam.exe` itself answers: ``MainThreadProbe``'s questions, each
+    /// timed. Services stay initialized while its main thread is parked, and
+    /// the page keeps answering evals, so this is the one probe that sees it.
+    /// Nil when the page gives no answer at all.
+    static func nativeAnswers() async -> MainThreadProbe.Answer? {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(BridgePorts.steamUI)/__eval")!)
         request.httpMethod = "POST"
-        request.httpBody = Data("""
-        new Promise(function (resolve) {
-          SteamClient.Installs.GetInstallManagerInfo().then(function () { resolve("answered"); });
-          setTimeout(function () { resolve("silent"); }, \(milliseconds));
-        })
-        """.utf8)
+        request.httpBody = Data(MainThreadProbe.expression.utf8)
         request.timeoutInterval = 30
         ControlToken.authorize(&request)
         guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
         struct Reply: Decodable { let ok: Bool; let v: String? }
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data), reply.ok else { return nil }
-        return reply.v?.contains("answered") == true
+        return MainThreadProbe.answer(from: reply.v)
     }
 }
