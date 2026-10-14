@@ -616,7 +616,8 @@ enum SteamNativeBuilds {
       }
     
       /* The Install button of a game with a macOS version carries the version
-         it is set to, so the choice is visible before the menu opens. */
+         it is set to, so the choice is visible before the menu opens, and a ▾
+         beside it says there is a choice to make. */
       function placeInstallMarker(appid, info) {
         var buttons = document.querySelectorAll("." + classes.play.PlayButton);
         var o = info && overview(appid);
@@ -626,8 +627,10 @@ enum SteamNativeBuilds {
           var marker = button.querySelector(".sevo-install-platform");
           if (!platform || !button.querySelector(".SVGIcon_Download")) {
             if (marker) marker.remove();
+            placeSelector(button, false);
             continue;
           }
+          placeSelector(button, true);
           if (marker && marker.dataset.platform === platform) continue;
           if (marker) marker.remove();
           marker = document.createElement("span");
@@ -639,10 +642,54 @@ enum SteamNativeBuilds {
         }
       }
 
+      /* Steam's split-button ▾, the one it draws beside Play for streaming:
+         its own classes and its own arrow, so its stylesheet draws the
+         segment, its hover and its focus. Where Steam draws its ▾ itself,
+         that one opens the version menu and none is added. */
+      var FLAT_ARROW = '<svg xmlns="http://www.w3.org/2000/svg" class="SVGIcon_Button SVGIcon_FlatArrow" viewBox="0 0 256 256" style="transform:rotate(180deg)"><polygon points="13.913,141 128,59 242.087,141" fill="#ffffff"></polygon></svg>';
+
+      function placeSelector(button, show) {
+        var box = button.parentElement;
+        if (!box) return;
+        var own = box.querySelector(":scope > .sevo-install-selector");
+        var steams = classes.play.StreamingSelector && box.querySelector(":scope > ." + classes.play.StreamingSelector + ":not(.sevo-install-selector)");
+        if (!show || steams) {
+          if (own) {
+            own.remove();
+            if (box.dataset.sevoSplit) { box.classList.remove(classes.play.ShowingStreaming); delete box.dataset.sevoSplit; }
+          }
+          return;
+        }
+        if (!own) {
+          own = document.createElement("div");
+          own.className = "sevo-install-selector " + classes.play.StreamingSelector + " " + classes.play.ButtonChild + " Focusable";
+          own.setAttribute("role", "button");
+          own.setAttribute("tabindex", "0");
+          own.setAttribute("aria-haspopup", "menu");
+          own.setAttribute("aria-label", "Choose the version to install");
+          own.title = "Choose the version to install";
+          own.innerHTML = FLAT_ARROW;
+          own.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") { event.preventDefault(); own.click(); }
+          });
+          box.appendChild(own);
+        }
+        if (classes.play.ShowingStreaming && !box.classList.contains(classes.play.ShowingStreaming)) {
+          box.classList.add(classes.play.ShowingStreaming);
+          box.dataset.sevoSplit = "1";
+        }
+      }
+
       function clear() {
         closeMenu();
         var markers = document.querySelectorAll(".sevo-install-platform");
         for (var m = 0; m < markers.length; m++) markers[m].remove();
+        var selectors = document.querySelectorAll(".sevo-install-selector");
+        for (var n = 0; n < selectors.length; n++) {
+          var box = selectors[n].parentElement;
+          if (box && box.dataset.sevoSplit) { box.classList.remove(classes.play.ShowingStreaming); delete box.dataset.sevoSplit; }
+          selectors[n].remove();
+        }
         var stats = document.querySelectorAll("." + STAT_CLASS);
         for (var i = 0; i < stats.length; i++) stats[i].remove();
       }
@@ -745,6 +792,16 @@ enum SteamNativeBuilds {
             if (ready && currentAppID() === appid) openMenu(pressed.parentElement || pressed, appid, ready, "install");
             else ctx.SteamClient.Installs.OpenInstallWizard([appid]);
           });
+          return;
+        }
+        /* The ▾ added beside Install opens the version menu. */
+        var own = info && target.closest && target.closest(".sevo-install-selector");
+        if (own) {
+          event.preventDefault();
+          event.stopPropagation();
+          var split = own.parentElement || own;
+          if (menu && menu.anchor === split) { closeMenu(); return; }
+          openMenu(split, appid, info, "install");
           return;
         }
         /* Steam's ▾ beside Install picks a streaming device; for a game with a
