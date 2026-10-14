@@ -350,6 +350,13 @@ enum SteamNativeBuilds {
         try { return ctx.appStore.GetAppOverviewByAppID(appid) || null; } catch (e) { return null; }
       }
     
+      /* Installed on this Mac: an overview's own `installed` is also true for
+         a game another signed-in computer has, which Steam offers to stream. */
+      function installedHere(o) {
+        var here = o && o.local_per_client_data;
+        return here ? !!here.installed : !!(o && o.installed);
+      }
+
       function details(appid) {
         try { return ctx.appDetailsStore.GetAppDetails(appid) || null; } catch (e) { return null; }
       }
@@ -637,7 +644,7 @@ enum SteamNativeBuilds {
       function placeStats(appid, info) {
         var sections = document.querySelectorAll("." + classes.bar.GameStatsSection);
         var o = overview(appid);
-        var show = info && o && o.installed;
+        var show = info && installedHere(o);
         var platform = show ? installedBuild(appid, info) : null;
         for (var i = 0; i < sections.length; i++) {
           var section = sections[i];
@@ -665,7 +672,7 @@ enum SteamNativeBuilds {
       function placeInstallMarker(appid, info) {
         var buttons = document.querySelectorAll("." + classes.play.PlayButton);
         var o = info && overview(appid);
-        var platform = info && o && !o.installed ? chosen(appid, info) : null;
+        var platform = info && o && !installedHere(o) ? chosen(appid, info) : null;
         for (var i = 0; i < buttons.length; i++) {
           var button = buttons[i];
           var marker = button.querySelector(".sevo-install-platform");
@@ -856,7 +863,7 @@ enum SteamNativeBuilds {
            macOS version it opens the version menu, devices one item below. */
         var selector = info && streamingSelector(target);
         var o = selector && overview(appid);
-        if (selector && o && !o.installed) {
+        if (selector && o && !installedHere(o)) {
           event.preventDefault();
           event.stopPropagation();
           var box = selector.parentElement || selector;
