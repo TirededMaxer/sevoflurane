@@ -252,12 +252,17 @@ enum SteamLibraryCompat {
     }
 
     /// What the tooltip says over each mark and over the filter, in the
-    /// app's language: a name and one line of what it rests on.
+    /// app's language: a name and one line of what it means, then the line
+    /// naming where the verdict comes from.
     private static var text: String {
         let lines: [(String, String, String)] = [
-            ("verified", String(localized: "Verified"), String(localized: "Plays well on a Mac through Sevoflurane, from Mac players' runs or the wiki.")),
-            ("playable", String(localized: "Playable"), String(localized: "Plays on a Mac through Sevoflurane with some issues, or is rated on Linux only. The game's page says which.")),
-            ("unsupported", String(localized: "Unsupported"), String(localized: "Does not play on a Mac through Sevoflurane: it crashes, or its anti-cheat refuses to run.")),
+            ("platinum", String(localized: "Platinum"), String(localized: "Runs perfectly.")),
+            ("gold", String(localized: "Gold"), String(localized: "Runs perfectly after tweaks.")),
+            ("silver", String(localized: "Silver"), String(localized: "Runs with minor issues; generally playable.")),
+            ("bronze", String(localized: "Bronze"), String(localized: "Runs, but with crashes or issues that get in the way of playing.")),
+            ("borked", String(localized: "Borked"), String(localized: "Does not run: it crashes, or its anti-cheat refuses to run.")),
+            ("fromMac", "", String(localized: "Rated on a Mac, by Sevoflurane players' runs or AppleGamingWiki.")),
+            ("fromLinux", "", String(localized: "Rated on Linux by ProtonDB; untested on a Mac.")),
             ("macAvailable", String(localized: "macOS version available"), String(localized: "Steam has a macOS version of this game that runs on Apple silicon. The version menu beside Install chooses it.")),
             ("macSet", String(localized: "Set to its macOS version"), String(localized: "Steam installs and plays this game's own macOS version.")),
             ("filterOn", String(localized: "Showing games that play on this Mac"), String(localized: "Click to show every game.")),
@@ -279,11 +284,11 @@ enum SteamLibraryCompat {
       var CHIP_ID = "sevo-mac-chip";
       var TIP_ID = "sevo-lib-tip";
       var TIP_DELAY = 350;
-      /* Small glyphs in Steam's state colors; on a tile they sit on a dark
+      /* Small medals in ProtonDB's colors; on a tile they sit on a dark
          disc so they read over any art. The apple is muted while the macOS
          version is only available and Steam's link blue once the game is
          set to it. The chip is sized like the filter button beside it. */
-      var CSS = STATE_CSS + "\\n" + [
+      var CSS = STATE_CSS + "\\n" + MEDAL_CSS + "\\n" + [
         ".sevo-lib-badge{display:flex;align-items:center;flex:none;gap:3px;cursor:default}",
         /* The left list's rows size every svg in them, color it, and stroke
            every path 40% white; a badge keeps its state's color and the
@@ -314,6 +319,7 @@ enum SteamLibraryCompat {
         "#sevo-lib-tip{position:fixed;z-index:100000;max-width:280px;padding:8px 10px;border-radius:3px;background:#3d4450;color:#dfe3e6;font-size:12px;line-height:16px;box-shadow:0 10px 32px rgba(0,0,0,0.67);pointer-events:none;opacity:0;transition:opacity 0.12s ease-out}",
         "#sevo-lib-tip.sevo-shown{opacity:1}",
         "#sevo-lib-tip>div+div{margin-top:6px}",
+        "#sevo-lib-tip>.sevo-tip-source{margin-top:2px;color:#b8bcbf}",
         "#sevo-lib-tip b{display:block;color:#fff;font-weight:600}"
       ].join("\\n");
     
@@ -364,16 +370,17 @@ enum SteamLibraryCompat {
         return null;
       }
     
-      /* The marks a verdict earns: its Mac state when known, and an apple for
-         a macOS version, muted while it is only available and blue once the
-         game is set to it. Unknown with no macOS version draws nothing. Each
-         mark names the tooltip line that explains it. */
+      /* The marks a verdict earns: its medal when rated, and an apple for a
+         macOS version, muted while it is only available and blue once the
+         game is set to it. Unrated with no macOS version draws nothing. Each
+         mark names the tooltip lines that explain it, the medal's followed by
+         where the rating comes from. */
       function badge(verdict) {
         var html = "";
         var tips = [];
-        if (TEXT[verdict.s]) {
-          html += glyph(verdict.s);
-          tips.push(verdict.s);
+        if (TEXT[verdict.t]) {
+          html += medal(verdict.t);
+          tips.push(verdict.t, verdict.l ? "fromLinux" : "fromMac");
         }
         if (verdict.m || verdict.n) {
           var which = verdict.m ? "macSet" : "macAvailable";
@@ -395,14 +402,14 @@ enum SteamLibraryCompat {
             if (existing) existing.remove();
             continue;
           }
-          var key = appid + ":" + verdict.s + ":" + (verdict.n ? 1 : 0) + (verdict.m ? 1 : 0);
+          var key = appid + ":" + verdict.t + ":" + (verdict.l ? 1 : 0) + (verdict.n ? 1 : 0) + (verdict.m ? 1 : 0);
           if (existing && existing.dataset.key === key && existing === host.lastElementChild) continue;
           var element = existing || document.createElement("span");
           element.className = "sevo-lib-badge " + kind;
           element.dataset.key = key;
           element.dataset.tips = drawn.tips.join(" ");
           element.setAttribute("role", "img");
-          element.setAttribute("aria-label", drawn.tips.map(function (t) { return TEXT[t][0]; }).join(", "));
+          element.setAttribute("aria-label", drawn.tips.map(function (t) { return TEXT[t][0]; }).filter(Boolean).join(", "));
           element.innerHTML = drawn.html;
           host.appendChild(element);
         }
@@ -480,7 +487,7 @@ enum SteamLibraryCompat {
         var html = "";
         (target.dataset.tips || "").split(" ").forEach(function (key) {
           if (!TEXT[key]) return;
-          html += "<div><b>" + esc(TEXT[key][0]) + "</b>" + esc(TEXT[key][1]) + "</div>";
+          html += TEXT[key][0] ? "<div><b>" + esc(TEXT[key][0]) + "</b>" + esc(TEXT[key][1]) + "</div>" : '<div class="sevo-tip-source">' + esc(TEXT[key][1]) + "</div>";
         });
         if (!html) return;
         tip.innerHTML = html;

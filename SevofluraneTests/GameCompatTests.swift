@@ -137,6 +137,8 @@ struct GameCompatTests {
         for tier in ["platinum", "gold", "silver", "bronze"] {
             let badge = GameCompatVerdict.mac(antiCheat: nil, wiki: nil, proton: proton(tier))
             #expect(badge.state == .playable)
+            #expect(badge.tier?.rawValue == tier)
+            #expect(badge.label == tier.capitalized)
             #expect(badge.reason.contains("Untested on a Mac"))
         }
         #expect(GameCompatVerdict.mac(antiCheat: nil, wiki: nil, proton: proton("silver")).reason.contains("with issues"))
@@ -165,14 +167,16 @@ struct GameCompatTests {
     func `the native badge reads the wiki's native column, then Rosetta 2's`() {
         let perfect = GameCompatVerdict.native(wiki: wiki(native: "perfect", wine: "unplayable"), hasMacBuild: true)
         #expect(perfect?.state == .verified)
-        #expect(perfect?.label == "Perfect")
+        #expect(perfect?.label == "Platinum")
+        #expect(perfect?.tier == .platinum)
         let rosetta = GameCompatVerdict.native(wiki: wiki(native: "na", rosetta2: "playable"), hasMacBuild: false)
         #expect(rosetta?.state == .playable)
         #expect(rosetta?.reason.contains("Rosetta 2") == true)
         // A 32-bit Mac build that stopped running on current macOS.
         let dead = GameCompatVerdict.native(wiki: wiki(native: "unplayable"), hasMacBuild: true)
         #expect(dead?.state == .unsupported)
-        #expect(dead?.label == "Broken")
+        #expect(dead?.label == "Borked")
+        #expect(dead?.tier == .borked)
     }
 
     @Test
@@ -341,7 +345,8 @@ struct GameCompatTests {
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let mac = try #require(object["mac"] as? [String: Any])
         #expect(mac["state"] as? String == "verified")
-        #expect((object["nativeBadge"] as? [String: Any])?["label"] as? String == "Perfect")
+        #expect((object["nativeBadge"] as? [String: Any])?["label"] as? String == "Platinum")
+        #expect((object["nativeBadge"] as? [String: Any])?["tier"] as? String == "platinum")
         #expect((object["community"] as? [String: Any])?["verdict"] as? String == "playable")
         #expect((object["wiki"] as? [String: Any])?["pageURL"] as? String == "https://www.applegamingwiki.com/wiki/X")
         let decoder = JSONDecoder()

@@ -40,17 +40,18 @@ enum SteamCompatBadge {
     /// sources' pages through.
     static let storeHandler = "sevoCompat"
 
-    /// The four state glyphs on Steam's discs, the colors its stylesheet gives
-    /// each state, and `glyph(state)` drawing one. The strip and the library's badges
-    /// (``SteamLibraryCompat``) share them, so a game reads alike in both.
+    /// Steam's four state glyphs and the colors its stylesheet gives each
+    /// state, ProtonDB's five medals in ProtonDB's colors, `glyph(state)`
+    /// and `medal(tier)` drawing one each, and `mark(badge)` choosing: the
+    /// medal when the badge carries a tier, the state glyph otherwise. The
+    /// strip and the library's badges (``SteamLibraryCompat``) share them,
+    /// so a game reads alike in both.
     static let glyphs = """
-      /* Steam's state glyphs from its compatibility module, so the strip reads
-         as the client's own, except Playable: Steam's (i) means "information"
-         to anyone who has not used a Deck, so it is a circled ! instead, the
-         plain sign for "works, with something to know". */
+      /* Steam's four state glyphs, verbatim from its compatibility module, for
+         the badges that carry no tier (anti-cheat, Steam Deck, unknown). */
       var PATHS = {
         verified: "M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM8.33342 11.9222L14.4945 5.76667L16.4556 7.72779L8.33342 15.8556L3.26675 10.7833L5.22786 8.82223L8.33342 11.9222Z",
-        playable: "M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM8.61079 5V11.5H11.3886V5H8.61079ZM10 12.7C9.11634 12.7 8.4 13.4163 8.4 14.3C8.4 15.1837 9.11634 15.9 10 15.9C10.8837 15.9 11.6 15.1837 11.6 14.3C11.6 13.4163 10.8837 12.7 10 12.7Z",
+        playable: "M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19ZM8.61079 9.44444V15H11.3886V9.44444H8.61079ZM9.07372 8.05245C9.34781 8.23558 9.67004 8.33333 9.99967 8.33333C10.4417 8.33333 10.8656 8.15774 11.1782 7.84518C11.4907 7.53262 11.6663 7.10869 11.6663 6.66667C11.6663 6.33703 11.5686 6.0148 11.3855 5.74072C11.2023 5.46663 10.942 5.25301 10.6375 5.12687C10.3329 5.00072 9.99783 4.96771 9.67452 5.03202C9.35122 5.09633 9.05425 5.25507 8.82116 5.48815C8.58808 5.72124 8.42934 6.01821 8.36503 6.34152C8.30072 6.66482 8.33373 6.99993 8.45988 7.30447C8.58602 7.60902 8.79964 7.86931 9.07372 8.05245Z",
         unsupported: "M14.1931 15.6064C13.0246 16.4816 11.5733 17 10.001 17C6.13498 17 3.00098 13.866 3.00098 10C3.00098 8.42766 3.51938 6.97641 4.39459 5.80783L14.1931 15.6064ZM15.6074 14.1922C16.4826 13.0236 17.001 11.5723 17.001 10C17.001 6.13401 13.867 3 10.001 3C8.42864 3 6.97739 3.5184 5.80881 4.39362L15.6074 14.1922ZM19.001 10C19.001 14.9706 14.9715 19 10.001 19C5.03041 19 1.00098 14.9706 1.00098 10C1.00098 5.02944 5.03041 1 10.001 1C14.9715 1 19.001 5.02944 19.001 10Z",
         unknown: "M17.3972 11.2461L18.8767 11.4932C18.9578 11.0075 19 10.5087 19 10C19 9.49131 18.9578 8.99248 18.8767 8.50682L17.3972 8.75386C17.4647 9.15821 17.5 9.57442 17.5 10C17.5 10.4256 17.4647 10.8418 17.3972 11.2461ZM17.0295 7.3783L18.4348 6.8539C18.0814 5.90668 17.5729 5.03501 16.9403 4.26971L15.7842 5.22538C16.3119 5.86387 16.7354 6.59021 17.0295 7.3783ZM14.7746 4.21582L15.7303 3.05967C14.965 2.42708 14.0933 1.91864 13.1461 1.56519L12.6217 2.97054C13.4098 3.26461 14.1361 3.68805 14.7746 4.21582ZM11.2461 2.60281L11.4932 1.1233C11.0075 1.0422 10.5087 1 10 1C9.49131 1 8.99248 1.0422 8.50682 1.1233L8.75386 2.60281C9.15821 2.5353 9.57442 2.5 10 2.5C10.4256 2.5 10.8418 2.5353 11.2461 2.60281ZM7.3783 2.97054L6.8539 1.56519C5.90668 1.91864 5.03501 2.42708 4.26971 3.05967L5.22538 4.21582C5.86387 3.68805 6.59021 3.26461 7.3783 2.97054ZM4.21582 5.22538L3.05967 4.26971C2.42708 5.03501 1.91864 5.90668 1.56519 6.8539L2.97054 7.3783C3.26461 6.59022 3.68805 5.86387 4.21582 5.22538ZM1 10C1 9.49131 1.0422 8.99248 1.1233 8.50682L2.60281 8.75386C2.5353 9.15821 2.5 9.57442 2.5 10C2.5 10.4256 2.5353 10.8418 2.60281 11.2461L1.1233 11.4932C1.0422 11.0075 1 10.5087 1 10ZM2.97054 12.6217L1.56519 13.1461C1.91864 14.0933 2.42708 14.965 3.05967 15.7303L4.21582 14.7746C3.68805 14.1361 3.26461 13.4098 2.97054 12.6217ZM5.22538 15.7842L4.26971 16.9403C5.03501 17.5729 5.90668 18.0814 6.8539 18.4348L7.3783 17.0295C6.59022 16.7354 5.86387 16.3119 5.22538 15.7842ZM8.75386 17.3972L8.50682 18.8767C8.99248 18.9578 9.49131 19 10 19C10.5087 19 11.0075 18.9578 11.4932 18.8767L11.2461 17.3972C10.8418 17.4647 10.4256 17.5 10 17.5C9.57442 17.5 9.15821 17.4647 8.75386 17.3972ZM12.6217 17.0295L13.1461 18.4348C14.0933 18.0814 14.965 17.5729 15.7303 16.9403L14.7746 15.7842C14.1361 16.3119 13.4098 16.7354 12.6217 17.0295ZM15.7842 14.7746L16.9403 15.7303C17.5729 14.965 18.0814 14.0933 18.4348 13.1461L17.0295 12.6217C16.7354 13.4098 16.3119 14.1361 15.7842 14.7746ZM9.2425 14.7702C9.46679 14.92 9.73048 15 10.0002 15C10.362 15 10.7089 14.8563 10.9646 14.6006C11.2204 14.3448 11.3641 13.998 11.3641 13.6363C11.3641 13.3666 11.2841 13.1029 11.1343 12.8787C10.9844 12.6544 10.7714 12.4796 10.5222 12.3764C10.2729 12.2732 9.99872 12.2462 9.73415 12.2988C9.46958 12.3514 9.22656 12.4813 9.03582 12.672C8.84508 12.8628 8.71518 13.1057 8.66255 13.3703C8.60993 13.6348 8.63694 13.909 8.74016 14.1582C8.84339 14.4074 9.01821 14.6203 9.2425 14.7702ZM11.0981 10.3552C11.1722 10.2348 11.2765 10.1358 11.4005 10.068C11.8099 9.82315 12.1479 9.47526 12.3808 9.05903C12.6137 8.64279 12.7333 8.17276 12.7278 7.69584C12.7223 7.21892 12.5918 6.75179 12.3493 6.34105C12.1069 5.93031 11.7609 5.59033 11.346 5.35502C10.9311 5.11972 10.4617 4.99732 9.98466 5.00004C9.50764 5.00277 9.03969 5.13052 8.62748 5.37054C8.21527 5.61057 7.87321 5.95448 7.63545 6.36796C7.39769 6.78144 7.27253 7.25004 7.27246 7.72699H9.23191C9.23191 7.6261 9.25178 7.52621 9.29039 7.43301C9.32901 7.3398 9.3856 7.25511 9.45694 7.18378C9.52829 7.11244 9.61299 7.05586 9.70621 7.01725C9.79942 6.97865 9.89933 6.95878 10.0002 6.95878C10.1659 6.96387 10.3255 7.02207 10.4556 7.12479C10.5856 7.22751 10.6792 7.3693 10.7225 7.52925C10.7658 7.6892 10.7565 7.85883 10.6961 8.01311C10.6356 8.16739 10.5271 8.29816 10.3867 8.3861C9.97322 8.62846 9.63003 8.97429 9.39088 9.38955C9.15173 9.80482 9.02487 10.2752 9.02278 10.7544V11.3635H10.9777V10.7544C10.9825 10.6131 11.024 10.4755 11.0981 10.3552Z"
       };
@@ -67,6 +68,32 @@ enum SteamCompatBadge {
         return '<span class="sevo-compat-icon sevo-compat-' + s + '"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="' + PATHS[s] + '" fill="currentColor"></path></svg></span>';
       }
     
+      /* ProtonDB's medals in ProtonDB's own colors: a disc with a darker
+         inner ring, and a cross through Borked. Every shape is a filled path,
+         because Steam's row stylesheet strokes paths and the library resets
+         that; a stroked cross would vanish with it. */
+      var MEDAL_COLORS = { platinum: "#b4c7dc", gold: "#cfb53b", silver: "#a6a6a6", bronze: "#cd7f32", borked: "#ff0000" };
+      var MEDAL_CSS = Object.keys(MEDAL_COLORS).map(function (tier) {
+        return ".sevo-medal-" + tier + "{color:" + MEDAL_COLORS[tier] + "}";
+      }).join("\\n");
+      var MEDAL_DISC = "M1 10a9 9 0 1 0 18 0a9 9 0 1 0-18 0Z";
+      var MEDAL_RING = "M3.25 10a6.75 6.75 0 1 0 13.5 0a6.75 6.75 0 1 0-13.5 0ZM5 10a5 5 0 1 0 10 0a5 5 0 1 0-10 0Z";
+      var MEDAL_CROSS = "M7.28 5.72L14.28 12.72L12.72 14.28L5.72 7.28ZM12.72 5.72L14.28 7.28L7.28 14.28L5.72 12.72Z";
+    
+      function medal(tier) {
+        if (!MEDAL_COLORS[tier]) return glyph("unknown");
+        return '<span class="sevo-compat-icon sevo-medal sevo-medal-' + tier + '"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">'
+          + '<path d="' + MEDAL_DISC + '" fill="currentColor"></path>'
+          + '<path fill-rule="evenodd" clip-rule="evenodd" d="' + MEDAL_RING + '" fill="rgba(0,0,0,0.3)"></path>'
+          + (tier === "borked" ? '<path d="' + MEDAL_CROSS + '" fill="rgba(0,0,0,0.6)"></path>' : "")
+          + "</svg></span>";
+      }
+    
+      function mark(badge) {
+        if (!badge) return glyph("unknown");
+        return badge.tier ? medal(badge.tier) : glyph(badge.state);
+      }
+    
     """
 
     /// Everything both pages draw with: Steam's glyphs and strip styles, and
@@ -81,7 +108,7 @@ enum SteamCompatBadge {
          the strip, its 16px title, the 10px uppercase label, and the Details
          pill and its hover swap.
          The store's right column is narrow, so there the cells stack. */
-      var CSS = STATE_CSS + "\\n" + [
+      var CSS = STATE_CSS + "\\n" + MEDAL_CSS + "\\n" + [
         ".sevo-compat-slot{padding:6px 20px 0}",
         ".sevo-compat-slot.sevo-compat-store{padding:0 0 12px}",
         ".sevo-compat{background-color:#23262e;padding:8px 22px;border-radius:2px;display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px;color:#fff}",
@@ -124,16 +151,16 @@ enum SteamCompatBadge {
         var mac = record.mac || {};
         var ac = record.antiCheatBadge || {};
         var c = record.community;
-        rows.push(row(mac.state, "<b>Windows version:</b> " + esc(mac.reason), record.wiki && link(record.wiki.pageURL, "AppleGamingWiki")));
+        rows.push(row(mark(mac), "<b>Windows version:</b> " + esc(mac.reason), record.wiki && link(record.wiki.pageURL, "AppleGamingWiki")));
         var arch = record.macArchitectures;
         if (record.nativeBadge) {
           var play = record.nativeBadge.state !== "unsupported" && !playsInThisSteam()
             ? '<a class="sevo-compat-link sevo-compat-play" data-appid="' + esc(appid) + '">Play in Steam for Mac</a>' : "";
-          rows.push(row(record.nativeBadge.state, "<b>macOS version:</b> " + esc(record.nativeBadge.reason), play));
+          rows.push(row(mark(record.nativeBadge), "<b>macOS version:</b> " + esc(record.nativeBadge.reason), play));
         } else if (arch && arch.intel32 === true && arch.intel64 !== true && arch.arm !== true) {
-          rows.push(row("unsupported", "<b>macOS version:</b> 32-bit only, which no Apple silicon Mac can run. The Windows version is the one that plays here.", link(arch.pageURL, "PCGamingWiki")));
+          rows.push(row(medal("borked"), "<b>macOS version:</b> 32-bit only, which no Apple silicon Mac can run. The Windows version is the one that plays here.", link(arch.pageURL, "PCGamingWiki")));
         }
-        rows.push(row(ac.state, "<b>Anti-cheat:</b> " + esc(ac.reason), record.antiCheat && link(record.antiCheat.sourceURL, "AreWeAntiCheatYet")));
+        rows.push(row(mark(ac), "<b>Anti-cheat:</b> " + esc(ac.reason), record.antiCheat && link(record.antiCheat.sourceURL, "AreWeAntiCheatYet")));
         if (record.antiCheat && record.antiCheat.notes) {
           record.antiCheat.notes.slice(0, 3).forEach(function (note) {
             rows.push('<div class="sevo-compat-note">' + esc(note) + "</div>");
@@ -154,7 +181,7 @@ enum SteamCompatBadge {
           if (tiers.length) rows.push(row(null, "<b>AppleGamingWiki:</b> " + esc(tiers.join(" · "))));
         }
         var deck = DECK[record.deckCategory];
-        if (deck) rows.push(row(deck[0], "<b>Steam Deck:</b> " + deck[1] + " (Valve's own program)"));
+        if (deck) rows.push(row(glyph(deck[0]), "<b>Steam Deck:</b> " + deck[1] + " (Valve's own program)"));
         if (record.proton) {
           var p = record.proton;
           rows.push(row(null, "<b>Linux / Proton:</b> " + esc(p.tier) + " (" + Number(p.total).toLocaleString() + " reports, " + esc(p.confidence) + " confidence). A Linux measurement.", link(p.sourceURL, "ProtonDB")));
@@ -162,8 +189,8 @@ enum SteamCompatBadge {
         return rows.join("");
       }
     
-      function row(state, html, trailing) {
-        return '<div class="sevo-compat-row">' + (state ? glyph(state) : '<span class="sevo-compat-icon"></span>')
+      function row(icon, html, trailing) {
+        return '<div class="sevo-compat-row">' + (icon || '<span class="sevo-compat-icon"></span>')
           + "<span>" + html + (trailing ? " " + trailing : "") + "</span></div>";
       }
     
@@ -174,7 +201,7 @@ enum SteamCompatBadge {
     
       function cell(title, badge) {
         return '<div class="sevo-compat-title">' + esc(title) + "</div>"
-          + '<div class="sevo-compat-label">' + glyph(badge.state) + "<span>" + esc(badge.label) + "</span></div>";
+          + '<div class="sevo-compat-label">' + mark(badge) + "<span>" + esc(badge.label) + "</span></div>";
       }
     
       var SEP = '<span class="sevo-compat-sep"></span>';

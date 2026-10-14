@@ -28,7 +28,7 @@ struct LibraryCompatTests {
             appID: 1222670, antiCheat: nil, wiki: wiki(native: "perfect", crossover: "unplayable", wine: "perfect"),
             proton: nil, community: nil, hasMacBuild: true, architectures: nil,
         )
-        #expect(sims == GameCompatSummary(appID: 1222670, state: .playable, native: true, macRunnable: true, macEvidence: true))
+        #expect(sims == GameCompatSummary(appID: 1222670, state: .playable, native: true, macRunnable: true, macEvidence: true, tier: .silver))
         #expect(sims.playsOnMac)
         // A macOS build Steam lists and nobody rated is "Available", which
         // the filter does not count: plenty of those are 32-bit.
@@ -50,6 +50,9 @@ struct LibraryCompatTests {
             community: nil, hasMacBuild: false, architectures: nil,
         )
         #expect(linuxOnly.state == .playable)
+        #expect(linuxOnly.tier == .silver)
+        #expect(linuxOnly.linuxOnly)
+        #expect(!sims.linuxOnly)
         #expect(!linuxOnly.playsOnMac)
         // An unrated macOS build with a 64-bit slice runs.
         let universal = GameCompatVerdict.summary(
@@ -111,14 +114,19 @@ struct LibraryCompatTests {
             GameCompatSummary(appID: 2, state: .unknown, native: false),
             GameCompatSummary(appID: 3, state: .unknown, native: true),
             GameCompatSummary(appID: 4, state: .unsupported, native: false),
+            GameCompatSummary(appID: 5, state: .playable, native: false, macRunnable: true, tier: .gold, linuxOnly: true),
         ], pending: 7)
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(object["pending"] as? Int == 7)
         let apps = try #require(object["apps"] as? [String: [String: Any]])
-        #expect(Set(apps.keys) == ["1", "3", "4"])
+        #expect(Set(apps.keys) == ["1", "3", "4", "5"])
         #expect(apps["1"]?["s"] as? String == "verified")
+        #expect(apps["1"]?["t"] == nil)
         #expect(apps["3"]?["n"] as? Bool == true)
         #expect(apps["4"]?["s"] as? String == "unsupported")
+        #expect(apps["5"]?["t"] as? String == "gold")
+        #expect(apps["5"]?["l"] as? Bool == true)
+        #expect(apps["5"]?["n"] as? Bool == true)
     }
 
     // MARK: - The page scripts

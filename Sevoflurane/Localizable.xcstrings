@@ -11810,6 +11810,26 @@
         }
       }
     },
+    "Borked" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "损坏"
+          }
+        }
+      }
+    },
+    "Bronze" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "铜"
+          }
+        }
+      }
+    },
     "Click to show every game." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11820,12 +11840,22 @@
         }
       }
     },
-    "Does not play on a Mac through Sevoflurane: it crashes, or its anti-cheat refuses to run." : {
+    "Does not run: it crashes, or its anti-cheat refuses to run." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法通过 Sevoflurane 在 Mac 上运行：它会崩溃，或其反作弊拒绝运行。"
+            "value" : "无法运行：它会崩溃，或其反作弊拒绝运行。"
+          }
+        }
+      }
+    },
+    "Gold" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "金"
           }
         }
       }
@@ -11850,32 +11880,72 @@
         }
       }
     },
-    "Playable" : {
+    "Platinum" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "可玩"
+            "value" : "白金"
           }
         }
       }
     },
-    "Plays on a Mac through Sevoflurane with some issues, or is rated on Linux only. The game's page says which." : {
+    "Rated on a Mac, by Sevoflurane players' runs or AppleGamingWiki." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过 Sevoflurane 在 Mac 上可以运行但有些问题，或仅有 Linux 上的评级。游戏页面会说明是哪种情况。"
+            "value" : "在 Mac 上的评级，来自 Sevoflurane 玩家的运行记录或 AppleGamingWiki。"
           }
         }
       }
     },
-    "Plays well on a Mac through Sevoflurane, from Mac players' runs or the wiki." : {
+    "Rated on Linux by ProtonDB; untested on a Mac." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过 Sevoflurane 在 Mac 上运行良好，依据是 Mac 玩家的运行记录或维基。"
+            "value" : "ProtonDB 在 Linux 上的评级；未在 Mac 上测试。"
+          }
+        }
+      }
+    },
+    "Runs perfectly after tweaks." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整后运行完美。"
+          }
+        }
+      }
+    },
+    "Runs perfectly." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行完美。"
+          }
+        }
+      }
+    },
+    "Runs with minor issues; generally playable." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行时有小问题，总体可玩。"
+          }
+        }
+      }
+    },
+    "Runs, but with crashes or issues that get in the way of playing." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "能运行，但有崩溃或妨碍游玩的问题。"
           }
         }
       }
@@ -11910,6 +11980,16 @@
         }
       }
     },
+    "Silver" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "银"
+          }
+        }
+      }
+    },
     "Steam has a macOS version of this game that runs on Apple silicon. The version menu beside Install chooses it." : {
       "localizations" : {
         "zh-Hans" : {
@@ -11926,26 +12006,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Steam 安装并运行这款游戏自己的 macOS 版本。"
-          }
-        }
-      }
-    },
-    "Unsupported" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不支持"
-          }
-        }
-      }
-    },
-    "Verified" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已验证"
           }
         }
       }

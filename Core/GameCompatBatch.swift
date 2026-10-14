@@ -89,8 +89,10 @@ nonisolated enum GameCompatBatch {
         return GameCompatVerdict.antiCheatBlocker(antiCheat) == nil
     }
 
-    /// The page's answer: `{"pending": n, "apps": {"<appid>": {"s": state, "n": native, "p": true, "m": true}}}`.
-    /// `n` marks a macOS build that runs on Apple silicon (``GameCompatSummary/native``
+    /// The page's answer: `{"pending": n, "apps": {"<appid>": {"s": state, "t": tier, "l": true, "n": native, "p": true, "m": true}}}`.
+    /// `t` is the verdict's tier on ProtonDB's scale, the medal the page draws,
+    /// and `l` marks a verdict from ProtonDB alone, which the page says is
+    /// untested on a Mac. `n` marks a macOS build that runs on Apple silicon (``GameCompatSummary/native``
     /// or ``GameCompatSummary/macRunnable``), the one the page draws an apple for.
     /// `p` marks a game the Apple filter keeps, from the evidence alone
     /// (``GameCompatSummary/playsOnMac``); `m` a game set to its macOS build
@@ -106,6 +108,8 @@ nonisolated enum GameCompatBatch {
             let mac = macBuilds.contains(summary.appID)
             guard summary.state != .unknown || summary.native || summary.macRunnable || mac else { continue }
             var entry: [String: Any] = ["s": summary.state.rawValue, "n": summary.native || summary.macRunnable]
+            if let tier = summary.tier { entry["t"] = tier.rawValue }
+            if summary.linuxOnly { entry["l"] = true }
             if summary.playsOnMac { entry["p"] = true }
             if mac { entry["m"] = true }
             apps[String(summary.appID)] = entry

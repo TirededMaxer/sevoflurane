@@ -96,8 +96,9 @@ nonisolated struct GameCompatRecord: Codable, Sendable, Equatable {
     let fetchedAt: Date
 }
 
-/// One headline badge: a state drawn with Steam's own glyphs, and the line
-/// that names the source behind it.
+/// One headline badge: a state the app's rules read (the Apple filter, the
+/// install warning), the line that names the source behind it, and for a
+/// rated build the tier it is drawn as, on ProtonDB's medal scale.
 nonisolated struct GameCompatBadge: Codable, Sendable, Equatable {
     enum State: String, Codable, Sendable {
         case verified
@@ -106,9 +107,64 @@ nonisolated struct GameCompatBadge: Codable, Sendable, Equatable {
         case unknown
     }
 
+    /// ProtonDB's five tiers, the scale every rated build is shown on.
+    /// AppleGamingWiki's words and Sevoflurane players' verdicts map by
+    /// meaning: `perfect` is Platinum, `playable` (minor glitches) Silver,
+    /// `runs` (major glitches) Bronze, a crash at boot or the menu Borked.
+    /// Gold, perfect after tweaks, is a tier only ProtonDB awards.
+    enum Tier: String, Codable, Sendable, CaseIterable {
+        case platinum
+        case gold
+        case silver
+        case bronze
+        case borked
+
+        /// The tier as the badge labels it.
+        var label: String { rawValue.capitalized }
+
+        /// The state the app's rules read for a build of this tier: only
+        /// Platinum is Verified, and only Borked fails.
+        var state: State {
+            switch self {
+            case .platinum: .verified
+            case .gold, .silver, .bronze: .playable
+            case .borked: .unsupported
+            }
+        }
+
+        /// The tier a wiki or community word earns; `nil` for an unrated one.
+        init?(wiki word: String) {
+            switch word {
+            case "perfect": self = .platinum
+            case "playable": self = .silver
+            case "runs": self = .bronze
+            case "menu", "unplayable": self = .borked
+            default: return nil
+            }
+        }
+
+        /// The tier ProtonDB names; `nil` for `pending` and anything else.
+        init?(proton word: String) {
+            self.init(rawValue: word)
+        }
+    }
+
     let state: State
     let label: String
     let reason: String
+    var tier: Tier? = nil
+
+    init(state: State, label: String, reason: String, tier: Tier? = nil) {
+        self.state = state
+        self.label = label
+        self.reason = reason
+        self.tier = tier
+    }
+
+    /// The badge a tier earns, labeled with its name.
+    init(tier: Tier, reason: String) {
+        self.init(state: tier.state, label: tier.label, reason: reason, tier: tier)
+    }
 }
 
 /// One game's verdict as the library draws it: the Mac badge's state and
@@ -127,6 +183,11 @@ nonisolated struct GameCompatSummary: Codable, Sendable, Equatable {
     /// The Windows verdict comes from Mac evidence: Sevoflurane players' runs or
     /// AppleGamingWiki. A ProtonDB rating is Linux evidence.
     var macEvidence = false
+    /// The Windows verdict's tier, when a build is rated.
+    var tier: GameCompatBadge.Tier? = nil
+    /// The Windows verdict rests on ProtonDB alone: a Linux rating, untested
+    /// on a Mac.
+    var linuxOnly = false
 
     /// Whether the game belongs under the library's Apple filter: its macOS
     /// build runs, or Mac evidence rates its Windows build Verified or Playable.
@@ -211,7 +272,8 @@ nonisolated enum GameCompatVerdict {
     /// The Mac badge for the Windows build the bottle runs. Sevoflurane's own
     /// runs come first, being this engine on real Macs; then a structural
     /// anti-cheat failure; then the wiki's Wine-family columns; then the
-    /// Linux prior, which can only ever say "untested here".
+    /// Linux prior, which keeps ProtonDB's medal but can only ever say
+    /// "untested here", so its state stops at Playable.
     static func mac(
         antiCheat: GameCompatRecord.AntiCheat?,
         wiki: GameCompatRecord.WikiTiers?,
@@ -227,53 +289,47 @@ nonisolated enum GameCompatVerdict {
         }
         if let wiki, let evidence = wikiEvidence(wiki) {
             if evidence.capped {
-                return GameCompatBadge(state: .playable, label: "Playable", reason: evidence.reason + caveat)
+                return GameCompatBadge(tier: .silver, reason: evidence.reason + caveat)
             }
             return badge(tier: evidence.tier, blocker: blocker, reason: evidence.reason, caveat: caveat)
         }
         if let blocker {
             return GameCompatBadge(
-                state: .unsupported, label: "Unsupported",
+                tier: .borked,
                 reason: "\(blocker) has no macOS module. The game will not start here.",
             )
         }
-        if let proton, proton.confidence != "inadequate", proton.tier != "pending" {
-            let source = "ProtonDB rates it \(proton.tier) across \(proton.total.formatted()) reports."
-            switch proton.tier {
-            case "platinum", "gold":
-                return GameCompatBadge(
-                    state: .playable, label: "Playable",
-                    reason: "Untested on a Mac. Runs well under Proton on Linux. \(source)",
-                )
-            case "silver", "bronze":
-                return GameCompatBadge(
-                    state: .playable, label: "Playable",
-                    reason: "Untested on a Mac. Runs with issues under Proton on Linux. \(source)",
-                )
-            case "borked":
-                return GameCompatBadge(
-                    state: .unsupported, label: "Unsupported",
-                    reason: "Untested on a Mac. Broken under Proton on Linux. \(source)",
-                )
-            default:
-                break
+        if let proton, proton.confidence != "inadequate", let tier = GameCompatBadge.Tier(proton: proton.tier) {
+            let source = "ProtonDB rates it \(tier.label) across \(proton.total.formatted()) reports."
+            let how = switch tier {
+            case .platinum, .gold: "Runs well under Proton on Linux."
+            case .silver, .bronze: "Runs with issues under Proton on Linux."
+            case .borked: "Broken under Proton on Linux."
             }
+            // The medal is ProtonDB's; the state is never Verified on Linux evidence alone.
+            return GameCompatBadge(
+                state: tier == .borked ? .unsupported : .playable, label: tier.label,
+                reason: "Untested on a Mac. \(how) \(source)", tier: tier,
+            )
         }
         return GameCompatBadge(state: .unknown, label: "Unknown", reason: "No Mac reports yet.")
     }
 
-    /// The badge one tier earns: a crash is unsupported, perfect is verified
-    /// unless anti-cheat blocks a mode, and anything that runs is playable.
-    /// Real Mac evidence outranks the anti-cheat veto, but never past
-    /// Playable: the game starts, its protected modes do not.
-    private static func badge(tier: String, blocker: String?, reason: String, caveat: String) -> GameCompatBadge {
+    /// The badge one wiki word earns: its tier, except that Platinum needs
+    /// no anti-cheat in the way. Real Mac evidence outranks the anti-cheat
+    /// veto, but never past Silver: the game starts, its protected modes do
+    /// not. A word the wiki leaves unrated reads as Silver with the reason.
+    private static func badge(tier word: String, blocker: String?, reason: String, caveat: String) -> GameCompatBadge {
+        let tier = GameCompatBadge.Tier(wiki: word) ?? .silver
         switch tier {
-        case "unplayable", "menu":
-            GameCompatBadge(state: .unsupported, label: "Unsupported", reason: reason)
-        case "perfect" where blocker == nil:
-            GameCompatBadge(state: .verified, label: "Verified", reason: reason)
+        case .borked:
+            return GameCompatBadge(tier: .borked, reason: reason)
+        case .platinum where blocker == nil:
+            return GameCompatBadge(tier: .platinum, reason: reason)
+        case .platinum:
+            return GameCompatBadge(tier: .silver, reason: reason + caveat)
         default:
-            GameCompatBadge(state: .playable, label: "Playable", reason: reason + caveat)
+            return GameCompatBadge(tier: tier, reason: reason + caveat)
         }
     }
 
@@ -302,14 +358,7 @@ nonisolated enum GameCompatVerdict {
             )
         }
         let reason = "AppleGamingWiki rates the macOS version \(describe(tier))\(how)."
-        return switch tier {
-        case "unplayable", "menu":
-            GameCompatBadge(state: .unsupported, label: "Broken", reason: reason)
-        case "perfect":
-            GameCompatBadge(state: .verified, label: "Perfect", reason: reason)
-        default:
-            GameCompatBadge(state: .playable, label: "Playable", reason: reason)
-        }
+        return GameCompatBadge(tier: GameCompatBadge.Tier(wiki: tier) ?? .silver, reason: reason)
     }
 
     /// The library's verdict, from the same rules as the strip's badges.
@@ -325,15 +374,18 @@ nonisolated enum GameCompatVerdict {
         let native = native(wiki: wiki, hasMacBuild: hasMacBuild, architectures: architectures)
         let communityRated = community.map { rank($0.verdict) != nil } ?? false
         let wikiRated = wiki.map { wikiEvidence($0) != nil } ?? false
+        let mac = mac(antiCheat: antiCheat, wiki: wiki, proton: proton, community: community)
         return GameCompatSummary(
             appID: appID,
-            state: mac(antiCheat: antiCheat, wiki: wiki, proton: proton, community: community).state,
+            state: mac.state,
             native: native?.state == .verified || native?.state == .playable,
             macRunnable: native.map { badge in
                 badge.state == .verified || badge.state == .playable
                     || (badge.state == .unknown && (architectures?.intel64 == true || architectures?.arm == true))
             } ?? false,
             macEvidence: communityRated || wikiRated,
+            tier: mac.tier,
+            linuxOnly: mac.state != .unknown && !communityRated && !wikiRated && antiCheatBlocker(antiCheat) == nil,
         )
     }
 
