@@ -4,7 +4,7 @@ Sevoflurane brings a Proton-like experience to Mac, running Windows and macOS ga
 
 <a href="https://kagerou.glass/get/sevoflurane?from=readme"><img src=".github/download.svg" alt="Download Sevoflurane for Mac" width="360" height="80"></a>
 
-![Steam's library in a Mac window, filtered to the games that play on this Mac; a game's version menu choosing its macOS version, Steam downloading it and Play opening it as its own app; Horizon Zero Dawn, a DirectX 12 Windows game, in a Mac window; a visual novel resized](.github/sevoflurane-film.avif)
+![Steam's library in a Mac window, filtered to the games that play on this Mac; a game's version menu offering its macOS and Windows versions; the macOS version open as its own app with its own Dock icon; Horizon Zero Dawn, a DirectX 12 Windows game, in a Mac window; a visual novel resized](.github/sevoflurane-film.avif)
 
 ## Highlights
 
@@ -39,7 +39,6 @@ Sevoflurane brings a Proton-like experience to Mac, running Windows and macOS ga
 
 ## Notes
 
-- Apple silicon · macOS 26+ · Rosetta. Setup offers Dormison or CrossOver; DirectX 12 requires D3DMetal.
 - [Game compatibility](https://kagerou.glass/sevoflurane/games/) · [Renderer choices and limits](REFERENCE.md#renderers).
 - **Settings → About → Save Diagnostics…** collects a report. [CLI/MCP reference](REFERENCE.md#command-line) · [Contributing](CONTRIBUTING.md).
 - [English](README.md) · [简体中文](README.zh-CN.md).

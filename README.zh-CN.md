@@ -4,7 +4,7 @@ Sevoflurane 为 Mac 带来类似 Proton 的体验，在同一个 Steam 界面中
 
 <a href="https://kagerou.glass/get/sevoflurane?from=readme"><img src=".github/download.zh-CN.svg" alt="下载 Mac 版 Sevoflurane" width="360" height="80"></a>
 
-![Mac 窗口里的 Steam 游戏库，筛选出能在这台 Mac 上玩的游戏；在游戏的版本菜单里选择 macOS 版，Steam 下载后点开始，它作为独立应用打开；DirectX 12 的 Windows 游戏《地平线 零之曙光》在 Mac 窗口里运行；视觉小说调整窗口大小](.github/sevoflurane-film.zh-CN.avif)
+![Mac 窗口里的 Steam 游戏库，筛选出能在这台 Mac 上玩的游戏；游戏的版本菜单列出 macOS 版和 Windows 版；macOS 版作为独立应用打开，有自己的程序坞图标；DirectX 12 的 Windows 游戏《地平线 零之曙光》在 Mac 窗口里运行；视觉小说调整窗口大小](.github/sevoflurane-film.zh-CN.avif)
 
 ## 特色
 
@@ -39,7 +39,6 @@ Sevoflurane 为 Mac 带来类似 Proton 的体验，在同一个 Steam 界面中
 
 ## 其他信息
 
-- Apple 芯片 · macOS 26+ · Rosetta。设置向导提供 Dormison 或 CrossOver；DirectX 12 需要 D3DMetal。
 - [游戏兼容性](https://kagerou.glass/sevoflurane/games/?lang=zh-CN) · [渲染器、限制及命令行参考](REFERENCE.zh-CN.md)。
 - **设置 → 关于 → 保存诊断…**收集报告。[贡献指南](CONTRIBUTING.md)。
 - [English](README.md) · [简体中文](README.zh-CN.md)。
