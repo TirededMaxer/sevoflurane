@@ -489,12 +489,22 @@ final class SteamWindow: NSObject {
     /// screen until something the user did asks for it.
     private(set) var heldForNotification = false
 
+    /// Steam mirrors an overlay chat into its desktop UI instance too. Both
+    /// popups are real windows here; only the game's instance belongs on
+    /// screen while the overlay is active. The desktop copy stays owned by
+    /// overlayChildren so dismissal tears it down with the visible copy.
+    private var isDesktopChatMirrorInOverlay: Bool {
+        role == .chat && host?.isOverlayActive == true
+            && SteamWindowRole.instanceUID(ofPopupNamed: name) == 0
+    }
+
     func show(activating: Bool) {
         realize()
         // The game overlay's visibility is the client's to decide, through
         // `setOverlayActive`; the `ShowWindow`/`BringToFront` Steam sends at
         // creation must not put it on screen over the game.
         guard role != .gameOverlay else { return }
+        guard !isDesktopChatMirrorInOverlay else { return }
         host?.noteWindowWillShow(self)
         // A popup opened while the overlay is up rides above it (a
         // non-activating panel levelled in `realize`) and is ordered in
@@ -633,6 +643,9 @@ final class SteamWindow: NSObject {
     func setOrderedIn(_ orderedIn: Bool) {
         guard let window else { return }
         if orderedIn {
+            // Returning from another app must not reveal a hidden desktop
+            // chat twin through the overlay group's separate ordering path.
+            guard !isDesktopChatMirrorInOverlay else { return }
             window.orderFrontRegardless()
         } else {
             window.orderOut(nil)

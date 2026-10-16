@@ -63,6 +63,53 @@ struct OverlayPopupChromeTests {
         #expect(window.dragCount == 0)
     }
 
+    @Test
+    func `desktop chat twin stays hidden through show and overlay reordering`() {
+        let host = SteamWebHost()
+        host.overlayActive = true
+        let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
+        let window = OrderWindow()
+        owner.window = window
+
+        owner.show(activating: false)
+        owner.setOrderedIn(true)
+        #expect(window.orderCount == 0)
+        owner.setOrderedIn(false)
+        #expect(window.hideCount == 1)
+    }
+
+    @Test
+    func `game chat instance still shows and follows overlay presence`() {
+        let host = SteamWebHost()
+        host.overlayActive = true
+        let owner = chat(named: "chat_ChatWindow_5_uid1320", host: host)
+        let window = OrderWindow()
+        owner.window = window
+
+        owner.show(activating: false)
+        owner.setOrderedIn(true)
+        #expect(window.orderCount == 2)
+    }
+
+    @Test
+    func `desktop chat works normally when the overlay is closed`() {
+        let host = SteamWebHost()
+        host.chatPolicy.noteChatRequest(at: .now)
+        let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
+        let window = OrderWindow()
+        owner.window = window
+
+        owner.show(activating: false)
+        #expect(window.orderCount == 1)
+    }
+
+    private func chat(named name: String, host: SteamWebHost) -> SteamWindow {
+        SteamWindow(
+            webView: WKWebView(), role: .chat, name: name,
+            size: CGSize(width: 400, height: 300), origin: nil, host: host,
+        )
+    }
+
     private func popup(role: SteamWindowRole) -> SteamWindow {
         SteamWindow(
             webView: WKWebView(), role: role, name: "drag-test",
@@ -93,4 +140,22 @@ private final class DragWindow: NSWindow {
     override func performDrag(with _: NSEvent) {
         dragCount += 1
     }
+}
+
+@MainActor
+private final class OrderWindow: NSWindow {
+    var orderCount = 0
+    var hideCount = 0
+
+    init() {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.borderless], backing: .buffered, defer: false,
+        )
+        isReleasedWhenClosed = false
+    }
+
+    override func orderFrontRegardless() { orderCount += 1 }
+    override func orderFront(_: Any?) { orderCount += 1 }
+    override func orderOut(_: Any?) { hideCount += 1 }
 }
