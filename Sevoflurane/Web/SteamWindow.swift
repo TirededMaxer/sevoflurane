@@ -151,7 +151,10 @@ final class SteamWindow: NSObject {
             // a non-activating panel, so it does not pull focus off the game.
             // `realize` levels it above the overlay, and `show` orders it in
             // without activating the app.
-            return SteamPanel(contentRect: content)
+            // Popup chrome hides Steam's window controls in favor of native
+            // ones. Keep those controls (and their drag strip) on overlay
+            // popups too, while preserving non-activating panel behavior.
+            return SteamPanel(contentRect: content, hasTitleBar: role.hasPopupChrome)
         }
         return switch role {
         case .menu, .keyboard, .dialog:

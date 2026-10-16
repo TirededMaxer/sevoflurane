@@ -7,10 +7,12 @@ import WebKit
 /// happens if it could hold focus in the first place — a plain borderless
 /// `NSWindow` never becomes key, so every menu would stay on screen forever.
 final class SteamPanel: NSPanel {
-    init(contentRect: NSRect) {
+    init(contentRect: NSRect, hasTitleBar: Bool = false) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: hasTitleBar
+                ? [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
+                : [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false,
         )
@@ -125,5 +127,20 @@ final class SteamContentView: NSView {
 
     override var mouseDownCanMoveWindow: Bool {
         true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // The hit test sends only the page's drag strip here. Explicitly
+        // begin an AppKit drag: a borderless, non-activating panel has no
+        // title-bar tracking to start one on our behalf.
+        guard let owner, owner.role != .gameOverlay,
+              owner.isDragRegion(
+                  contentPoint: convert(event.locationInWindow, from: nil),
+                  contentHeight: bounds.height,
+              ) else {
+            super.mouseDown(with: event)
+            return
+        }
+        window?.performDrag(with: event)
     }
 }
