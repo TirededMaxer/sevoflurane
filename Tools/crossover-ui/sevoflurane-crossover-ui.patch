@@ -1,0 +1,183 @@
+--- a/dlls/winemac.drv/cocoa_app.h
++++ b/dlls/winemac.drv/cocoa_app.h
+@@ -21,6 +21,9 @@
+ #import <AppKit/AppKit.h>
+ 
+ #include "macdrv_cocoa.h"
++
++extern bool sevo_ui_suppressed(void);
++extern void sevo_ui_record(NSString *kind, NSWindow *window);
+ 
+ #define ERR(...) do { if (macdrv_err_on) LogError(__func__, __VA_ARGS__); } while (false)
+ 
+--- a/dlls/winemac.drv/cocoa_app.m
++++ b/dlls/winemac.drv/cocoa_app.m
+@@ -61,6 +61,29 @@
+ static NSString* const WineExternalQuitNotificationWineConfigDirKey = @"WineConfigDir";
+ static NSString* const WineExternalQuitNotificationWinePrefixKey = @"WinePrefix";
+ 
++#include "sevo_ui_policy.h"
++
++bool sevo_ui_suppressed(void)
++{
++    return sevo_ui_policy();
++}
++
++void sevo_ui_record(NSString *kind, NSWindow *window)
++{
++    NSString *home = NSHomeDirectory();
++    NSString *path = [home stringByAppendingPathComponent:@"Library/Logs/Sevoflurane-windows.log"];
++    FILE *record = fopen([path fileSystemRepresentation], "a");
++    if (record)
++    {
++        NSString *title = window ? [window title] : @"";
++        NSSize size = window ? [window frame].size : NSZeroSize;
++        fprintf(record, "%s suppressed pid=%d exe=%s kind=%s title=%s size=%.0fx%.0f\n",
++                [[[NSDate date] description] UTF8String], getpid(), sevo_ui_executable(),
++                [kind UTF8String], [title UTF8String], size.width, size.height);
++        fclose(record);
++    }
++}
++
+ bool macdrv_err_on;
+ 
+ /* Sevoflurane owns Steam's visible interface. Keep only its bottled client
+@@ -305,7 +328,7 @@
+         {
+             CFRunLoopSourceContext context = { 0 };
+ 
+-            if (cx_hide_steam_dock())
++            if (cx_hide_steam_dock() || sevo_ui_suppressed())
+             {
+                 if ([NSApp activationPolicy] == NSApplicationActivationPolicyRegular)
+                     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+@@ -437,11 +460,11 @@
+ 
+     - (void) transformProcessToForeground:(BOOL)activateIfTransformed
+     {
+-        if (cx_hide_steam_dock())
++        if (cx_hide_steam_dock() || sevo_ui_suppressed())
+         {
+             if ([NSApp activationPolicy] == NSApplicationActivationPolicyRegular)
+                 [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+-            if (activateIfTransformed)
++            if (activateIfTransformed && !sevo_ui_suppressed())
+                 [self tryToActivateIgnoringOtherApps:YES];
+             return;
+         }
+@@ -2378,6 +2401,7 @@
+         NSString *configDir, *prefix;
+         NSDictionary *userInfo;
+ 
++        if (sevo_ui_suppressed()) return;
+         if ([NSApp isActive]) return;  /* Nothing to do. */
+ 
+         if (!ignore ||
+--- a/dlls/winemac.drv/cocoa_window.m
++++ b/dlls/winemac.drv/cocoa_window.m
+@@ -1000,6 +1000,36 @@
+ 
+ 
+ @implementation WineWindow
++
++    - (void) orderWindow:(NSWindowOrderingMode)place relativeTo:(NSInteger)other
++    {
++        if (place != NSWindowOut && sevo_ui_suppressed())
++        {
++            sevo_ui_record(@"orderWindow", self);
++            return;
++        }
++        [super orderWindow:place relativeTo:other];
++    }
++
++    - (void) orderFront:(id)sender
++    {
++        if (sevo_ui_suppressed())
++        {
++            sevo_ui_record(@"orderFront", self);
++            return;
++        }
++        [super orderFront:sender];
++    }
++
++    - (void) orderFrontRegardless
++    {
++        if (sevo_ui_suppressed())
++        {
++            sevo_ui_record(@"orderFrontRegardless", self);
++            return;
++        }
++        [super orderFrontRegardless];
++    }
+ 
+     static WineWindow* causing_becomeKeyWindow;
+ 
+@@ -1732,6 +1762,11 @@
+        its frame intersects any screen. */
+     - (void) orderBelow:(WineWindow*)prev orAbove:(WineWindow*)next activate:(BOOL)activate
+     {
++        if (sevo_ui_suppressed())
++        {
++            sevo_ui_record(@"show", self);
++            return;
++        }
+         WineApplicationController* controller = [WineApplicationController sharedController];
+         if (![self isMiniaturized])
+         {
+--- a/dlls/winemac.drv/cocoa_status_item.m
++++ b/dlls/winemac.drv/cocoa_status_item.m
+@@ -53,7 +53,10 @@
+         self = [super initWithFrame:NSMakeRect(0, 0, thickness, thickness)];
+         if (self)
+         {
+-            item = [[statusBar statusItemWithLength:NSSquareStatusItemLength] retain];
++            if (sevo_ui_suppressed())
++                sevo_ui_record(@"tray", nil);
++            else
++                item = [[statusBar statusItemWithLength:NSSquareStatusItemLength] retain];
+             // This is a retain cycle which is broken in -removeFromStatusBar.
+             [item setView:self];
+ 
+--- /dev/null
++++ b/dlls/winemac.drv/sevo_ui_policy.h
+@@ -0,0 +1,40 @@
++/* Sevoflurane's CrossOver compatibility path. This is evaluated after
++ * Wine has assigned the Windows executable name. No owner means normal Wine. */
++#include <crt_externs.h>
++#include <stdlib.h>
++#include <string.h>
++#include <strings.h>
++
++static const char *sevo_ui_executable(void)
++{
++    char **arguments = *_NSGetArgv();
++    const char *name, *at;
++    if (!arguments || !arguments[0]) return "?";
++    name = arguments[0];
++    for (at = name; *at; ++at)
++        if (*at == '/' || *at == '\\') name = at + 1;
++    return name;
++}
++
++static int sevo_ui_policy(void)
++{
++    const char *owner = getenv("SEVO_OWNER_PID");
++    const char *enabled = getenv("CX_HIDE_STEAM_DOCK");
++    const char *name = sevo_ui_executable();
++    static const char *quiet[] = {
++        "steam.exe", "steamwebhelper.exe", "steamservice.exe",
++        "steamerrorreporter.exe", "steamerrorreporter64.exe", "explorer.exe",
++        "gldriverquery.exe", "gldriverquery64.exe",
++        "vulkandriverquery.exe", "vulkandriverquery64.exe",
++        "steamxboxutil.exe", "steamxboxutil64.exe",
++        "fossilize-replay.exe", "fossilize-replay64.exe",
++        "x64launcher.exe", "x86launcher.exe", "WriteMiniDump.exe",
++        "steam_monitor.exe", "secure_desktop_capture.exe", "drivers.exe",
++        "hardwareupdater.exe", "steamsysinfo.exe", "wineboot.exe"
++    };
++    unsigned i;
++    if (!owner || !*owner || !enabled || strcmp(enabled, "1")) return 0;
++    for (i = 0; i < sizeof(quiet) / sizeof(quiet[0]); ++i)
++        if (!strcasecmp(name, quiet[i])) return 1;
++    return 0;
++}
