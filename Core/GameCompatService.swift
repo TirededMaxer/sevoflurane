@@ -222,7 +222,7 @@ actor GameCompatService {
                 missing.append(id)
             }
         }
-        for request in GameCompatBatch.communityRequests(base: StatsUploader.baseURL, appIDs: missing) {
+        for request in GameCompatBatch.communityRequests(base: CommunityDatabase.baseURL, appIDs: missing) {
             var bodies: [Int: Data]?
             if let (data, response) = try? await session.data(from: request.url),
                (response as? HTTPURLResponse)?.statusCode == 200 {
@@ -300,7 +300,7 @@ actor GameCompatService {
     private func loadCommunity(appID: Int) async -> GameCompatRecord.Community? {
         guard let data = await cachedOrFetched(
             file: "community/\(appID).json",
-            from: StatsUploader.baseURL.appendingPathComponent("games/\(appID)"),
+            from: CommunityDatabase.baseURL.appendingPathComponent("games/\(appID)"),
             maxAge: Self.communityMaxAge,
             acceptingMissesAs: Data("{}".utf8),
         ) else { return nil }

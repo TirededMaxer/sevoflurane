@@ -58,6 +58,7 @@ final class SteamWindow: NSObject {
     /// with the origin at the top-left of the content. Steam marks them with
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
+    private var titleStripMonitor: Any?
 
     weak var host: SteamWebHost?
 
@@ -125,7 +126,15 @@ final class SteamWindow: NSObject {
         if let maximumSize { window.contentMaxSize = maximumSize }
         place(window)
         self.window = window
-        if role != .gameOverlay, let childLevel = host?.overlayChildLevel {
+        if role == .desktop {
+            titleStripMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                let handled = MainActor.assumeIsolated {
+                    self?.handleTitleStripMouseDown(event) == true
+                }
+                return handled ? nil : event
+            }
+        }
+        if role != .gameOverlay, role != .toast, let childLevel = host?.overlayChildLevel {
             // Opened while the overlay is up — ride just above it rather than
             // at the normal level, where the overlay and game would hide it.
             // A `SteamPanel` hides itself when its app deactivates, and this
@@ -140,13 +149,13 @@ final class SteamWindow: NSObject {
             // when the client says it is active (`setOverlayActive`).
             window.orderFront(nil)
         } else if role == .toast {
-            park(window)
+            placeToast(window)
         }
     }
 
     /// The bare `NSWindow` for this popup's role, before any dressing.
     private func makeWindow(content: NSRect) -> NSWindow {
-        if role != .gameOverlay, host?.isOverlayActive == true {
+        if role != .gameOverlay, role != .toast, host?.isOverlayActive == true {
             // A popup opened while the overlay is up (its Settings, a dialog):
             // a non-activating panel, so it does not pull focus off the game.
             // `realize` levels it above the overlay, and `show` orders it in
@@ -160,17 +169,7 @@ final class SteamWindow: NSObject {
         case .menu, .keyboard, .dialog:
             SteamPanel(contentRect: content)
         case .toast:
-            // Borderless and never ordered in. It exists because WebKit only
-            // schedules a web view that lives in a window, and the toast's
-            // page has to run: it renders, starts its dismissal timer, and
-            // drains Steam's toast queue. The Mac side of the notification is
-            // posted from `SteamNotifications`.
-            NSWindow(
-                contentRect: content,
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false,
-            )
+            SteamToastPanel(contentRect: content, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         case .gameOverlay:
             // A non-activating panel: clicking the overlay must not promote
             // this app to frontmost, because that drops the game out of focus
@@ -261,7 +260,7 @@ final class SteamWindow: NSObject {
             // because on Windows these are physical pixels. AppKit points are
             // already the page's own units, so it is dropped.
             // A dialog's place is the app's: Steam would put it bottom-left.
-            if !isParked, role != .gameOverlay, role != .dialog,
+            if !ownsScreenPlacement, role != .gameOverlay, role != .dialog,
                let point = geometry(args, at: 0 ..< 2, from: function) {
                 moveTo(x: Self.clampedOffset(point[0]), y: Self.clampedOffset(point[1]))
             }
@@ -273,7 +272,7 @@ final class SteamWindow: NSObject {
                 resizeTo(width: size.width, height: size.height)
             }
         case "PositionWindowRelative":
-            if !isParked, role != .gameOverlay, let frame = geometry(args, at: 1 ..< 5, from: function) {
+            if !ownsScreenPlacement, role != .gameOverlay, let frame = geometry(args, at: 1 ..< 5, from: function) {
                 let size = Self.clampedSize(width: frame[2], height: frame[3])
                 positionRelative(
                     toWindowNamed: string(args, 0),
@@ -513,12 +512,14 @@ final class SteamWindow: NSObject {
             window?.orderFrontRegardless()
             return
         }
-        // Steam asks for its toast to be shown the moment the page renders
-        // one. Refusing here is the whole of the suppression: the popup still
-        // exists and still runs, so Steam's own queue drains on schedule and
-        // nothing downstream can tell it was never on screen.
+        // The context page renders in the background; user-facing pages show below.
         guard role.isShowable else { return }
         guard let window else { return }
+        if role == .toast {
+            placeToast(window)
+            window.orderFrontRegardless()
+            return
+        }
         if role == .login, host?.defersLoginWindow == true {
             showWasDeferredByHold = true
             return
@@ -838,6 +839,10 @@ final class SteamWindow: NSObject {
     /// Drops the window and the page without asking the page to close itself.
     /// Used when WebKit has already closed the browsing context.
     func detach(reason: DetachReason) {
+        if let titleStripMonitor {
+            NSEvent.removeMonitor(titleStripMonitor)
+            self.titleStripMonitor = nil
+        }
         isClosed = true
         for view in browserViews.values {
             view.destroy()
@@ -858,6 +863,23 @@ final class SteamWindow: NSObject {
     /// these on its own window, exactly as CEF posts them.
     private func notifyPage(_ message: String) {
         webView.evaluateJavaScript("window.postMessage('\(message)', '*')")
+    }
+
+    /// The unified toolbar can consume a title-strip click before content-view
+    /// hit-testing. Route only the desktop’s declared blank strip before that.
+    func handleTitleStripMouseDown(_ event: NSEvent) -> Bool {
+        guard role == .desktop, let window, event.window === window,
+              let content = window.contentView,
+              isDragRegion(contentPoint: content.convert(event.locationInWindow, from: nil), contentHeight: content.bounds.height)
+        else { return false }
+        if event.clickCount == 2 {
+            EventLog.shared.log(.window, "desktop title strip: maximize")
+            window.zoom(nil)
+        } else {
+            EventLog.shared.log(.window, "desktop title strip: drag")
+            window.performDrag(with: event)
+        }
+        return true
     }
 
     /// Whether a point in the window's content view sits in a region the page
@@ -978,5 +1000,11 @@ extension SteamWindow: NSWindowDelegate {
 
     func windowDidMove(_: Notification) {
         notifyPage("window_moved")
+    }
+}
+
+extension SteamWindow {
+    func windowWillUseStandardFrame(_ window: NSWindow, defaultFrame: NSRect) -> NSRect {
+        window.screen?.visibleFrame ?? defaultFrame
     }
 }

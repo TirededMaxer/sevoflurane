@@ -43,7 +43,7 @@ struct SetupWelcomeStep: View {
             icon: "display",
             title: "Steam, always Retina",
             caption: "Steam\u{2019}s interface runs in native WKWebViews at the screen\u{2019}s real scale, "
-                + "with its menus in the menu bar and Mac notifications.",
+                + "with its menus in the menu bar and Steam corner notifications.",
         ),
         SetupHighlight(
             icon: "folder",
@@ -425,27 +425,6 @@ struct SetupDoneStep: View {
             Text("Your library is in the menu bar under \(icon). Steam is starting; the first launch can take a minute.")
         case let .helperDown(reason):
             Text(reason)
-        }
-    }
-}
-
-struct SetupSharingStep: View {
-    var body: some View {
-        SetupPage(
-            glyph: "chart.bar.xaxis",
-            title: "Help other Mac players",
-            subtitle: "Share how each game ran, so everyone can see what plays well on which Mac.",
-        ) {
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text(
-                    "After a game closes, Sevoflurane sends its frame rate, resolution, engine and settings, "
-                        + "with your Mac\u{2019}s model and chip. Nothing names you, your Mac or your account.",
-                )
-                .fixedSize(horizontal: false, vertical: true)
-                Text("You can stop, or delete what you shared, in Settings \u{203A} General.")
-                    .foregroundStyle(.secondary)
-                SharedRunPreview()
-            }
         }
     }
 }

@@ -65,7 +65,6 @@ final class SteamSessionWatch {
     private(set) var holder: SessionReconnect.Holder?
 
     @ObservationIgnored private let bridge: SteamBridge
-    @ObservationIgnored weak var notifications: SteamNotifications?
     /// When a game was last handed to Steam for Mac.
     @ObservationIgnored private var handedOffAt: Date?
     /// The loss this watch already reconnected for, so a reconnect that did
@@ -90,7 +89,6 @@ final class SteamSessionWatch {
         guard let reported else {
             holder = nil
             stopWatchingSteamForMac()
-            notifications?.withdrawSignedInElsewhere()
             return
         }
         let signIn = SteamConnectionLog.latestSignIn(
@@ -99,7 +97,6 @@ final class SteamSessionWatch {
         )
         let holder = SessionReconnect.holder(of: reported, steamForMacSignIn: signIn, handedOffAt: handedOffAt)
         self.holder = holder
-        notifications?.postSignedInElsewhere(bySteamForMac: holder == .steamForMac)
         act()
     }
 

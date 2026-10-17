@@ -127,7 +127,7 @@ struct AboutView: View {
 
     private var links: some View {
         HStack(spacing: 4) {
-            Link(destination: URL(string: "https://github.com/kageroumado/sevoflurane")!) {
+            Link(destination: URL(string: "https://github.com/TirededMaxer/sevoflurane")!) {
                 Label("GitHub", systemImage: "link")
             }
             Text("·").foregroundStyle(.secondary)
@@ -176,7 +176,7 @@ enum Acknowledgements {
     static let components = [
         "wine", "liberation-fonts", "dxvk", "dxmt", "moltenvk", "d3dmetal", "nwjs",
         "anime4k", "cunny",
-        "propofol", "tiptoe", "appupdater", "version", "swift-argument-parser", "zstd", "hdiffpatch",
+        "propofol", "swift-argument-parser", "zstd", "hdiffpatch",
         "areweanticheatyet", "applegamingwiki", "protondb",
         "apache-2.0",
     ]

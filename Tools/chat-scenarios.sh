@@ -178,69 +178,17 @@ else
     pass "the chat does not read as active (visibility state $UNREAD)"
 fi
 
-# -------------------------------------- 4. a message notification reaches macOS
+# ---------------------------------- 4. the chat-open control path
 
-# The payload the context page's NotificationStore subscription posts, pushed
-# straight into the handler: everything downstream of Steam's store runs —
-# decode, presentation, the macOS post, and the client's toast-twin sweep.
-ID="sevo-scenario-$RANDOM"
-BEFORE=$(log_lines)
-ANSWER=$(page "(function () {
-  window.webkit.messageHandlers.sevoWindow.postMessage({
-    fn: '__steamNotification',
-    args: [JSON.stringify({
-      kind: 8, source: 1, id: '$ID',
-      title: 'Chat scenarios', body: 'a message that nobody sent',
-      icon: '', steamid: '', accountid: '$ACCOUNT', appid: '', gameName: ''
-    })]
-  });
-  return 'posted';
-})()")
-sleep 2
-COMPLAINT=$(log_since "$BEFORE" | grep "$ID")
-if [[ $ANSWER != posted ]]; then
-    fail "a message notification reaches macOS" "the page answered '$ANSWER'"
-elif [[ -z $COMPLAINT ]]; then
-    pass "a message notification reaches macOS"
-    note "no drop, no hold, no post failure logged for $ID — look for the banner"
-else
-    fail "a message notification reaches macOS" "$COMPLAINT"
-fi
-
-# ------------------------------- 5. a friend starting a game is still presented
-
-ID="sevo-scenario-$RANDOM"
-BEFORE=$(log_lines)
-page "(function () {
-  window.webkit.messageHandlers.sevoWindow.postMessage({
-    fn: '__steamNotification',
-    args: [JSON.stringify({
-      kind: 3, source: 1, id: '$ID',
-      title: 'Chat scenarios', body: '', icon: '', steamid: '',
-      accountid: '$ACCOUNT', appid: '', gameName: 'a game nobody owns'
-    })]
-  });
-  return 'posted';
-})()" > /dev/null
-sleep 2
-COMPLAINT=$(log_since "$BEFORE" | grep "$ID")
-if [[ -z $COMPLAINT ]]; then
-    pass "a friend starting a game is still presented"
-else
-    fail "a friend starting a game is still presented" "$COMPLAINT"
-fi
-
-# ---------------------------------- 6. a notification click opens the chat
-
-# `/chat/open` is the call `SteamNotifications.handleClick` makes, so this is
-# the click path with the banner taken out of it.
+# Steam’s original corner toasts render and handle clicks in their own pages.
+# This scenario checks the existing control path independently of a toast.
 BEFORE=$(log_lines)
 control -X POST "$CONTROL/chat/open?accountid=$ACCOUNT" > /dev/null
 sleep 3
 if [[ $(visible_chat_count) -ge 1 ]]; then
-    pass "a notification click opens the chat and shows it"
+    pass "the chat-open control path opens the chat and shows it"
 else
-    fail "a notification click opens the chat and shows it" \
+    fail "the chat-open control path opens the chat and shows it" \
          "$(log_since "$BEFORE" | grep -i chat | tail -5)"
 fi
 

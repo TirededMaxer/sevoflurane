@@ -176,14 +176,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
                     ],
                 ),
                 SearchableSetting(
-                    id: .generalShareRuns,
-                    title: "Share run statistics",
-                    keywords: [
-                        "community", "database", "share", "statistics", "stats", "frame rate", "fps",
-                        "privacy", "telemetry", "delete", "upload",
-                    ],
-                ),
-                SearchableSetting(
                     id: .generalDiscordBridge,
                     title: "Discord presence in games",
                     keywords: ["discord", "presence", "rich presence", "status", "bridge", "rpc"],
@@ -555,7 +547,6 @@ enum SettingsAnchor: String, CaseIterable {
     case generalCompatStrip = "general.compatStrip"
     case generalCustomStyle = "general.customStyle"
     case generalStreamerMode = "general.streamerMode"
-    case generalShareRuns = "general.shareRuns"
     case generalDiscordBridge = "general.discordBridge"
     case generalDiscordPresence = "general.discordPresence"
     case generalAgents = "general.agents"

@@ -59,17 +59,9 @@ struct ReportWindowTests {
         let url = try #require(ReportStore.issueURL(for: record))
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         #expect(components.host == "github.com")
-        #expect(components.path == "/kageroumado/sevoflurane/issues/new")
+        #expect(components.path == "/TirededMaxer/sevoflurane/issues/new")
 
-        let items = try #require(components.queryItems)
-        let title = try #require(items.first { $0.name == "title" }?.value)
-        #expect(title == ReportStore.title(for: record))
-        let body = try #require(items.first { $0.name == "body" }?.value)
-        #expect(body.contains("dormison-r2"))
-        #expect(body.contains("exception 0xc0000005 in opengl32.dll at 0xd7691"))
-        #expect(body.contains("stall at 120.0 s for 3.2 s — sigcont"))
-        #expect(body.contains("renderer: Not supported feature: X ×3"))
-        #expect(body.contains(ReportStore.contentsSentence))
+        #expect(components.queryItems == nil)
     }
 
     @Test

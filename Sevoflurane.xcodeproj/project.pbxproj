@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		0B487987304107D0001CB276 /* Propofol in Frameworks */ = {isa = PBXBuildFile; productRef = 7B0000000000000000000002 /* Propofol */; };
-		7C0000000000000000000003 /* Digoxin in Frameworks */ = {isa = PBXBuildFile; productRef = 7C0000000000000000000002 /* Digoxin */; };
-		0B487988304107D0001CB276 /* TiptoeGitHub in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000002 /* TiptoeGitHub */; };
 		0BAA000000000000000D0002 /* SevofluraneDaemon in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0BAA000000000000000D0001 /* SevofluraneDaemon */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0BAA000000000000000E000C /* SevofluraneThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0BAA000000000000000E0001 /* SevofluraneThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0BAA000000000000000F0001 /* sevo in Embed sevo */ = {isa = PBXBuildFile; fileRef = 0BAA000000000000000F0002 /* sevo */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -171,9 +169,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				0BAA00000000000000100005 /* SophonCodecs in Frameworks */,
-				0B487988304107D0001CB276 /* TiptoeGitHub in Frameworks */,
 				0B487987304107D0001CB276 /* Propofol in Frameworks */,
-				7C0000000000000000000003 /* Digoxin in Frameworks */,
 			);
 		};
 		0B33EFE430290E6100182A68 /* Frameworks */ = {
@@ -262,8 +258,6 @@
 			packageProductDependencies = (
 				0BAA00000000000000100002 /* SophonCodecs */,
 				7B0000000000000000000002 /* Propofol */,
-				7A0000000000000000000002 /* TiptoeGitHub */,
-				7C0000000000000000000002 /* Digoxin */,
 			);
 			productName = Sevoflurane;
 			productReference = 0B33EFDA30290E5E00182A68 /* Sevoflurane.app */;
@@ -387,10 +381,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */,
-				7A0000000000000000000001 /* XCRemoteSwiftPackageReference "Tiptoe" */,
 				7B0000000000000000000001 /* XCRemoteSwiftPackageReference "propofol" */,
 				0BAA000000000000000F000E /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
-				7C0000000000000000000001 /* XCRemoteSwiftPackageReference "digoxin" */,
 			);
 			preferredProjectObjectVersion = 100;
 			productRefGroup = 0B33EFDB30290E5E00182A68 /* Products */;
@@ -669,7 +661,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -687,7 +679,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LM_SKIP_METADATA_EXTRACTION = YES;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -707,7 +699,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -724,7 +716,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LM_SKIP_METADATA_EXTRACTION = YES;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -741,13 +733,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
 				LM_SKIP_METADATA_EXTRACTION = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -763,13 +755,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
 				LM_SKIP_METADATA_EXTRACTION = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -821,7 +813,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -835,7 +827,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.debug.thumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -851,7 +843,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -865,7 +857,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = "1.7.0-fork.1";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.thumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -975,31 +967,12 @@
 				minimumVersion = 1.5.0;
 			};
 		};
-		7A0000000000000000000001 /* XCRemoteSwiftPackageReference "Tiptoe" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/artginzburg/Tiptoe";
-			requirement = {
-				kind = exactVersion;
-				version = 1.1.0;
-			};
-			traits = (
-				GitHubSupport,
-			);
-		};
 		7B0000000000000000000001 /* XCRemoteSwiftPackageReference "propofol" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kageroumado/propofol.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 0.2.1;
-			};
-		};
-		7C0000000000000000000001 /* XCRemoteSwiftPackageReference "digoxin" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kageroumado/digoxin.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1009,11 +982,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0BAA000000000000000F000E /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
 			productName = ArgumentParser;
-		};
-		7A0000000000000000000002 /* TiptoeGitHub */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7A0000000000000000000001 /* XCRemoteSwiftPackageReference "Tiptoe" */;
-			productName = TiptoeGitHub;
 		};
 		7B0000000000000000000002 /* Propofol */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1034,11 +1002,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */;
 			productName = SophonCodecs;
-		};
-		7C0000000000000000000002 /* Digoxin */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7C0000000000000000000001 /* XCRemoteSwiftPackageReference "digoxin" */;
-			productName = Digoxin;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

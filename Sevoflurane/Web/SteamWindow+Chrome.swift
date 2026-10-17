@@ -62,7 +62,16 @@ extension SteamWindow {
             window.backgroundColor = Self.steamBackground
             window.hasShadow = true
             window.hidesOnDeactivate = false
-        case .context, .toast:
+        case .toast:
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.hasShadow = false
+            window.level = .statusBar
+            window.hidesOnDeactivate = false
+            window.isExcludedFromWindowsMenu = true
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+            webView.underPageBackgroundColor = .clear
+        case .context:
             break
         }
     }

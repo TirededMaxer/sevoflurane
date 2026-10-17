@@ -41,7 +41,6 @@ struct SetupView: View {
         case steam
         case graphics
         case options
-        case sharing
         case done
 
         var title: String {
@@ -52,7 +51,6 @@ struct SetupView: View {
             case .steam: "Installing Steam"
             case .graphics: "DirectX 12 games"
             case .options: "Preferences"
-            case .sharing: "Community"
             case .done: "Ready to play"
             }
         }
@@ -164,8 +162,6 @@ struct SetupView: View {
             SetupGraphicsStep(download: gptk, store: graphicsStore, isSimulated: provisioner.isDryRun)
         case .options:
             SetupOptionsStep(openAtLogin: $openAtLogin, installsCommand: $connectAgents)
-        case .sharing:
-            SetupSharingStep()
         case .done:
             SetupDoneStep(window: steamWindow())
         }
@@ -206,8 +202,6 @@ struct SetupView: View {
                     Task { await provisioner.retry() }
                 }
             }
-        case .sharing:
-            Button("Not Now") { answerSharing(false) }
         case .done where steamWindow().isHelperDown:
             if let onRepairHelper {
                 Button("Repair Background Helper", action: onRepairHelper)
@@ -242,8 +236,6 @@ struct SetupView: View {
             .disabled(gptk.isBusy)
         case .options:
             Button("Continue") { advanceFromOptions() }
-        case .sharing:
-            Button("Share Run Statistics") { answerSharing(true) }
         case .done:
             switch steamWindow() {
             case .signIn:
@@ -404,17 +396,10 @@ struct SetupView: View {
                 }
             }
         }
-        step = Preferences.sharesRunStats == nil ? .sharing : .done
-    }
-
-    /// Asked once: an answer from an earlier setup stands.
-    private func answerSharing(_ shares: Bool) {
-        if !provisioner.isDryRun {
-            Preferences.sharesRunStats = shares
-            EventLog.shared.log(.app, shares ? "run statistics: sharing" : "run statistics: not sharing")
-        }
         step = .done
     }
+
+
 }
 
 /// What the assistant's finish button would put on screen.

@@ -141,6 +141,16 @@ final class SteamContentView: NSView {
             super.mouseDown(with: event)
             return
         }
-        window?.performDrag(with: event)
+        if event.clickCount == 2 {
+            window?.zoom(nil)
+        } else {
+            window?.performDrag(with: event)
+        }
     }
+}
+
+/// Steam toasts remain clickable without taking keyboard focus from a game.
+final class SteamToastPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }

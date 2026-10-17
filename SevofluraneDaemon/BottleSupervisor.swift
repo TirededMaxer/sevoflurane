@@ -737,12 +737,7 @@ final class BottleSupervisor {
                 log.log(.supervisor, opening.note)
                 await app.send(.showLibrary)
             }
-            // Explorer exists to suppress right after the client comes
-            // up; afterwards an occasional sweep catches a respawn
-            // (whether a game launch respawns it is an open watch item).
-            if !gameIsUp, becameHealthy || probeCycleCount.isMultiple(of: 8) {
-                Task(name: "Wine tray suppression") { await Self.suppressWineTray() }
-            }
+            // Window and tray identity are suppressed by the driver; processes remain alive.
         }
     }
 
@@ -969,23 +964,6 @@ final class BottleSupervisor {
             // The library opens by itself once everything is up: sign-in
             // ending in silence reads as a crash.
             showLibraryOnHealthy = .signInFinished
-            let promoted = Self.promotedBottlePIDs()
-            if !promoted.isEmpty {
-                // Showing the login window made winemac.drv promote its
-                // process into the Dock, permanently — a Steam-iconed "wine"
-                // that does nothing when clicked. The only way out is for
-                // the promoted processes to exit; a signed-in client never
-                // shows a window, so the restarted one stays out of the
-                // Dock. (TransformProcessType on another process is procNotFound;
-                // there is no demotion API.)
-                log.log(
-                    .client,
-                    "signed in — restarting the client to shed the Wine Dock icon "
-                        + "(promoted pids \(promoted))",
-                )
-                await restartClient(reason: "finishing sign-in")
-                return
-            }
             log.log(.page, "signed in — reloading the UI so the page boots with a session")
             await app.send(.reload)
             enterBoot(.pageBooting)

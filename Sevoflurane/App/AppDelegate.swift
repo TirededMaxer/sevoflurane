@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let bridge = SteamBridge()
     let provisioner = Provisioner()
     lazy var supervisor = ClientSupervisor(host: host, bridge: bridge)
-    let notifications = SteamNotifications()
+    private let nativeSteamDialogs = NativeSteamDialogs()
     lazy var steamSession = SteamSessionWatch(bridge: bridge)
     let gameLaunchWatch = GameLaunchWatch()
     let runRecorder = RunRecorder()
@@ -95,15 +95,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GameLaunchers.log = { EventLog.enqueue(.client, $0) }
         GameExecutables.log = { EventLog.enqueue(.client, $0) }
         RunRecorder.log = { EventLog.enqueue(.client, $0) }
-        StatsUploader.log = { EventLog.enqueue(.app, "stats: \($0)") }
         FixList.log = { EventLog.enqueue(.app, $0) }
         Diagnostics.faceReport = { await Diagnostics.appFaceReport() }
         CrashPrompt.shared.install()
         RunRecorder.didRecord = { record, wineTail in
             Self.collectReports(record, wineTail: wineTail)
-            StatsUploader.submit(record)
         }
-        Task.detached(name: "Send queued shared runs") { await StatsUploader.shared.flush() }
         Task.detached(name: "Refresh the fix list") { await FixList.refreshIfStale() }
     }
 
@@ -174,17 +171,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             EventLog.shared.log(.window, "opened by hand — Steam's window follows the client up")
             supervisor.showLibraryWhenHealthy()
         }
-        countsUse = true
-        UsageCounting.start()
         startServices()
-    }
-
-    /// Set once a real launch is under way: a test host, the gallery and the
-    /// demo are not someone using the app.
-    private(set) var countsUse = false
-
-    func applicationDidBecomeActive(_: Notification) {
-        if countsUse { UsageCounting.noteUse() }
+        nativeSteamDialogs.start { [weak self] in
+            guard let self else { return false }
+            return self.isRuntimeStarted && !self.supervisor.isQuitting
+                && self.supervisor.health != .paused && !self.supervisor.daemonIsUnreachable
+        }
     }
 
     /// Points the engine manifest at the URL a developer named, from the
@@ -218,17 +210,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before the gallery and dry-run gates return: setting the delegate
         // is what lets a click on a notification that woke the app be
         // delivered at all, and reading the permission raises no prompt.
-        notifications.host = host
-        host.notifications = notifications
-        notifications.start()
-        steamSession.notifications = notifications
         supervisor.session = steamSession
         menuBarPopover = MenuBarPopover(
-            host: host, supervisor: supervisor, notifications: notifications,
+            host: host, supervisor: supervisor,
             setup: setupWindow,
         )
         menuBarPopover?.onOpen = { [weak self] in
-            if self?.countsUse == true { UsageCounting.noteUse() }
+
         }
     }
 
@@ -281,9 +269,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task.detached(name: "Adopt the engines' D3DMetal toolkits") {
             D3DMetalInstaller.adoptInstalledEnginesToolkits()
         }
-        // Setup too: the assistant also opens for an existing Mac whose bottle is missing,
-        // and its own engine stage installs only onto a Mac with no managed engine.
-        Self.installBundledEngineIfNewer()
         Task {
             await provisioner.refreshDetection()
             if let detection = provisioner.detection {
@@ -312,26 +297,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// An app update that carries a newer engine installs it, off the main actor. The newest
-    /// managed engine is the active one unless the user chose another, so it takes over at
-    /// the client's next start.
-    private static func installBundledEngineIfNewer() {
-        Task.detached(name: "Install the engine this app carries") {
-            guard let bundled = EngineInstaller.bundledUpgrade(installed: SetupProbe.managedEngineVersions())
-            else { return }
-            EventLog.enqueue(.setup, "engine: installing \(bundled.lastPathComponent), which this app carries")
-            do {
-                let version = try await EngineInstaller.install(from: bundled, requiringSignature: true)
-                EventLog.enqueue(.setup, "engine: \(version) installed from the app; it runs from the client's next start")
-                if Engine.adoptNewerRelease(version) {
-                    EventLog.enqueue(.setup, "engine: the stored choice named an older release; it names \(version) now")
-                }
-            } catch {
-                EventLog.enqueue(.setup, "engine: the engine this app carries did not install — \(error)")
-            }
-        }
-    }
-
     /// The wizard's finish button. The runtime usually started when
     /// provisioning completed — the client booted behind the wizard, so the
     /// window the button promises already exists: sign-in if Steam is
@@ -345,7 +310,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !host.isAwaitingSignIn {
             host.showSteam()
         }
-        startSilentUpdates()
         openPendingPrograms()
     }
 
@@ -424,18 +388,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // has its app swapped mid-wizard — a preloading runtime defers this
         // to the wizard's finish.
         if !holdingWindows {
-            startSilentUpdates()
-            openPendingPrograms()
+                openPendingPrograms()
         }
-    }
-
-    private func startSilentUpdates() {
-        SilentUpdates.shared.sessionState = { [runRecorder, host, provisioner] in
-            (runRecorder.isRecording, host.activeLaunch != nil, provisioner.isWorking)
-        }
-        SilentUpdates.shared.start(
-            autoInstall: Preferences.app.object(forKey: "autoUpdate") as? Bool ?? true,
-        )
     }
 
     /// The window the assistant's finish button would bring up. Steam's own
@@ -621,7 +575,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if isDuplicate { return .terminateNow }
         guard quitTask == nil else { return .terminateCancel }
         // `.terminateLater` waits for the teardown task below, whose jobs run on the main queue.
-        // A terminate issued from inside a main-queue job (AppUpdater's swap, any `Task` that
+        // A terminate issued from inside a main-queue job (any `Task` that
         // quits) holds that queue for as long as AppKit's nested loop runs, so the teardown never
         // starts and the app sits on "Quitting" forever. Such a quit is reissued from the run
         // loop, where the main queue drains. A quit Apple event (logout, restart, `osascript`)
@@ -737,20 +691,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension AppDelegate: NSMenuItemValidation {
-    @objc
-    func checkForUpdates(_: Any?) {
-        SilentUpdates.shared.checkOrInstallFromMenu()
-    }
-
     /// Checks the Streamer Mode item while the mode is on and titles the update
     /// item. Every item this delegate answers for stays enabled.
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(toggleStreamerMode(_:)) {
             menuItem.state = StreamerMode.isOn ? .on : .off
-        }
-        if menuItem.action == #selector(checkForUpdates(_:)) {
-            SilentUpdates.shared.refresh()
-            menuItem.title = SilentUpdates.shared.menuItemTitle
         }
         return true
     }

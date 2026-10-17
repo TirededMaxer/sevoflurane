@@ -68,7 +68,7 @@ struct CrashPromptTests {
         let (prompt, shown) = Self.prompt()
         #expect(prompt.offer(record))
         #expect(shown.records.count == 1)
-        let model = CrashPromptModel(record: record, upload: ReportUpload(installToken: "t", version: "1+1"))
+        let model = CrashPromptModel(record: record)
         #expect(model.title == "Totally Accurate Battle Simulator quit with an error while starting.")
         // A window shown, but gone again within the first seconds, is still starting.
         record.windowAfterSeconds = 3
@@ -88,7 +88,7 @@ struct CrashPromptTests {
 
     @Test
     func `a crash keeps the crash wording`() {
-        let model = CrashPromptModel(record: Self.record(), upload: ReportUpload(installToken: "t", version: "1+1"))
+        let model = CrashPromptModel(record: Self.record())
         #expect(model.title == "Totally Accurate Battle Simulator stopped unexpectedly.")
     }
 
@@ -124,7 +124,7 @@ struct CrashPromptTests {
     func `the panel names the game and the known failure`() {
         var record = Self.record()
         record.runtime = "unity"
-        let model = CrashPromptModel(record: record, upload: ReportUpload(installToken: "t", version: "1+1"))
+        let model = CrashPromptModel(record: record)
         #expect(model.title == "Totally Accurate Battle Simulator stopped unexpectedly.")
         #expect(model.known?.id == "unity-exit-1-no-window")
         #expect(model.knownSentence?.contains("Player.log") == true)

@@ -30,8 +30,8 @@ nonisolated enum SteamWindowRole {
     case chat
     /// One of Steam's own notification toasts. Steam draws these into a
     /// borderless popup of their own, which under CEF is a Windows toast in
-    /// the corner of the screen; here they are re-posted through
-    /// `UNUserNotificationCenter` and the popup is never shown.
+    /// the corner of the screen. The same Steam content is shown here in
+    /// a non-activating panel anchored to the display’s bottom-right corner.
     case toast
     /// The in-game Steam overlay (Shift+Tab), desktop or Big Picture. Steam
     /// opens it as an off-screen composited browser sized to the whole screen;
@@ -100,8 +100,7 @@ nonisolated enum SteamWindowRole {
     }
 
     /// The kinds the bottled client keeps a second copy of: this app draws
-    /// the desktop, the friends list and chat itself, and answers a toast
-    /// with a real macOS notification. The client's copy of one of these is
+    /// the desktop, friends, chat and corner toasts. The client's copy is
     /// a window nobody should see, and hiding it costs nothing.
     ///
     /// Every other kind is the client's alone — an install or EULA modal, the
@@ -129,7 +128,7 @@ nonisolated enum SteamWindowRole {
     /// own input) but must never promote the app to a regular one or steal
     /// focus on Steam's behalf.
     var isPanel: Bool {
-        self == .menu || self == .keyboard || self == .gameOverlay || self == .dialog
+        self == .menu || self == .keyboard || self == .gameOverlay || self == .dialog || self == .toast
     }
 
     /// Whether the window is one of Steam's ordinary popups — friends, chat,
@@ -149,14 +148,9 @@ nonisolated enum SteamWindowRole {
         }
     }
 
-    /// Whether this window may ever be put on screen.
-    ///
-    /// A toast is the one kind that may not: it exists so Steam's own
-    /// notification pipeline can render, tick its dismissal timer, and drain
-    /// its queue, and it is answered on the Mac side by a real notification
-    /// instead. Its page still runs — parked, like the context page.
+    /// The context page stays hidden; all user-facing Steam windows may show.
     var isShowable: Bool {
-        self != .toast
+        self != .context
     }
 
     /// Whether a frame that lands on no display is a mistake.
@@ -166,7 +160,7 @@ nonisolated enum SteamWindowRole {
     /// bad placement outlives the session. The kinds left out are the ones
     /// Steam deliberately puts nowhere: a context menu is parked far
     /// off-screen between uses and re-placed against its parent on every
-    /// show, a toast is never shown at all, the keyboard is a panel Steam
+    /// show, a toast is anchored by this app, the keyboard is a panel Steam
     /// positions itself, and the overlay is placed over the game.
     var needsAReachableFrame: Bool {
         switch self {
@@ -183,7 +177,7 @@ nonisolated enum SteamWindowRole {
     /// covered: an obscured library should no more animate here than Steam's
     /// own client animates one on Windows. Off for the kinds whose pages
     /// would otherwise never run at all: the context page lives in a window
-    /// with no size, a toast is never shown at all and still has a
+    /// with no size, a toast must keep running its
     /// dismissal timer to tick, and pop-up-level panels report as occluded
     /// even while visible — their pages then never run their fade-ins, and
     /// Steam's menu re-measure loop flickers the window.

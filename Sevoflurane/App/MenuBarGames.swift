@@ -22,6 +22,7 @@ struct GamesColumn: View {
     /// Bumped by a pin change, which rewrites a game's config. Held here, so a
     /// game pinned in one list reads as pinned in the other too.
     @State private var pinEdits = 0
+    @State private var cloudUploads = CloudUploads()
 
     /// Whether the index adds anything: a library the recent rows already
     /// show whole needs no second copy under letters.
@@ -35,7 +36,7 @@ struct GamesColumn: View {
                 VStack(alignment: .leading, spacing: 0) {
                     RecentGames(
                         host: host, supervisor: supervisor, graphics: graphics,
-                        pinEdits: pinEdits, onPinChanged: { pinEdits += 1 },
+                        pinEdits: pinEdits, onPinChanged: { pinEdits += 1 }, cloudUploads: cloudUploads,
                     )
                     QuickLaunchPrograms(
                         quickLaunch: quickLaunch, activeLaunch: host.activeLaunch,
@@ -47,9 +48,15 @@ struct GamesColumn: View {
                 if showsIndex {
                     LibraryIndexList(
                         host: host, supervisor: supervisor, graphics: graphics,
-                        pinEdits: pinEdits, onPinChanged: { pinEdits += 1 },
+                        pinEdits: pinEdits, onPinChanged: { pinEdits += 1 }, cloudUploads: cloudUploads,
                     )
                 }
+            }
+        }
+        .task {
+            while !Task.isCancelled {
+                cloudUploads.refresh()
+                try? await Task.sleep(for: .seconds(1))
             }
         }
         .scrollPosition($position)
@@ -154,6 +161,7 @@ private struct RecentGames: View {
     let graphics: GraphicsStore
     let pinEdits: Int
     let onPinChanged: () -> Void
+    let cloudUploads: CloudUploads
     @State private var facts: [Int: GameRowFacts] = [:]
 
     var body: some View {
@@ -191,6 +199,7 @@ private struct RecentGames: View {
                         dockBundle: facts[game.id]?.dockBundle,
                         macBuild: facts[game.id]?.macBuild,
                         isHeldInCloudSync: heldInCloudSync.contains(game.id),
+                        cloudUploads: cloudUploads,
                         renderers: renderers,
                         supervisor: supervisor,
                         onPinChanged: onPinChanged,
@@ -212,6 +221,7 @@ private struct LibraryIndexList: View {
     let graphics: GraphicsStore
     let pinEdits: Int
     let onPinChanged: () -> Void
+    let cloudUploads: CloudUploads
     @State private var facts: [Int: GameRowFacts] = [:]
 
     var body: some View {
@@ -231,6 +241,7 @@ private struct LibraryIndexList: View {
                         dockBundle: facts[game.id]?.dockBundle,
                         macBuild: facts[game.id]?.macBuild,
                         isHeldInCloudSync: heldInCloudSync.contains(game.id),
+                        cloudUploads: cloudUploads,
                         renderers: renderers,
                         supervisor: supervisor,
                         onPinChanged: onPinChanged,
@@ -261,6 +272,7 @@ private struct GameRow: View {
     let macBuild: GameBuild?
     /// The client has kept this game at Synchronizing for longer than a sync takes.
     let isHeldInCloudSync: Bool
+    let cloudUploads: CloudUploads
     /// The renderers the machine offers a game right now (``GraphicsStore/menuRenderers``).
     let renderers: [Renderer]
     let supervisor: ClientSupervisor
@@ -274,7 +286,7 @@ private struct GameRow: View {
 
     var body: some View {
         Button {
-            guard !isLaunching else { return }
+            guard !isLaunching, mayLaunch() else { return }
             launch()
             withAnimation(.easeInOut(duration: 0.15)) { isLaunching = true }
         } label: {
@@ -305,6 +317,7 @@ private struct GameRow: View {
             .contentShape(Theme.innerShape)
         }
         .buttonStyle(PressableStyle())
+        .disabled(waitsForCloud)
         .accessibilityLabel(Text(verbatim: game.name))
         .accessibilityValue(status?.line ?? (isLaunching ? Text("Launching") : Text(verbatim: "")))
         .accessibilityHint("Plays the game")
@@ -355,6 +368,7 @@ private struct GameRow: View {
     /// The line under the name: what the client is doing with the game, or
     /// what its next launch will do. VoiceOver reads it as the row's value.
     private var status: (line: Text, isWarning: Bool)? {
+        if cloudPhase == .uploading { return (Text("Uploading cloud saves…"), false) }
         if let launchDetail {
             // The client's own words for its launch phase.
             return (Text(verbatim: launchDetail), false)
@@ -363,6 +377,13 @@ private struct GameRow: View {
             return isHeldInCloudSync
                 ? (Text("Steam is stuck synchronizing. Restart Steam to play."), true)
                 : (Text("Synchronizing with Steam Cloud"), false)
+        }
+        if let cloudPhase {
+            switch cloudPhase {
+            case .uploading: break
+            case .uploaded: return (Text("Cloud saves uploaded"), false)
+            case .failed: return (Text("Cloud save upload failed"), true)
+            }
         }
         if macBuild == .mac {
             return (Text("Plays in Steam for Mac"), false)
@@ -376,11 +397,17 @@ private struct GameRow: View {
         return nil
     }
 
-    /// The press is the app's claim to the activation right, and the game's
-    /// window is what it will be spent on a minute later. The popover itself
-    /// is a non-activating panel — it must stay one, or every click in it
-    /// would pull focus off whatever the user was doing — so the press says
-    /// so explicitly instead.
+    private var cloudPhase: CloudUpload.Phase? { cloudUploads.phase(for: game.id) }
+    private var isUploading: Bool { cloudPhase == .uploading }
+    private var waitsForCloud: Bool { isUploading || game.isInCloudSync }
+
+    private func mayLaunch() -> Bool {
+        cloudUploads.refresh()
+        return !waitsForCloud
+    }
+
+    /// A launch claims activation; re-reading the local cloud log at the
+    /// button press prevents a stale menu from starting an uploading game.
     private func launch() {
         ActivationPolicy.claimRightForALaunch()
         Task(name: "Launch \(game.name)") { await supervisor.launch(game) }
@@ -388,6 +415,7 @@ private struct GameRow: View {
 
     /// Swap to this renderer and launch immediately (context menu).
     private func runWith(_ renderer: Renderer) {
+        guard mayLaunch() else { return }
         ActivationPolicy.claimRightForALaunch()
         Task(name: "Run \(game.name) on \(renderer.label)") {
             await supervisor.launch(game, renderer: renderer)
@@ -435,7 +463,7 @@ private struct GameRow: View {
     /// The launch affordance (``PlayBadge``); the spinner stands in for it
     /// for the length of a launch.
     private var trailing: some View {
-        PlayBadge(isBusy: isLaunching || launchDetail != nil, isHovered: isHovered)
+        PlayBadge(isBusy: waitsForCloud || isLaunching || launchDetail != nil, isHovered: isHovered)
     }
 }
 

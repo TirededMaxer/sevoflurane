@@ -53,7 +53,8 @@ extension SteamWebHost {
             EventLog.shared.log(.app, "unreadable notification payload: \(json.prefix(200))")
             return
         }
-        notifications?.post(notification)
+        // The mirrored Steam toast renders this event in the bottom-right corner.
+        _ = notification
         // The bottle's hidden twin UI renders the same toast as a CEF window
         // of its own (`notificationtoasts_N_desktop`), bottom-right on the
         // real desktop. The supervisor's sweep would catch it eventually;
@@ -126,7 +127,7 @@ extension SteamWebHost {
     ///
     /// Identities are resolved here because only the page can resolve them:
     /// an account id is a persona in `friendStore`, an app id is a name in
-    /// `appStore`. The words are written in ``SteamNotifications``.
+    /// `appStore`. Steam renders the words in its original toast page.
     static let notificationScript = """
     (function () {
       if (window.__sevoNotifications) return "already registered";
@@ -163,10 +164,8 @@ extension SteamWebHost {
       /* Steam's own answer to "does this make a sound", asked here because
          only the page can ask it: a friend's message honors the per-friend
          override on top of Friends & Chat's bSounds_PlayMessage, and a group
-         message reads bSounds_PlayChatRoomNotification. Steam's own playback
-         is refused (SteamMessageSound) and the Mac's notification carries the
-         sound instead, so this is the setting reaching the surface that now
-         makes the noise. */
+         message reads bSounds_PlayChatRoomNotification. Steam’s native
+         WebKit toast keeps its own sound; the hidden Wine twin stays silent. */
       function playsSound(kind, id) {
         try {
           var app = window.g_FriendsUIApp;
@@ -243,11 +242,6 @@ extension SteamWebHost {
             SteamChatAutoOpen.refusalScript,
             describedAs: "unasked chat windows",
             settledAt: SteamChatAutoOpen.settled,
-        )
-        install(
-            SteamMessageSound.refusalScript,
-            describedAs: "Steam's own message sound",
-            settledAt: SteamMessageSound.settled,
         )
         installInClient(
             SteamChatAutoOpen.refusalScript,

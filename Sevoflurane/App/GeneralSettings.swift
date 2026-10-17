@@ -1,4 +1,3 @@
-import Digoxin
 import Propofol
 import SwiftUI
 
@@ -21,8 +20,6 @@ struct GeneralSettings: View {
             GeneralSteamPagesSection(steam: steam, highlighted: highlighted)
             GeneralCustomStyleSection(steam: steam, highlighted: highlighted)
             StreamerModeSection(steam: steam, highlighted: highlighted)
-            GeneralCommunitySection(highlighted: highlighted)
-            GeneralUsageSection()
             GeneralDiscordSection(highlighted: highlighted)
             GeneralUninstallSection(
                 provisioner: provisioner, store: store, supervisor: supervisor,
@@ -417,163 +414,6 @@ private struct GeneralCustomStyleSection: View {
         } catch {
             folderFailure = error.localizedDescription
         }
-    }
-}
-
-// MARK: - Community database
-
-/// Whether closed runs go to the community database, what has gone, and the
-/// way to take it back.
-private struct GeneralCommunitySection: View {
-    let highlighted: SettingsAnchor?
-    @State private var shares = false
-    @State private var state = StatsStore.State()
-    @State private var isConfirmingDelete = false
-    @State private var deleteFailure: String?
-
-    var body: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 2) {
-                Toggle("Share run statistics", isOn: $shares)
-                    .toggleStyle(.switch)
-                    .onChange(of: shares) { _, shares in
-                        guard Preferences.sharesRunStats != shares else { return }
-                        Preferences.sharesRunStats = shares
-                        if shares {
-                            Task.detached(name: "Send queued shared runs") { await StatsUploader.shared.flush() }
-                        } else {
-                            StatsStore.writeQueue([])
-                        }
-                    }
-                Text("After a game closes, its frame rate, resolution, engine and settings go to the public Sevoflurane game database with your Mac\u{2019}s model and chip. Nothing names you, your Mac or your account.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if let sent = sentLine {
-                    Text(sent)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .highlightable(.generalShareRuns, highlighted: highlighted)
-            SharedRunPreview()
-            if state.registered != nil || state.sentRuns > 0 {
-                HStack {
-                    Button("Delete What I Shared\u{2026}") { isConfirmingDelete = true }
-                    if let deleteFailure {
-                        Text(deleteFailure)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        } header: {
-            Text("Community")
-        }
-        .onAppear(perform: reload)
-        .confirmationDialog(
-            "Delete every run this Mac shared?", isPresented: $isConfirmingDelete,
-        ) {
-            Button("Delete", role: .destructive) { delete() }
-        } message: {
-            Text("The database deletes these runs. The next run you share uses a new, unrelated identity.")
-        }
-    }
-
-    private var sentLine: String? {
-        guard state.sentRuns > 0, let last = state.lastSent else {
-            return state.lastError.map { String(localized: "Not sent yet: \($0)") }
-        }
-        let when = last.formatted(.relative(presentation: .named))
-        return String(localized: "\(state.sentRuns) runs shared, the last one \(when).")
-    }
-
-    private func reload() {
-        shares = Preferences.sharesRunStats == true
-        state = StatsStore.readState()
-    }
-
-    private func delete() {
-        Task {
-            do {
-                try await StatsUploader.shared.deleteShared()
-                deleteFailure = nil
-            } catch {
-                deleteFailure = String(localized: "The database is unavailable. Try again later.")
-            }
-            reload()
-        }
-    }
-}
-
-// MARK: - Usage count
-
-/// Whether this Mac is counted among Sevoflurane's users, what that sends,
-/// and whether Sevoflurane's own crashes are reported.
-private struct GeneralUsageSection: View {
-    @State private var tier = ConsentTier.off
-    @State private var status: DigoxinStatus = .off
-
-    var body: some View {
-        Section {
-            VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                Picker("Count this Mac", selection: $tier) {
-                    Text("Off").tag(ConsentTier.off)
-                    Text("Counting").tag(ConsentTier.counting)
-                    Text("Counting and crash reports").tag(ConsentTier.crashReports)
-                }
-                .onChange(of: tier) { _, tier in
-                    // Reading the preference in onAppear lands here too.
-                    guard Preferences.usageCounting != tier else { return }
-                    UsageCounting.choose(tier)
-                    Task { await refreshStatus() }
-                }
-                Text("Counts how many people use Sevoflurane. On each day you use it, one anonymous check-in is sent:")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(
-                    "\u{2022} Sevoflurane and macOS versions\n"
-                        + "\u{2022} processor, chip family and memory size\n"
-                        + "\u{2022} language and the date\n"
-                        + "\u{2022} how many of the last 7 days you used it",
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                Text("It never includes which games or programs you run, and nothing in it names you or your account.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Crash reports adds a report when Sevoflurane itself crashes, with your name, your Mac\u{2019}s name and folder paths removed. A game\u{2019}s crash is sent only from the crash prompt. Turning this off deletes everything this Mac sent.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let line = statusLine {
-                    Text(line)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } header: {
-            Text("Usage count")
-        }
-        .task {
-            tier = Preferences.usageCounting ?? .off
-            await refreshStatus()
-        }
-    }
-
-    private var statusLine: String? {
-        switch status {
-        case .deletionPending: String(localized: "Deleting what this Mac sent\u{2026}")
-        case .secureEnclaveUnavailable: String(localized: "This Mac has no Secure Enclave, so nothing is sent.")
-        case let .failing(reason): String(localized: "Not sent yet: \(reason)")
-        case .off, .waiting, .registered: nil
-        }
-    }
-
-    private func refreshStatus() async {
-        status = await UsageCounting.client.status
     }
 }
 

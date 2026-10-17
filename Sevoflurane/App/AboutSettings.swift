@@ -34,7 +34,7 @@ struct AboutSettings: View {
                 )
                 Link(
                     "GitHub \(Image(systemName: "arrow.up.right"))",
-                    destination: URL(string: "https://github.com/kageroumado/sevoflurane")!,
+                    destination: URL(string: "https://github.com/TirededMaxer/sevoflurane")!,
                 )
             }
             .font(.system(size: 12))

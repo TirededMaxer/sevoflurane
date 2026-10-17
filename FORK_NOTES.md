@@ -1,47 +1,45 @@
-# 本地修复分支
+# TirededMaxer fork — 1.7.0-fork.1
 
-基于官方 `v1.6.0`（`bddae888ec297db7b9870f6f6152e4d58454bbf4`），用于保留现有 CrossOver 引擎和 Steam 容器。
+基于上游 Sevoflurane v1.6.0，保留原作者署名、许可证及本机现有 CrossOver 引擎、Steam 容器和输入/画面补丁。
 
-## 修改
+## 本版范围
 
-- 在应用 Info.plist 中添加麦克风用途说明，为应用与负责启动 Wine 的后台 helper 添加 `com.apple.security.device.audio-input`。保留 hardened runtime；仍由 macOS 弹窗征求用户授权。
-- 覆盖层内好友、聊天、浏览器等使用 popup chrome 的窗口保留 `.nonactivatingPanel`，同时恢复原生标题栏、关闭按钮和调整大小能力。Steam 页面的按钮按原设计隐藏，由原生控件接管。
-- 页面报告的拖动区域通过 `performDrag(with:)` 显式进入 AppKit 拖动；正文点击及覆盖整个游戏的根覆盖层不触发窗口拖动。
-- 覆盖层打开聊天时，Steam 可能同时创建桌面与游戏内两份窗口；此时只显示游戏内实例，退出覆盖层时仍随窗口组清理桌面副本。桌面模式下的聊天显示不变。
-- 添加 AppKit 回归用例，覆盖关闭按钮、非激活行为、拖动区域与根覆盖层保护。
+- 删除应用自动更新模块与 Digoxin、TiptoeGitHub/AppUpdater 依赖，不再检查、下载或替换 Sevoflurane 自身；也不在启动时自动升级内置引擎。
+- 删除使用统计、运行统计、游戏报告、崩溃报告上传、共享数据身份和对应设置、引导、CLI 入口。诊断 ZIP 仅在本地保存；GitHub 问题链接不携带诊断查询参数。
+- 按用户确认的范围，保留只读兼容性数据库、在线修复列表、手动引擎/渲染器/着色器下载，以及 Steam 自身更新、联网、云存档和 Discord 功能。
+- 完全删除 macOS 通知中心模块、权限请求、通知代理和通知操作。Steam 使用自己绘制的右下角提示页面及动画，在不抢键盘焦点的 AppKit panel 中显示。好友上线、玩游戏及聊天提示遵守 Steam 原有开关和声音设置。
+- 桌面标题条空白处通过 AppKit 显式拖动、双击缩放；工具栏抢先命中时由同一窗口的本地事件路由接管。原生交通灯、账户和其他标题条按钮保留交互。
+- 云存档上传中、完成和失败显示在顶部菜单对应游戏的名称下方，复用已有状态行；上传中禁用该游戏条目和“使用其他渲染器运行”的启动路径。数据只读取 Steam 本地 cloud_log.txt；单个文件上传成功不会被当成整个同步完成。
+- 底栏不显示版本号，避免挤压渲染器名称；版本可在“关于”和“更多操作”中查看。
+- 移除为隐藏 Dock 图标而重启 Steam、为隐藏托盘而终止 explorer 的路径。运行时驱动负责隐藏身份、窗口和状态栏图标。真正崩溃恢复、用户要求的重启和退出仍保留正常生命周期管理。
 
-## 构建
+## 原版 UI 的覆盖边界
 
-遵循上游 CONTRIBUTING.md。使用 Xcode 26+、macOS 26+ 和 Apple Silicon。
+现有匹配 CrossOver 26.3 的 [驱动补丁](Tools/crossover-ui/README.md) 在显示入口拦截 Steam 基础进程窗口、托盘和抢焦点请求；需要 SEVO_OWNER_PID 和 CX_HIDE_STEAM_DOCK=1。CEF 的登录、桌面、聊天、菜单和提示由 WebKit 桥接接管。补丁公开源码，不分发商业运行时。
+
+本版加入 [原生错误转接 helper](Tools/steam-ui/README.md)，在同一容器内读取 Steam/Steam error-reporter 的标准 Win32 对话框文字、按钮，再由 Sevoflurane 的 NSAlert 显示并将选择传回原始窗口。扫描与回答只经过后台 helper 的认证接口，不另起容器所有者、不终止 Steam。
+
+标准 #32770 对话框，以及暴露子控件文本的 VGUI/SDL 对话框可以转接。没有可读子控件的自绘窗口不能保证完整重建；驱动仍会抑制其原版显示并留下本地日志。游戏自身和安装程序窗口保留交互。因此不能把当前实现描述为任意 Windows 界面和任意异常的 100% 原生替换。之前偶发乱码错误背后的网络或启动失败原因仍未复现确认。
+
+## 构建与签名
+
+Xcode 26+、Apple Silicon、macOS 26+；遵循 CONTRIBUTING.md。原生对话框 helper 的源码、导入定义及构建方法见 Tools/steam-ui。
 
 ```sh
 SEVO_EMBED_ENGINE=0 xcodebuild -project Sevoflurane.xcodeproj \
   -scheme Sevoflurane -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
-  CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
-  ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO build
+  CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM= \
+  ENABLE_TESTABILITY=NO ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO \
+  ENABLE_HARDENED_RUNTIME=YES build
 ```
 
-这是本地签名构建，不是上游的 Developer ID / 公证发行版。安装时需先退出游戏及客户端，再替换应用并重建 helper 注册。系统可能要求重新确认后台运行、输入监控或通知权限；本分支不会写入 TCC 数据库或代替用户授权。上游基于开发者签名的可选统计认证不适用于本地签名版本。
+发行包逐层 ad-hoc 本地签名，保留 hardened runtime 和既有麦克风 capability，无测试包、无内嵌商业引擎。这不是 Developer ID 公证版本。现有容器和运行时不随应用替换。输入监控等系统授权仍由 macOS 管理；若更换 helper 签名导致旧授权失效，需在系统设置重新授权。本 fork 不修改 TCC。
 
-从上游签名版本切换到本地签名版本后，输入监控列表可能显示已开启，但系统仍保存旧签名要求。本次遇到 `Failed to match existing code requirement`，仅关闭再开启开关未能更新记录。通过系统设置移除旧的 `SevofluraneDaemon` 条目，再添加当前应用内 `Contents/Library/LaunchAgents/SevofluraneDaemon` 并授权，重启客户端后，Wine 日志确认 `physical wheel reader opened (nonexclusive)`。该操作需用户确认系统输入监控权限。
+## 验证
 
-输入、画面补丁仍由原有自定义运行时提供，本分支不修改 Wine、Mos 或游戏文件。
-
-## 验证记录
-
-本地构建通过，覆盖层相关 Swift Testing 共 12 项通过，包括原生关闭按钮、非激活面板、标题条显式拖动、覆盖层焦点范围，以及聊天双实例的显示和重排序。上游 Release 测试目标中的其他文件依赖 DEBUG 专用类型，本次仅编译 `OverlayPopupChromeTests.swift` 与 `SteamOverlayTests.swift` 中选定的三组用例。
-
-在没有开发者签名证书的机器上，本地 XCTest 宿主临时使用 `ENABLE_HARDENED_RUNTIME=NO` 以加载 ad-hoc 测试包；这仅用于测试。安装版本重新以无测试插桩的 Release 构建，并保留 hardened runtime，只增加麦克风录音 capability。游戏内体验已确认麦克风授权弹窗、标题栏拖动和关闭按钮正常；聊天双窗口修复也已确认只显示一个窗口。
-
-## CrossOver 原版窗口和托盘泄漏修复（2026-10-17）
-
-现有 CrossOver 路径未加载 Dormison 的窗口抑制 shim。原有 Dock 补丁只隐藏图标，CEF sweep 在窗口出现后才执行，托盘宿主则要登录完成后才清理，因此登录页、顶部托盘和原生 Steam 错误窗口仍可能露出。
-
-新增 [`Tools/crossover-ui`](Tools/crossover-ui/README.md)：针对当前带有输入/画面补丁的 CrossOver 26.3 构建，在 WineWindow 的显示入口拦截 Steam 基础进程窗口，并在创建 NSStatusItem 前跳过托盘图标；同时阻止这些后台进程主动抢焦点。仅在 Sevoflurane 的 `SEVO_OWNER_PID` 与现有 `CX_HIDE_STEAM_DOCK=1` 同时存在时启用，游戏及正常 CrossOver 启动保留显示。安装程序保持交互。
-
-公开内容为源码补丁、构建脚本及回归测试，不携带本机运行时、用户容器或商业组件。补丁需要相匹配的现有 Wine/COEditor 输入 ABI；不是为任意 CrossOver 二进制准备的通用驱动。
-
-构建和进程范围检查通过，31 项真实 AppKit 窗口/托盘断言通过，驱动导出和签名校验通过。本机已部署，实际登录时记录到原版登录窗口和 explorer 托盘创建被抑制；原生账号页及 CS2 窗口正常出现。应用及后台 helper 未重新签名，输入监控无需重新迁移，新的游戏日志仍记录物理滚轮读取成功。
-
-隐藏请求记录在 `~/Library/Logs/Sevoflurane-windows.log`。这项修复阻止原版窗口露出；偶发乱码窗口背后的断网或启动失败原因尚未确认，也没有把窗口标题当作完整错误正文。实际偶发错误场景仍待后续复现确认。
+- 本地完整 Debug 测试 1242 项通过，0 失败、0 跳过；测试宿主临时关闭 hardened runtime 仅用于加载 ad-hoc 测试包。正式 Release 保持 hardened runtime、关闭测试插桩。后续行内状态的 4 项定向测试通过（包含新增的观察订阅回归），底栏布局通过正式构建检查。
+- 云日志测试覆盖最终确认、单文件成功、并行游戏、失败重试、分段读取及日志轮换；窗口测试覆盖原生拖动、双击、工具栏事件范围、提示位置和非激活行为。
+- 实际登录达到 healthy；Steam 自带好友游戏/上线测试创建原版 notificationtoasts 页面，窗口位于屏幕右下方。上线提示测试仅临时覆盖测试目标的显示条件，不持久修改 Steam 设置。
+- 本地中文 Win32 错误测试由 NSAlert 显示完整文字和“确定/取消”；点击确定后原窗口收到 response:1 并正常退出，Steam 保持 healthy。
+- 本机先前驱动范围检查和 31 项 AppKit 窗口/托盘断言通过。当前沿用同一驱动，不覆盖其输入、显示或其他 ABI 组件。

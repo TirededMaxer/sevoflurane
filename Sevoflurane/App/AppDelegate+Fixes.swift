@@ -13,16 +13,12 @@ extension AppDelegate {
     /// the helper wrote the log line, and the notification is this app's.
     func announceFixesApplied(appID: Int) {
         guard let fixes = FixLedger.record(for: appID) else { return }
-        notifications.postFixesApplied(appID: appID, name: Self.name(ofApp: appID), settings: fixes.settingNames)
+        EventLog.enqueue(.app, fixes.logLine(appID: appID, name: Self.name(ofApp: appID)))
     }
 
     private nonisolated static func announce(_ fixes: AppliedFixes, forApp appID: Int) async {
         let name = name(ofApp: appID)
         EventLog.enqueue(.app, fixes.logLine(appID: appID, name: name))
-        await MainActor.run {
-            (NSApp.delegate as? AppDelegate)?.notifications
-                .postFixesApplied(appID: appID, name: name, settings: fixes.settingNames)
-        }
     }
 
     private nonisolated static func name(ofApp appID: Int) -> String {

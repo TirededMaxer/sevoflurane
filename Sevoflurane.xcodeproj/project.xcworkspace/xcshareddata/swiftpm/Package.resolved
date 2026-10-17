@@ -1,24 +1,6 @@
 {
-  "originHash" : "063852e7d24e528a5810f35a30d512369b72edfca599a9dd8f07ab6d5c0eb31b",
+  "originHash" : "7a69bdab785662a671e434e68ef4de2b87653e29d427ff0e127407a3ecc60b33",
   "pins" : [
-    {
-      "identity" : "appupdater",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mxcl/AppUpdater",
-      "state" : {
-        "revision" : "a2b89896ebc6c5194b67d38a0481b13b3a311901",
-        "version" : "4.2.1"
-      }
-    },
-    {
-      "identity" : "digoxin",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kageroumado/digoxin.git",
-      "state" : {
-        "revision" : "586a21315812951232f1673fc227475c6f4a4c9d",
-        "version" : "0.2.0"
-      }
-    },
     {
       "identity" : "propofol",
       "kind" : "remoteSourceControl",
@@ -35,24 +17,6 @@
       "state" : {
         "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
         "version" : "1.8.2"
-      }
-    },
-    {
-      "identity" : "tiptoe",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/artginzburg/Tiptoe",
-      "state" : {
-        "revision" : "a48f105192e28ac2b16ae01d9de16dbb5ffc39c3",
-        "version" : "1.1.0"
-      }
-    },
-    {
-      "identity" : "version",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mxcl/Version",
-      "state" : {
-        "revision" : "3043fcd2a50375db76d89ff206a612471833d1c2",
-        "version" : "2.2.1"
       }
     }
   ],

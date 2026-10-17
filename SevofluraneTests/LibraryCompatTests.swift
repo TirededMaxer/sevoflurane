@@ -289,7 +289,7 @@ struct LibraryCompatLookupTests {
         // Rated perfect on the wiki and nothing on disk yet: native until the
         // page says otherwise, with that page waiting in the queue.
         #expect(first.summaries == [GameCompatSummary(
-            appID: CompatStub.appID, state: .unsupported, native: true, macRunnable: true, macEvidence: true,
+            appID: CompatStub.appID, state: .unsupported, native: true, macRunnable: true, macEvidence: true, tier: .borked,
         )])
         #expect(first.summaries.first?.playsOnMac == true)
         #expect(first.pending == 1)
@@ -302,7 +302,7 @@ struct LibraryCompatLookupTests {
         }
         #expect(latest.pending == 0)
         #expect(latest.summaries == [GameCompatSummary(
-            appID: CompatStub.appID, state: .unsupported, native: false, macRunnable: false, macEvidence: true,
+            appID: CompatStub.appID, state: .unsupported, native: false, macRunnable: false, macEvidence: true, tier: .borked,
         )])
         #expect(latest.summaries.first?.playsOnMac == false)
     }

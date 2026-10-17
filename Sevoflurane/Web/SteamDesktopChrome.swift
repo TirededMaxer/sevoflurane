@@ -71,24 +71,36 @@ enum SteamDesktopChrome {
                 Math.round(r.width), Math.round(r.height)];
       }
     
-      /* Steam marks its drag area with `-webkit-app-region: drag`, which WebKit
-         neither acts on nor reports — getComputedStyle answers "" for the
-         property, so there is nothing to read. What that rule is applied to is
-         the strip's one empty stretch, the child with neither text nor
-         children of its own, and the host drags the NSWindow by it. */
+      /* WebKit does not implement CEF’s app-region dragging. Report the
+         title strip minus the native traffic lights and interactive controls,
+         then let AppKit handle drag and double-click maximize. */
       function dragRegions() {
-        var out = [];
         var row = titleRow();
-        if (!row) return out;
-        for (var i = 0; i < row.children.length; i++) {
-          var child = row.children[i];
-          if (!child.children.length && !child.textContent.trim()) {
-            out.push(rectOf(child));
-          }
-        }
-        return out;
+        if (!row) return [];
+        var r = row.getBoundingClientRect();
+        if (!r.width || !r.height) return [];
+        var spans = [[Math.max(r.left, 80), r.right]];
+        var controls = Array.from(row.querySelectorAll('button, a, input, [role="button"], [role="menuitem"], [tabindex], [class*="Button"], [class*="button"], [class*="Account"], [class*="account"]'));
+        // Steam’s account cluster uses hashed classes and div handlers.
+        // Keep every populated title-row cell interactive as well.
+        Array.from(row.children).forEach(function (node) {
+          if (node.children.length || node.textContent.trim()) controls.push(node);
+        });
+        controls.forEach(function (node) {
+          var b = node.getBoundingClientRect();
+          if (!b.width || !b.height) return;
+          spans = spans.flatMap(function (span) {
+            if (b.right <= span[0] || b.left >= span[1]) return [span];
+            var parts = [];
+            if (b.left > span[0]) parts.push([span[0], b.left]);
+            if (b.right < span[1]) parts.push([b.right, span[1]]);
+            return parts;
+          });
+        });
+        return spans.filter(function (span) { return span[1] - span[0] > 2; })
+          .map(function (span) { return [span[0], r.top, span[1] - span[0], r.height]; });
       }
-    
+
       var pending = 0;
       function reportDragRegions() {
         var handler = window.webkit && window.webkit.messageHandlers

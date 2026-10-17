@@ -1,8 +1,6 @@
 import AppKit
-import Digoxin
 import Propofol
 import SwiftUI
-import UserNotifications
 
 /// The menu-bar extra, read top to bottom: what to play, the Steam client it
 /// plays through, and the app's own bar with the renderer the games run on.
@@ -15,7 +13,6 @@ import UserNotifications
 struct MenuBarView: View {
     let host: SteamWebHost
     let supervisor: ClientSupervisor
-    let notifications: SteamNotifications
     let quickLaunch: QuickLaunchStore
     let graphics: GraphicsStore
     /// The first-run assistant, while one is open or set aside. The gallery
@@ -42,9 +39,6 @@ struct MenuBarView: View {
                     host: host, supervisor: supervisor, graphics: graphics,
                     quickLaunch: quickLaunch, presentation: presentation,
                 )
-                NotificationPermissionCard(notifications: notifications)
-                SharingQuestionCard()
-                UsageQuestionCard()
                 BottleIncompleteChip(summary: bottleSummary)
                     .font(.system(size: 10))
                     .padding(.horizontal, Theme.Space.sm)
@@ -69,7 +63,7 @@ struct MenuBarView: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: confirmingQuit)
         .modifier(
             PopoverAnimations(
-                host: host, supervisor: supervisor, notifications: notifications,
+                host: host, supervisor: supervisor,
                 quickLaunch: quickLaunch,
             ),
         )
@@ -93,7 +87,6 @@ struct MenuBarView: View {
             host.refreshRecentGames()
             quickLaunch.refresh()
             graphics.refresh()
-            SilentUpdates.shared.refresh()
             UpdateSummary.shared.checkOnce()
         }
     }
@@ -142,7 +135,6 @@ final class PopoverPresentation {
 private struct PopoverAnimations: ViewModifier {
     let host: SteamWebHost
     let supervisor: ClientSupervisor
-    let notifications: SteamNotifications
     let quickLaunch: QuickLaunchStore
 
     func body(content: Content) -> some View {
@@ -153,7 +145,6 @@ private struct PopoverAnimations: ViewModifier {
             .animation(.smooth(duration: 0.3), value: host.libraryGames)
             .animation(.smooth(duration: 0.3), value: host.activeLaunch)
             .animation(.smooth(duration: 0.3), value: host.unreadChats)
-            .animation(.smooth(duration: 0.3), value: notifications.hasUnaskedNotifications)
             .animation(.smooth(duration: 0.3), value: quickLaunch.programs)
     }
 }
@@ -395,114 +386,5 @@ private struct SessionNotice: View {
             }
             .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
-    }
-}
-
-// MARK: - Notification permission
-
-/// Where the app asks to post notifications.
-///
-/// An app with no window on first run has nowhere honest to raise the
-/// system alert at launch, and asking before there is anything to show
-/// asks for a permission the user has no reason to weigh yet. So nothing
-/// is asked until Steam actually produces a notification: the first one
-/// is held, the menu-bar dot goes up for it, and this row is what the
-/// user finds when they open the popover to see why. The prompt is then
-/// raised by their click on it.
-private struct NotificationPermissionCard: View {
-    let notifications: SteamNotifications
-
-    var body: some View {
-        if notifications.hasUnaskedNotifications || notifications.authorization == .denied {
-            let denied = notifications.authorization == .denied
-            NoticeCard(
-                symbol: "bell.badge",
-                title: denied ? "Notifications are off" : "Steam has a message",
-                detail: denied
-                    ? "Allow Sevoflurane notifications in System Settings to see Steam messages."
-                    : "Allow Sevoflurane to show Steam messages in Notification Center.",
-            ) {
-                Button {
-                    if denied {
-                        notifications.openSystemSettings()
-                    } else {
-                        Task(name: "Ask for notification permission") {
-                            await notifications.requestAuthorization()
-                        }
-                    }
-                } label: {
-                    denied ? Text("Open System Settings") : Text("Allow Notifications")
-                }
-                .buttonStyle(.glassProminent)
-                .foregroundStyle(Theme.onAccent)
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-        }
-    }
-}
-
-/// The community database's question, for a player who set up before setup
-/// asked it: shown once a run exists to share, gone for good once answered.
-private struct SharingQuestionCard: View {
-    @State private var isAsking = Preferences.sharesRunStats == nil && RunLog.hasRecords()
-
-    var body: some View {
-        if isAsking {
-            NoticeCard(
-                symbol: "chart.bar.xaxis",
-                title: "Help other Mac players",
-                detail: "Share each game's frame rate, resolution, and settings along with your Mac model. The data does not include your name. See Settings › General for exactly what is sent.",
-            ) {
-                HStack(spacing: Theme.Space.sm) {
-                    Button("Share") { answer(true) }
-                        .buttonStyle(.glassProminent)
-                        .foregroundStyle(Theme.onAccent)
-                    Button("Not Now") { answer(false) }
-                        .buttonStyle(.glass)
-                }
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-        }
-    }
-
-    private func answer(_ shares: Bool) {
-        Preferences.sharesRunStats = shares
-        EventLog.shared.log(.app, shares ? "run statistics: sharing" : "run statistics: not sharing")
-        if shares {
-            Task.detached(name: "Send queued shared runs") { await StatsUploader.shared.flush() }
-        }
-        withAnimation { isAsking = false }
-    }
-}
-
-/// Digoxin's question: whether this Mac is counted among Sevoflurane's
-/// users. Asked once, after the community database's question has its
-/// answer; Settings › General holds the choice from then on.
-private struct UsageQuestionCard: View {
-    @State private var isAsking = Preferences.usageCounting == nil
-        && !(Preferences.sharesRunStats == nil && RunLog.hasRecords())
-
-    var body: some View {
-        if isAsking {
-            NoticeCard(
-                symbol: "person.2",
-                title: "Count yourself in",
-                detail: "One anonymous check-in a day counts how many people use Sevoflurane. It never includes which games or programs you run. Settings \u{203A} General lists what is sent, and adds crash reports if you want them.",
-            ) {
-                HStack(spacing: Theme.Space.sm) {
-                    Button("Count Me In") { answer(.counting) }
-                        .buttonStyle(.glassProminent)
-                        .foregroundStyle(Theme.onAccent)
-                    Button("Not Now") { answer(.off) }
-                        .buttonStyle(.glass)
-                }
-            }
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-        }
-    }
-
-    private func answer(_ tier: ConsentTier) {
-        UsageCounting.choose(tier)
-        withAnimation { isAsking = false }
     }
 }

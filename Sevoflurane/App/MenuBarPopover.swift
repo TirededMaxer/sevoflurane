@@ -12,7 +12,6 @@ import SwiftUI
 final class MenuBarPopover: NSObject, NSWindowDelegate {
     private let host: SteamWebHost
     private let supervisor: ClientSupervisor
-    private let notifications: SteamNotifications
     private let setup: SetupWindow
     /// The adopted Windows programs the popover lists beside the library.
     let quickLaunch = QuickLaunchStore()
@@ -45,12 +44,10 @@ final class MenuBarPopover: NSObject, NSWindowDelegate {
     init(
         host: SteamWebHost,
         supervisor: ClientSupervisor,
-        notifications: SteamNotifications,
         setup: SetupWindow,
     ) {
         self.host = host
         self.supervisor = supervisor
-        self.notifications = notifications
         self.setup = setup
         super.init()
         quickLaunch.launchHooks = QuickLaunchStore.LaunchHooks(reporting: host)
@@ -263,7 +260,7 @@ final class MenuBarPopover: NSObject, NSWindowDelegate {
 
         let content = NSHostingView(
             rootView: MenuBarView(
-                host: host, supervisor: supervisor, notifications: notifications,
+                host: host, supervisor: supervisor,
                 quickLaunch: quickLaunch, graphics: graphics, setup: setup,
                 presentation: presentation,
             ),

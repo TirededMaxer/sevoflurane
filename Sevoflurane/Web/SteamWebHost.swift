@@ -118,7 +118,6 @@ final class SteamWebHost {
     @ObservationIgnored weak var menuMirror: SteamMenuMirror?
 
     /// Where Steam's notifications are re-posted as the Mac's.
-    @ObservationIgnored weak var notifications: SteamNotifications?
 
     /// How many conversations are waiting, as Steam itself counts them.
     ///

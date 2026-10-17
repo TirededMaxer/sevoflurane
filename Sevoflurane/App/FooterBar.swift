@@ -2,7 +2,7 @@ import AppKit
 import Propofol
 import SwiftUI
 
-/// The popover's bottom bar: the app's own state on the left — debug mode, its version, the way
+/// The popover's bottom bar: the app's own state on the left — debug mode and the way
 /// back from a client that gave up — the renderer the games run on in the middle, and the app's
 /// controls on the right.
 ///
@@ -14,7 +14,7 @@ struct FooterBar: View {
     let supervisor: ClientSupervisor
     /// While the first-run assistant is unfinished there is no client to
     /// report on or restart, and nothing configured for Settings to change:
-    /// the bar keeps the version and Quit.
+    /// the bar keeps Quit.
     var isSettingUp = false
     /// The renderer switch, between the app's state and its controls; absent
     /// while setup is unfinished.
@@ -22,7 +22,6 @@ struct FooterBar: View {
     /// The ✕: asks before quitting (``QuitConfirmation``), because quitting
     /// takes Steam and a running game down with it.
     var onQuit: () -> Void = { NSApplication.shared.terminate(nil) }
-    @AppStorage("autoUpdate", store: Preferences.app) private var autoUpdate = true
     @AppStorage(StreamerMode.isOnKey, store: Preferences.shared) private var streamerMode = false
 
     private static var versionString: String {
@@ -44,7 +43,6 @@ struct FooterBar: View {
                     .help("Open Recovery settings to restart or repair Steam, or save a report.")
                 }
                 DebugChip()
-                UpdateChip()
                 if let graphics, !isSettingUp {
                     RendererPicker(graphics: graphics)
                 } else {
@@ -135,16 +133,6 @@ struct FooterBar: View {
                     }
                     .help("Hides your Steam name, picture, wallet balance and friends in every Steam window, for recording and streaming.")
                     Divider()
-                    Toggle(isOn: Binding(
-                        get: { autoUpdate },
-                        set: { isOn in
-                            autoUpdate = isOn
-                            SilentUpdates.shared.setAutoInstall(isOn)
-                        },
-                    )) {
-                        Label("Auto Update", systemImage: "arrow.down.circle")
-                    }
-                    .help("Install updates automatically while no game runs")
                     Text("Version \(Self.versionString)")
                 } label: {
                     Color.clear.contentShape(.rect)
@@ -153,7 +141,7 @@ struct FooterBar: View {
                 .menuIndicator(.hidden)
                 .accessibilityLabel("More actions")
             }
-            .help("Reload, restart, the event log, and updates")
+            .help("Reload, restart, and the event log")
     }
 
     /// The playtest switch, and — while a client is already up under the old environment — the
@@ -200,57 +188,6 @@ private struct DebugChip: View {
                 .labelStyle(.titleAndIcon)
                 .fixedSize()
                 .help(debug.summary)
-        }
-    }
-}
-
-// MARK: - Update chip
-
-/// An update, while there is something to say about one: it announces an update (click installs),
-/// confirms one just landed (click acknowledges), and reports a failure. At rest it is absent; the
-/// version and the Auto Update switch live in the actions menu.
-private struct UpdateChip: View {
-    var body: some View {
-        let updates = SilentUpdates.shared
-        switch updates.manualPhase {
-        case .working:
-            HStack(spacing: Theme.Space.xs) {
-                ProgressView().controlSize(.small)
-                Text("Updating…").font(.caption).foregroundStyle(.secondary)
-            }
-        case let .failed(message):
-            Button {
-                NSWorkspace.shared.open(updates.releasesPageURL)
-                updates.dismissFailure()
-            } label: {
-                Label("Update failed", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Theme.onAccent)
-            }
-            .buttonStyle(.footerChipProminent)
-            .help(message)
-        case .idle:
-            idleChip(updates)
-        }
-    }
-
-    @ViewBuilder
-    private func idleChip(_ updates: SilentUpdates) -> some View {
-        if let justUpdated = updates.justUpdatedVersion.map(AppVersion.display) {
-            Button { updates.acknowledgeUpdate() } label: {
-                Label(justUpdated, systemImage: "checkmark")
-                    .foregroundStyle(Theme.onAccent)
-            }
-            .buttonStyle(.footerChipProminent)
-            .help("Updated to version \(justUpdated)")
-            .accessibilityLabel("Updated to version \(justUpdated)")
-        } else if let available = (updates.availableVersion ?? updates.pendingVersion).map(AppVersion.display) {
-            Button { Task { await updates.updateNow() } } label: {
-                Label(available, systemImage: "arrow.down.circle.fill")
-                    .foregroundStyle(Theme.onAccent)
-            }
-            .buttonStyle(.footerChipProminent)
-            .help("Click to install version \(available)")
-            .accessibilityLabel("Install version \(available)")
         }
     }
 }

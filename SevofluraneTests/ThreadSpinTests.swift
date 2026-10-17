@@ -100,7 +100,7 @@ struct ThreadSpinTests {
     }
 
     @Test
-    func `the busy threads survive a round trip and stay out of the shared run`() throws {
+    func `the local busy-thread record survives a round trip`() throws {
         let record = Self.record()
         let encoded = try JSONEncoder().encode(record)
         let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -110,11 +110,6 @@ struct ThreadSpinTests {
         #expect(threads["samples"] as? Int == 30)
         #expect(try JSONDecoder().decode(RunRecord.self, from: encoded) == record)
 
-        let shared = try #require(SharedRun(record: record, appVersion: "1.0 (1)"))
-        let sharedJSON = try #require(
-            JSONSerialization.jsonObject(with: JSONEncoder().encode(shared)) as? [String: Any],
-        )
-        #expect(sharedJSON["threads"] == nil)
     }
 
     @Test

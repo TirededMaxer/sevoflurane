@@ -21,8 +21,8 @@ import Foundation
 /// reached, or arrives without a valid signature, leaves the cached one
 /// standing, and a Mac that never took one has the built-in table alone.
 nonisolated enum FixList {
-    static let url = StatsUploader.baseURL.appendingPathComponent("fixes.json")
-    static let signatureURL = StatsUploader.baseURL.appendingPathComponent("fixes.json.sig")
+    static let url = CommunityDatabase.baseURL.appendingPathComponent("fixes.json")
+    static let signatureURL = CommunityDatabase.baseURL.appendingPathComponent("fixes.json.sig")
 
     /// Raw 32-byte Ed25519 public key, base64. The private half is
     /// `infrastructure/publish/keys/sevostats-fixes-ed25519.pem`.

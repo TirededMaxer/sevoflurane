@@ -1,7 +1,6 @@
 #if DEBUG
     import Propofol
     import SwiftUI
-    import UserNotifications
 
     /// Every surface in every state, side by side, with no client and no
     /// bottle behind any of it — the visual pass this app could otherwise
@@ -33,7 +32,6 @@
                             MenuBarView(
                                 host: fixture.host,
                                 supervisor: fixture.supervisor,
-                                notifications: fixture.notifications,
                                 quickLaunch: Fixtures.quickLaunch,
                                 graphics: Fixtures.graphics,
                             )
@@ -269,7 +267,6 @@
             let supervisor: ClientSupervisor
             /// Notifications are a popover state too — nothing else in the
             /// app draws the permission card.
-            var notifications: SteamNotifications = .preview()
         }
 
         struct Pane {
@@ -408,7 +405,6 @@
                 label: "Notifications not asked for yet",
                 host: .preview(games: games, unreadChats: 1),
                 supervisor: ClientSupervisor(previewHealth: .healthy),
-                notifications: .preview(authorization: .notDetermined, unasked: true),
             ),
             Popover(
                 label: "Mac busy — other apps",
@@ -440,7 +436,6 @@
                 label: "Notifications refused",
                 host: .preview(games: games, unreadChats: 2),
                 supervisor: ClientSupervisor(previewHealth: .healthy),
-                notifications: .preview(authorization: .denied),
             ),
         ]
 
@@ -476,7 +471,7 @@
                 case .welcome, .engine: .freshMachine
                 case .bottle: .multipleBottles
                 case .steam: .licensedNoBottle
-                case .graphics, .options, .sharing, .done: .provisioned
+                case .graphics, .options, .done: .provisioned
                 }
                 return (step, Provisioner(
                     previewActivity: step == .steam ? .working("Downloading Steam…") : .idle,

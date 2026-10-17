@@ -139,7 +139,6 @@ sevo diag save|on|off|status
 sevo runs
 sevo report RUN --verdict V [--note N]
 sevo perf list|report|compare|label|mark
-sevo stats status|preview|reports|delete
 sevo client start|stop|restart|force-quit|update|clear-shader-cache|pin|unpin|logs
 sevo recover [--deep]
 sevo daemon repair
@@ -361,7 +360,7 @@ runs on CrossOver.
 - Store, community and profile pages open signed in.
 - Friends and chats get their own windows. With unread messages, Friends
   opens the oldest waiting conversation.
-- Steam's notifications as macOS notifications, with Steam's sound choices.
+- Steam’s original bottom-right notification windows, with Steam’s sound choices.
   Permission is asked for only when Steam has something to show.
 - The Shift+Tab overlay as a panel over the game that never takes its focus.
 - Big Picture, the on-screen keyboard and the controller configurator in
@@ -590,20 +589,8 @@ Environment at its next launch, `PROTON_USE_WINED3D` and
 
 ### Community game database
 
-- Settings › General › Community › **Share run statistics** (asked once) sends
-  each finished run to
-  [kagerou.glass/sevoflurane/games](https://kagerou.glass/sevoflurane/games):
-  game, engine, renderer, settings, macOS, chip, duration, gameplay frame rate
-  and how it ended.
-- Nothing names you or your Mac: no title, path or account, and launch times
-  rounded to the hour. A preview shows the exact payload.
-- Runs are signed with a key made in the Secure Enclave, attested with App
-  Attest where the Mac supports it. **Delete What I Shared…** (or
-  `sevo stats delete`) removes them and starts a new anonymous identity.
-- "How did it go?" in the Reports window, or `sevo report`, adds a verdict
-  (Plays, Plays with fixes, Launches, Fails) and an optional note.
-- Game pages show how a game runs per engine and chip, with each report's
-  configuration. Games Steam does not sell get pages once adopted.
+This fork reads compatibility ratings and curated fixes, but includes no statistics,
+usage, crash or game-report submission client. Diagnostics remain local.
 
 ### Diagnostics
 
@@ -614,8 +601,8 @@ Environment at its next launch, `PROTON_USE_WINED3D` and
 - Debug Mode: everything a report needs, for one session.
 - The Reports window: every run with what it ran on and how it ended, its
   errors, a plain-language diagnosis for known failures, and buttons to save
-  the ZIP or open a pre-filled GitHub issue.
-- After a crash or a watchdog kill, an offer to send the redacted report.
+  the ZIP or open this fork’s GitHub issue page without diagnostic query data.
+- After a crash or a watchdog kill, an offer to save local diagnostics.
 - After a run that kept many threads spinning, an offer to limit the
   processors the game sees, in one click.
 - The Process Monitor: every process Sevoflurane owns, and a flag on a game
@@ -626,8 +613,7 @@ Environment at its next launch, `PROTON_USE_WINED3D` and
 
 ### Updates
 
-- The app updates itself from GitHub Releases once the Mac is idle and no game
-  runs, or at once from the footer's Update chip. Auto Update turns it off.
+- This fork has no application auto-updater. Install app releases manually.
 - A dot on the Settings button means a newer engine or renderer.
 - Every version of the app and of Dormison ships as a regular GitHub release:
   the app as 1.4, 1.5 and on, the engine as r5, r6 and on.

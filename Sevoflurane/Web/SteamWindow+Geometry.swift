@@ -67,37 +67,20 @@ extension SteamWindow {
         parent.addChildWindow(window, ordered: .above)
     }
 
-    /// Keeps a toast's page alive without ever putting it on screen: it is
-    /// invisible, click-through, out of every window list, and parked off
-    /// every display. WebKit schedules it because it lives in a window, which
-    /// is all its dismissal timer needs.
-    func park(_ window: NSWindow) {
-        window.setFrameOrigin(Self.toastParkOrigin)
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.ignoresMouseEvents = true
-        window.isExcludedFromWindowsMenu = true
-        window.collectionBehavior = [.stationary, .ignoresCycle]
-        window.orderBack(nil)
+    /// Steam renders the content and animation; AppKit supplies screen coordinates.
+    func placeToast(_ window: NSWindow) {
+        let screen = host?.desktop?.nsWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        guard let visible = screen?.visibleFrame else { return }
+        window.setFrameOrigin(Self.toastOrigin(size: window.frame.size, visibleFrame: visible))
     }
 
-    /// Where a toast's page is kept while it renders: off every screen, the
-    /// same park the context page uses.
-    private static let toastParkOrigin = CGPoint(x: -20_000, y: -20_000)
-
-    /// Whether this window's position is the app's to decide rather than
-    /// Steam's.
-    ///
-    /// A toast is parked off every display for its whole life, so a move is
-    /// meaningless — and Steam issues them per animation frame while the
-    /// toast slides in, every one of them carrying `NaN` for the x it
-    /// computes against a screen edge it cannot measure here. Refusing them
-    /// by role rather than by value keeps the non-finite guard for the case
-    /// it was written for (a menu against a window that has gone) instead of
-    /// making it a log of an animation.
-    var isParked: Bool {
-        role == .toast
+    static func toastOrigin(size: NSSize, visibleFrame: NSRect) -> NSPoint {
+        NSPoint(x: visibleFrame.maxX - size.width - 12, y: visibleFrame.minY + 12)
     }
+
+    /// Steam’s toast animation computes against an unavailable CEF screen
+    /// edge. Keep its panel at the app’s bottom-right anchor instead.
+    var ownsScreenPlacement: Bool { role == .toast }
 
     /// The largest side AppKit gives a window; a larger request gets this.
     nonisolated static let maximumSide: CGFloat = 10000
@@ -137,6 +120,7 @@ extension SteamWindow {
         window.setContentSize(requestedSize)
         window.setFrameTopLeftPoint(topLeft)
         if role == .dialog { centerOnDesktop(window) }
+        if role == .toast { placeToast(window) }
     }
 
     /// Places a menu against the window that opened it.
