@@ -7,6 +7,8 @@ work="$RUNNER_TEMP/sevo-build"
 out="$RUNNER_TEMP/sevo-output"
 mkdir -p "$work" "$out"
 export SEVO_EMBED_ENGINE=0
+bash Tools/embedded-overlay/build.sh
+cp "$RUNNER_TEMP/sevo-overlay/check.txt" "$out/overlay-check.txt"
 xcodebuild -version | tee "$out/toolchain.txt"
 sw_vers >> "$out/toolchain.txt"
 common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane

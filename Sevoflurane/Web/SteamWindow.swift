@@ -20,6 +20,20 @@ final class SteamWindow: NSObject {
     private var isClosed = false
 
     var window: NSWindow?
+    private(set) var embeddedPresented = false
+
+    func setEmbeddedPresentation(_ shown: Bool, frame: NSRect? = nil) {
+        realize()
+        guard let window else { return }
+        embeddedPresented = shown
+        suspendOcclusionDetection(shown)
+        if let frame { window.setFrame(frame, display: true) }
+        window.alphaValue = 0
+        window.ignoresMouseEvents = true
+        window.level = .normal
+        if shown { window.orderFront(nil) }
+        else { window.orderOut(nil) }
+    }
 
     /// The backing window, for app-level policy decisions that must exclude
     /// it (a hiding window still reads as visible for a beat).
@@ -37,6 +51,7 @@ final class SteamWindow: NSObject {
     /// A menu counts as visible only when faded in — it stays ordered in for
     /// its whole life at alpha 0.
     var isWindowVisible: Bool {
+        if embeddedPresented { return true }
         guard let window, window.isVisible else { return false }
         // A menu and the game overlay stay ordered in at alpha 0 so their
         // pages keep rendering; they count as visible only once faded in.
@@ -506,6 +521,11 @@ final class SteamWindow: NSObject {
         guard role != .gameOverlay else { return }
         guard !isDesktopChatMirrorInOverlay else { return }
         host?.noteWindowWillShow(self)
+        if host?.embeddedOverlay.presenting == true {
+            prepareOpeningPlacement()
+            setEmbeddedPresentation(true)
+            return
+        }
         // A popup opened while the overlay is up rides above it (a
         // non-activating panel levelled in `realize`) and is ordered in
         // without activating the app, so the game keeps focus.
@@ -597,6 +617,7 @@ final class SteamWindow: NSObject {
     /// menu failed to appear" — the state flips back and a 30ms-delayed
     /// effect hides the window. That loop was the supernav blink.
     private func hide() {
+        embeddedPresented = false
         savePlacement()
         if role == .menu { relayReactHoverExit() }
         hasBeenShown = false
@@ -709,6 +730,7 @@ final class SteamWindow: NSObject {
     /// Steam's popup manager holding a window it still believes is open, so the
     /// browsing context is closed too and the page's own teardown follows.
     func close() {
+        embeddedPresented = false
         guard !isClosed else { return }
         isClosed = true
         webView.evaluateJavaScript("window.close()")

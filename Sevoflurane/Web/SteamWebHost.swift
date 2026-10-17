@@ -355,6 +355,7 @@ final class SteamWebHost {
     // rides just above the game and vanishes the moment another app comes
     // forward — never a full-screen window sitting over everything.
     @ObservationIgnored var overlayActive = false
+    @ObservationIgnored lazy var embeddedOverlay = EmbeddedSteamOverlay(host: self)
     @ObservationIgnored var overlayGame: WineWindowWatch.GameWindow?
     @ObservationIgnored var overlayAppID = ""
     /// The install wizard's latest state and how many updates it has had, so the
@@ -730,6 +731,7 @@ final class SteamWebHost {
     // MARK: - Popup adoption
 
     func windowDidAdopt(_ window: SteamWindow) {
+        _ = embeddedOverlay
         // The name is what classifies a popup, so an unexpected window on
         // screen can be traced to the name Steam gave it.
         EventLog.shared.log(.window, "popup adopted: \(window.name) as \(window.role)")

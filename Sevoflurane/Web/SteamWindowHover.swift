@@ -28,7 +28,7 @@ extension SteamWindow {
           var prev = window.__sevoHoverPath || [];
           // WebKit freezes :hover in non-key windows, even when native mouse
           // events are forwarded. Reuse Steam's rules without taking key focus.
-          if (\(role == .menu ? "true" : "false")) {
+          if (\((role == .menu || embeddedPresented) ? "true" : "false")) {
             var style = document.getElementById("sevo-nonkey-hover");
             if (!style || window.__sevoHoverCSSCount !== document.styleSheets.length) {
               if (!style) {

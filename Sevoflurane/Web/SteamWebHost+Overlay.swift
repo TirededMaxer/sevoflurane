@@ -26,10 +26,13 @@ extension SteamWebHost {
             )
             return
         }
+        _ = embeddedOverlay
         overlayActive = active
         guard active else {
             removeOverlayFrontObserver()
             removeOverlayKeyMonitor()
+            embeddedOverlay.hide()
+            overlay.setEmbeddedPresentation(false)
             overlay.hideOverlay()
             // Closed, not merely hidden: a child left open is one Steam
             // restores at the next activation and at the next game start.
@@ -37,7 +40,7 @@ extension SteamWebHost {
                 child.close()
             }
             overlayChildren.removeAll()
-            if let pid = overlayGame?.pid {
+            if let pid = overlayGame?.pid, NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
                 Task(name: "Return focus to the game") {
                     await Activation().bringForward(pid: pid, describedAs: "the game behind the overlay")
                     ActivationPolicy.recedeIfLastWindow(closing: nil)
@@ -67,7 +70,7 @@ extension SteamWebHost {
     /// so the client's overlay state stays in step with ours. It answers with
     /// `RegisterForOverlayActivated(false)`, which drives the hide and returns
     /// focus to the game.
-    private func closeOverlay() {
+    func closeOverlay() {
         guard overlayActive, !overlayAppID.isEmpty else { return }
         let appID = overlayAppID
         Task(name: "Close Steam overlay") {
@@ -135,14 +138,24 @@ extension SteamWebHost {
                     size: window.bounds.size,
                 )
             }
-            overlay.showOverlay(frame: frame, level: overlayGame.map { $0.layer + 1 })
+            if overlayAppID == "730", embeddedOverlay.connected, let frame {
+                embeddedOverlay.show(root: overlay, frame: frame)
+            } else {
+                overlay.showOverlay(frame: frame, level: overlayGame.map { $0.layer + 1 })
+            }
         } else {
+            embeddedOverlay.hide()
+            overlay.setEmbeddedPresentation(false)
             overlay.hideOverlay()
         }
         // The children ride with the overlay: hidden when it is, shown when it
         // returns (a closed one's window is gone, so this no-ops for it).
         for child in overlayChildren {
-            child.setOrderedIn(shown)
+            if embeddedOverlay.presenting {
+                child.setEmbeddedPresentation(shown)
+            } else {
+                child.setOrderedIn(shown)
+            }
         }
     }
 
