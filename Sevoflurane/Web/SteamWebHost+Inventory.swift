@@ -63,6 +63,11 @@ extension SteamWebHost {
                 "role": String(describing: popup.role),
                 "frame": NSStringFromRect(popup.appKitFrame),
                 "visible": popup.isWindowVisible,
+                "key": popup.nsWindow?.isKeyWindow ?? false,
+                "appActive": NSApp.isActive,
+                "frontmostPID": NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1,
+                "responder": popup.nsWindow?.firstResponder.map { String(describing: type(of: $0)) } ?? "none",
+                "embedded": popup.embeddedPresented,
             ])
         }
         return rows

@@ -142,10 +142,11 @@ final class SteamWindow: NSObject {
         if let maximumSize { window.contentMaxSize = maximumSize }
         place(window)
         self.window = window
-        if role == .desktop {
+        if role != .menu, role != .toast {
             titleStripMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
                 let handled = MainActor.assumeIsolated {
-                    self?.handleTitleStripMouseDown(event) == true
+                    self?.takeKeyboardForUserPress(event)
+                    return self?.handleTitleStripMouseDown(event) == true
                 }
                 return handled ? nil : event
             }
@@ -596,6 +597,32 @@ final class SteamWindow: NSObject {
         }
     }
 
+    /// A physical press must acquire keyboard ownership too. An activation
+    /// requested while a popup is being built can be declined by macOS; a
+    /// visible window alone does not prove where subsequent typing will go.
+    private func takeKeyboardForUserPress(_ event: NSEvent) {
+        guard let window, event.window === window, !embeddedPresented,
+              window.alphaValue > 0, role != .menu, role != .toast else { return }
+        let panel = window.styleMask.contains(.nonactivatingPanel)
+        let promotion = !panel && NSApp.activationPolicy() != .regular
+        if !panel { Activation().bringAppForward() }
+        let finish = { [weak self, weak window] in
+            guard let self, let window, !self.embeddedPresented, window.alphaValue > 0 else { return }
+            window.makeKey()
+            self.ensureWebKeyboardResponder()
+            EventLog.shared.log(.window, "keyboard press: \(self.name), appActive=\(NSApp.isActive), key=\(window.isKeyWindow), responder=\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none")")
+        }
+        if promotion { DispatchQueue.main.async(execute: finish) }
+        else { finish() }
+    }
+
+    func ensureWebKeyboardResponder() {
+        guard let window else { return }
+        if window.firstResponder == nil || window.firstResponder === window || window.firstResponder === window.contentView {
+            window.makeFirstResponder(webView)
+        }
+    }
+
     /// Brings the app and this window forward.
     private func activate(_ window: NSWindow) {
         if !role.isPanel {
@@ -624,6 +651,7 @@ final class SteamWindow: NSObject {
         showWasDeferredByHold = false
         guard let window else { return }
         if role == .menu || role == .gameOverlay {
+            if window.isKeyWindow { window.resignKey() }
             // Fade rather than order out: the overlay's page must keep
             // rendering so its next activation has no blank first frame, the
             // same reason a menu stays ordered in at alpha 0.
@@ -1027,6 +1055,7 @@ extension SteamWindow: NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_: Notification) {
+        ensureWebKeyboardResponder()
         clearHoverAppearance()
     }
 

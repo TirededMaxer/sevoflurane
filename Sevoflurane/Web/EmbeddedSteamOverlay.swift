@@ -152,9 +152,11 @@ final class EmbeddedSteamOverlay {
                                                location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
                                                windowNumber: target.window?.windowNumber ?? 0, context: nil,
                                                characters: text, charactersIgnoringModifiers: text, isARepeat: false, keyCode: key) else { return }
-            if kind == 7 { target.webView.keyDown(with: event) }
-            else if kind == 8 { target.webView.keyUp(with: event) }
-            else { target.webView.flagsChanged(with: event) }
+            target.ensureWebKeyboardResponder()
+            let responder = target.window?.firstResponder ?? target.webView
+            if kind == 7 { responder.keyDown(with: event) }
+            else if kind == 8 { responder.keyUp(with: event) }
+            else { responder.flagsChanged(with: event) }
             return
         }
         if let (popup, anchor, initial) = drag {
