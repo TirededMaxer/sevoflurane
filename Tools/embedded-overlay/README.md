@@ -20,3 +20,8 @@ Alpha-zero backing panels schedule WebKit without taking key or intercepting
 native input. Only CS2 with a fresh game presentation heartbeat uses this path;
 other games retain the existing window implementation. Runtime acceptance must
 check injection, game pixels, hover/clicks and focus separately.
+
+The producer is statically linked into the signed app. Loading an ad-hoc dylib
+inside the hardened app is intentionally unnecessary; library validation and
+the existing microphone-only entitlements remain in place. The universal
+renderer dylib is loaded only by Wine, after its wrapper applies `--env`.
