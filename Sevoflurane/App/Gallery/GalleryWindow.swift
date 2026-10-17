@@ -32,7 +32,7 @@
             window.styleMask = [.titled, .closable, .resizable]
             window.setContentSize(NSSize(width: 1320, height: 900))
             window.isRestorable = false
-            window.center()
+            WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.Gallery")
             self.window = window
             // Promotion from `.accessory` lands a run loop turn later, and a
             // window ordered front in the same pass is swallowed with it —

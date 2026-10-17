@@ -22,7 +22,7 @@ final class ProcessMonitorWindows {
     func show() {
         ActivationPolicy.becomeRegular()
         if let window {
-            if !window.isVisible { WindowPlacement.center(window) }
+            if !window.isVisible { WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.ProcessMonitor") }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -48,7 +48,7 @@ final class ProcessMonitorWindows {
                 ActivationPolicy.recedeIfLastWindow(closing: window)
             }
         }
-        WindowPlacement.center(window)
+        WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.ProcessMonitor")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

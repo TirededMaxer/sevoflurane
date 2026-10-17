@@ -63,7 +63,7 @@ final class AboutWindows {
     private func show(_ kind: Kind, make: () -> NSWindow) {
         ActivationPolicy.becomeRegular()
         if let window = windows[kind] {
-            if !window.isVisible { WindowPlacement.center(window) }
+            if !window.isVisible { WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.About.\(kind)") }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -82,7 +82,7 @@ final class AboutWindows {
                 ActivationPolicy.recedeIfLastWindow(closing: window)
             }
         }
-        WindowPlacement.center(window)
+        WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.About.\(kind)")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

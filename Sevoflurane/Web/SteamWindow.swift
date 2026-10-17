@@ -597,6 +597,8 @@ final class SteamWindow: NSObject {
     /// menu failed to appear" — the state flips back and a 30ms-delayed
     /// effect hides the window. That loop was the supernav blink.
     private func hide() {
+        savePlacement()
+        if role == .menu { relayReactHoverExit() }
         hasBeenShown = false
         showWasDeferredByHold = false
         guard let window else { return }
@@ -982,6 +984,7 @@ extension SteamWindow {
 
 extension SteamWindow: NSWindowDelegate {
     func windowShouldClose(_: NSWindow) -> Bool {
+        savePlacement()
         // The desktop window ends when it is closed, and overrides Steam's
         // `SetHideOnClose` to do it: its page is the whole library, which
         // keeps a React tree animating and committing layer trees whether or
@@ -1000,11 +1003,17 @@ extension SteamWindow: NSWindowDelegate {
         return false
     }
 
+    func windowDidBecomeKey(_: Notification) {
+        clearHoverAppearance()
+    }
+
     func windowDidResize(_: Notification) {
+        savePlacement()
         notifyPage("window_resized")
     }
 
     func windowDidMove(_: Notification) {
+        savePlacement()
         notifyPage("window_moved")
     }
 }

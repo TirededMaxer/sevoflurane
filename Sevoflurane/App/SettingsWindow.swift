@@ -64,7 +64,7 @@ final class SettingsWindow: NSObject, NSToolbarDelegate {
         // and an active menu bar, like any app with a window on screen.
         ActivationPolicy.becomeRegular()
         if let window {
-            if !window.isVisible { WindowPlacement.center(window) }
+            if !window.isVisible { WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.Settings") }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -74,7 +74,7 @@ final class SettingsWindow: NSObject, NSToolbarDelegate {
         EventLog.shared.log(.window, "settings: opened")
         let window = makeWindow()
         self.window = window
-        WindowPlacement.center(window)
+        WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.Settings")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

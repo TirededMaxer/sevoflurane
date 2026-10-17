@@ -109,7 +109,7 @@ final class CrashPrompt: NSObject, NSWindowDelegate {
         self.panel = panel
         panel.contentView = NSHostingView(rootView: CrashPromptView(model: model))
         panel.setContentSize(panel.contentView?.fittingSize ?? NSSize(width: 460, height: 220))
-        WindowPlacement.center(panel)
+        WindowPlacement.restoreOrCenter(panel, key: "Sevo.Native.Crash")
         // An agent app has no activation of its own, so the panel would open
         // behind whatever the user was in.
         NSApp.activate()

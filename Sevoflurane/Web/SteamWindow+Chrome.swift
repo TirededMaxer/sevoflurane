@@ -2,9 +2,6 @@ import AppKit
 import WebKit
 
 extension SteamWindow {
-    /// Where the desktop window's frame is kept between the times it exists.
-    static let desktopFrameName = "SteamDesktopWindow"
-
     /// The per-role window dressing: title bar treatment, background, level,
     /// and visibility behavior.
     func applyRoleChrome(to window: NSWindow) {

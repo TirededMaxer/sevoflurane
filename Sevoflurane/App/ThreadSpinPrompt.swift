@@ -93,7 +93,7 @@ final class ThreadSpinPrompt: NSObject, NSWindowDelegate {
         self.panel = panel
         panel.contentView = NSHostingView(rootView: ThreadSpinPromptView(model: model))
         panel.setContentSize(panel.contentView?.fittingSize ?? Self.panelSize)
-        WindowPlacement.center(panel)
+        WindowPlacement.restoreOrCenter(panel, key: "Sevo.Native.ThreadSpin")
         // An agent app has no activation of its own, so the panel would open
         // behind whatever the user was in.
         NSApp.activate()

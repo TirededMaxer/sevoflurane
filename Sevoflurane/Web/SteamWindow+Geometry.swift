@@ -1,10 +1,19 @@
 import AppKit
 
 extension SteamWindow {
-    /// Independent Steam windows open centered, ignoring CEF restore coordinates.
+    /// The instance UID changes each launch; desktop and overlay keep separate
+    /// frames while each kind keeps a stable key across client restarts.
+    var placementName: String {
+        let instance = SteamWindowRole.instanceUID(ofPopupNamed: name) == 0 ? "desktop" : "overlay"
+        let base = role == .chat ? "chat" : SteamWindowRole.base(ofPopupNamed: name)
+            .replacingOccurrences(of: #"_\d+$"#, with: "", options: .regularExpression)
+        return "Sevo.Steam.\(instance).\(role).\(base)"
+    }
+
+    /// Restore a remembered frame, or center a window the user has never opened.
     func place(_ window: NSWindow) {
         if role.needsAReachableFrame {
-            centerForOpening(window)
+            restoreForOpening(window)
         } else if let requestedOrigin {
             window.setFrameOrigin(SteamScreenSpace.appKitOrigin(
                 steamX: requestedOrigin.x, steamY: requestedOrigin.y, size: window.frame.size,
@@ -12,17 +21,23 @@ extension SteamWindow {
         }
     }
 
-    func centerForOpening(_ window: NSWindow) {
+    func restoreForOpening(_ window: NSWindow) {
         let overlayScreen = host?.isOverlayActive == true
             ? host?.popups.values.first(where: { $0.role == .gameOverlay })?.nsWindow?.screen : nil
-        WindowPlacement.center(window, on: overlayScreen)
+        WindowPlacement.restoreOrCenter(window, key: placementName, on: overlayScreen, autoSave: false)
     }
 
-    /// Recenter after Steam has finished applying a popup’s initial size.
+    /// Restore after Steam has finished applying a popup’s initial size.
     func prepareOpeningPlacement() {
         guard role.needsAReachableFrame, !hasBeenShown, let window = nsWindow else { return }
-        centerForOpening(window)
+        restoreForOpening(window)
         hasBeenShown = true
+    }
+
+    func savePlacement() {
+        guard role.needsAReachableFrame, hasBeenShown,
+              let window = nsWindow, isWindowVisible else { return }
+        window.saveFrame(usingName: placementName)
     }
 
     /// Brings a window back onto a display when the frame it was given lands
@@ -37,7 +52,7 @@ extension SteamWindow {
             "\(name): \(source) put it at \(NSStringFromRect(window.frame)), "
                 + "which is on no display — centering instead",
         )
-        centerForOpening(window)
+        restoreForOpening(window)
     }
 
     /// Makes a dialog the desktop window's child, so it rides above it and
@@ -83,7 +98,7 @@ extension SteamWindow {
         requestedOrigin = CGPoint(x: x, y: y)
         guard let window else { return }
         if role.needsAReachableFrame, !hasBeenShown {
-            centerForOpening(window)
+            restoreForOpening(window)
             return
         }
         window.setFrameOrigin(
@@ -104,7 +119,7 @@ extension SteamWindow {
         let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
         window.setContentSize(requestedSize)
         window.setFrameTopLeftPoint(topLeft)
-        if role.needsAReachableFrame, !hasBeenShown { centerForOpening(window) }
+        if role.needsAReachableFrame, !hasBeenShown { restoreForOpening(window) }
         if role == .toast { placeToast(window) }
     }
 
@@ -126,7 +141,7 @@ extension SteamWindow {
         requestedSize = CGSize(width: width, height: height)
         window.setContentSize(requestedSize)
         if role.needsAReachableFrame, !hasBeenShown {
-            centerForOpening(window)
+            restoreForOpening(window)
             return
         }
         window.setFrameOrigin(

@@ -24,7 +24,7 @@ final class ReportWindows {
     func show() {
         ActivationPolicy.becomeRegular()
         if let window {
-            if !window.isVisible { WindowPlacement.center(window) }
+            if !window.isVisible { WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.Reports") }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -51,7 +51,7 @@ final class ReportWindows {
                 ActivationPolicy.recedeIfLastWindow(closing: window)
             }
         }
-        WindowPlacement.center(window)
+        WindowPlacement.restoreOrCenter(window, key: "Sevo.Native.Reports")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
