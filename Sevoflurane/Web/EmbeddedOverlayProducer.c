@@ -22,7 +22,7 @@ __attribute__((visibility("default"))) void *SevoOverlayCreate(const char *path)
     return map;
 }
 __attribute__((visibility("default"))) uint64_t SevoOverlayRead(void *map, uint32_t word) {
-    if (!map || word < 2 || word > 19) return 0;
+    if (!map || word < 2 || word > 20) return 0;
     return atomic_load_explicit((_Atomic uint64_t *)map + word, memory_order_acquire);
 }
 __attribute__((visibility("default"))) void SevoOverlayDeactivate(void *map) {

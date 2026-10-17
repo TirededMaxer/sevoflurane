@@ -271,7 +271,7 @@ static void releaseHeldGameKeys(NSWindow *window) {
 static void updateWindowSurface(void) {
     if (!installed || !openBridge()) return;
     NSWindow *window = gameWindow();
-    if (!window) { [windowSurface detach]; wasWindowActive = NO; return; }
+    if (!window) { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); wasWindowActive = NO; return; }
     NSView *content = window.contentView;
     NSRect screen = [window convertRectToScreen:[content convertRect:content.bounds toView:nil]];
     CGFloat scale = window.backingScaleFactor;
@@ -282,7 +282,7 @@ static void updateWindowSurface(void) {
     atomic_store(&bridge->backend, 2);
     atomic_store_explicit(&bridge->consumerTime, clockTicks(), memory_order_release);
     BOOL active = activeFrame() && NSApp.isActive;
-    if (!active) { [windowSurface detach]; windowGeneration = 0; wasWindowActive = NO; return; }
+    if (!active) { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); windowGeneration = 0; wasWindowActive = NO; return; }
     if (!wasWindowActive) releaseHeldGameKeys(window);
     wasWindowActive = YES;
     uint64_t generation = atomic_load_explicit(&bridge->generation, memory_order_acquire);
@@ -300,8 +300,9 @@ static void updateWindowSurface(void) {
     if (!windowSurface) windowSurface = [SevoWindowSurface new];
     if ([windowSurface presentImage:image inWindow:window scale:scale]) {
         windowGeneration = generation;
+        atomic_store_explicit(&bridge->nativeLayerVisible, 1, memory_order_release);
         if (atomic_fetch_add(&bridge->composedFrames, 1) == 0) note(@"first native-resolution UI layer attached inside the game window");
-    } else { [windowSurface detach]; windowGeneration = 0; }
+    } else { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); windowGeneration = 0; }
     CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
 }
 static BOOL targetProcess(void) {

@@ -138,7 +138,8 @@ extension SteamWebHost {
                     size: window.bounds.size,
                 )
             }
-            if overlayAppID == "730", embeddedOverlay.nativeFrameFits, let frame {
+            if overlayAppID == "730", embeddedFailureGamePID != overlayGame?.pid,
+               embeddedOverlay.nativeFrameFits, let frame {
                 embeddedOverlay.show(root: overlay, frame: frame)
             } else {
                 overlay.showOverlay(frame: frame, level: overlayGame.map { $0.layer + 1 })
@@ -157,6 +158,23 @@ extension SteamWebHost {
                 child.setOrderedIn(shown)
             }
         }
+    }
+
+    /// A failed capture must return the already accepted native panel, rather
+    /// than leave an invisible backing window and blocked game input behind.
+    func fallBackFromEmbeddedOverlay(_ reason: String) {
+        guard overlayActive, embeddedOverlay.presenting,
+              let root = popups.values.first(where: { $0.role == .gameOverlay }) else { return }
+        let frame = root.window?.frame
+        embeddedFailureGamePID = overlayGame?.pid
+        embeddedOverlay.hide()
+        root.setEmbeddedPresentation(false)
+        root.showOverlay(frame: frame, level: overlayGame.map { $0.layer + 1 })
+        for child in overlayChildren {
+            child.setEmbeddedPresentation(false)
+            child.show(activating: false)
+        }
+        EventLog.shared.log(.window, "embedded overlay unavailable (\(reason)); restored native panel for this game process")
     }
 
     private func installOverlayFrontObserver(_ overlay: SteamWindow) {

@@ -26,6 +26,8 @@ final class EmbeddedSteamOverlay {
     private var drag: (SteamWindow, NSPoint, NSRect)?
     private(set) var presenting = false
     private var frame = NSRect.zero
+    private var shownAt = ContinuousClock.Instant.now
+    private var loggedCaptureResolution = false
 
     init(host: SteamWebHost) {
         self.host = host
@@ -59,6 +61,7 @@ final class EmbeddedSteamOverlay {
     func show(root: SteamWindow, frame: NSRect) {
         self.frame = frame
         presenting = true
+        shownAt = .now
         root.setEmbeddedPresentation(true, frame: frame)
         guard captureTask == nil else { return }
         EventLog.shared.log(.window, "embedded overlay: using game's existing window, no key window")
@@ -100,6 +103,11 @@ final class EmbeddedSteamOverlay {
 
     private func capture() async {
         guard let surface, let publish, frame.width > 0, frame.height > 0 else { return }
+        if ContinuousClock.now - shownAt > .seconds(2),
+           !connected || read?(surface, 20) != 1 {
+            host?.fallBackFromEmbeddedOverlay("game window did not accept a native-resolution frame")
+            return
+        }
         if let read, read(surface, 17) == 2 {
             let current = NSRect(x: Double(bitPattern: read(surface, 12)), y: Double(bitPattern: read(surface, 13)),
                                  width: Double(bitPattern: read(surface, 14)), height: Double(bitPattern: read(surface, 15)))
@@ -114,7 +122,10 @@ final class EmbeddedSteamOverlay {
         }
         let scale = reportedScale
             ?? NSScreen.screens.first(where: { $0.frame.contains(NSPoint(x: frame.midX, y: frame.midY)) })?.backingScaleFactor ?? 1
-        guard let size = Self.captureSize(frame: frame, scale: scale) else { return }
+        guard let size = Self.captureSize(frame: frame, scale: scale) else {
+            host?.fallBackFromEmbeddedOverlay("display exceeds the native capture surface")
+            return
+        }
         let width = size.width, height = size.height
         guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),
@@ -127,6 +138,17 @@ final class EmbeddedSteamOverlay {
             guard let image = try? await popup.webView.takeSnapshot(configuration: config),
                   presenting, !Task.isCancelled,
                   let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
+            if popup.role == .gameOverlay {
+                guard CGFloat(cg.width) >= popup.webView.bounds.width * scale,
+                      CGFloat(cg.height) >= popup.webView.bounds.height * scale else {
+                    host?.fallBackFromEmbeddedOverlay("WebKit snapshot is below the display's backing resolution")
+                    return
+                }
+                if !loggedCaptureResolution {
+                    loggedCaptureResolution = true
+                    EventLog.shared.log(.window, "embedded capture: WebKit \(cg.width)x\(cg.height), native output \(width)x\(height), scale \(scale)")
+                }
+            }
             let webRect = window.convertToScreen(popup.webView.convert(popup.webView.bounds, to: nil))
                 .offsetBy(dx: -frame.minX, dy: -frame.minY)
             context.draw(cg, in: webRect)
@@ -212,8 +234,11 @@ final class EmbeddedSteamOverlay {
         }
         if kind == 6 {
             guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
-                                   wheel1: Int32(delta.y), wheel2: Int32(delta.x), wheel3: 0),
-                  let event = NSEvent(cgEvent: cg) else { return }
+                                   wheel1: Int32(delta.y), wheel2: Int32(delta.x), wheel3: 0) else { return }
+            cg.location = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.maxY ?? 0) - point.y)
+            cg.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
+            cg.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
+            guard let event = NSEvent(cgEvent: cg) else { return }
             popup.webView.scrollWheel(with: event); return
         }
         let type: NSEvent.EventType = kind == 1 ? .leftMouseDown : kind == 2 ? .leftMouseUp : kind == 4 ? .rightMouseDown : kind == 5 ? .rightMouseUp : .mouseMoved

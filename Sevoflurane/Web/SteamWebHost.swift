@@ -357,6 +357,7 @@ final class SteamWebHost {
     @ObservationIgnored var overlayActive = false
     @ObservationIgnored lazy var embeddedOverlay = EmbeddedSteamOverlay(host: self)
     @ObservationIgnored var overlayGame: WineWindowWatch.GameWindow?
+    @ObservationIgnored var embeddedFailureGamePID: pid_t?
     @ObservationIgnored var overlayAppID = ""
     /// The install wizard's latest state and how many updates it has had, so the
     /// check that follows one can tell whether the wizard moved on since.

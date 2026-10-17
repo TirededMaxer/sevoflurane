@@ -43,8 +43,8 @@ struct EmbeddedOverlayTests {
         defer { popup.detach(reason: .pageTeardown) }
         let window = try #require(popup.nsWindow)
         web.loadHTMLString("""
-        <style>body{margin:0}input,button{position:absolute;left:20px;width:220px;height:40px}input{top:30px}button{top:100px}</style>
-        <input id="field"><button id="button" onclick="window.clicks++">Click</button>
+        <style>body{margin:0}input,button{position:absolute;left:20px;width:220px;height:40px}input{top:30px}button{top:100px}#scroll{position:absolute;left:300px;top:30px;width:200px;height:120px;overflow:auto}#scroll div{height:1000px}</style>
+        <input id="field"><button id="button" onclick="window.clicks++">Click</button><div id="scroll"><div>Scroll</div></div>
         <script>window.clicks=0;window.fixtureReady=true;</script>
         """, baseURL: nil)
         let eval = JavaScriptEvaluator()
@@ -99,6 +99,16 @@ struct EmbeddedOverlayTests {
             try await Task.sleep(for: .milliseconds(25))
         }
         #expect(clicks == "1")
+        let scrollPoint = window.convertPoint(toScreen: web.convert(NSPoint(x: 350, y: web.isFlipped ? 60 : web.bounds.height - 60), to: nil))
+        host.embeddedOverlay.route(kind: 6, key: 0, point: scrollPoint, delta: NSPoint(x: 0, y: -80),
+                                   modifiers: [], clicks: 0, text: "")
+        var scrolled = false
+        for _ in 0..<40 {
+            scrolled = await read("String(document.getElementById('scroll').scrollTop > 0)") == "true"
+            if scrolled { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(scrolled)
         #expect(window.alphaValue == 0)
         #expect(window.ignoresMouseEvents)
         #expect(!window.isKeyWindow)
@@ -109,6 +119,28 @@ struct EmbeddedOverlayTests {
         let size = try #require(EmbeddedSteamOverlay.captureSize(frame: NSRect(x: 0, y: 0, width: 1512, height: 982), scale: 2))
         #expect(size.width == 3024 && size.height == 1964)
         #expect(EmbeddedSteamOverlay.captureSize(frame: NSRect(x: 0, y: 0, width: 2560, height: 1440), scale: 2) == nil)
+    }
+
+    @Test
+    func `failed embedded presentation restores an interactive native panel`() {
+        let host = SteamWebHost()
+        host.overlayActive = true
+        let web = WKWebView()
+        let popup = SteamWindow(webView: web, role: .gameOverlay, name: "fallback-fixture",
+                                size: CGSize(width: 800, height: 600), origin: nil, host: host)
+        let backing = EmbeddedBackingWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        backing.isReleasedWhenClosed = false
+        popup.window = backing
+        host.popups[ObjectIdentifier(web)] = popup
+        host.embeddedOverlay.show(root: popup, frame: NSRect(x: 20, y: 30, width: 800, height: 600))
+        #expect(host.embeddedOverlay.presenting)
+        host.fallBackFromEmbeddedOverlay("fixture rejected a low-resolution frame")
+        #expect(!host.embeddedOverlay.presenting)
+        #expect(!popup.embeddedPresented)
+        #expect(backing.alphaValue == 1)
+        #expect(!backing.ignoresMouseEvents)
+        #expect(backing.keyCount == 1)
+        popup.window = nil
     }
 
     @Test
@@ -126,6 +158,7 @@ private final class EmbeddedBackingWindow: NSWindow {
     var orderCount = 0
     var keyCount = 0
     override func orderFront(_: Any?) { orderCount += 1 }
+    override func orderFrontRegardless() { orderCount += 1 }
     override func orderOut(_: Any?) {}
     override func makeKey() { keyCount += 1 }
 }

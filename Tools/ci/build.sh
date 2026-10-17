@@ -25,6 +25,11 @@ xcodebuild "${common[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
     -testLanguage en -testRegion US -resultBundlePath "$work/Tests.xcresult" test \
     > "$out/tests.log" 2>&1 || test_status=$?
 xcrun xcresulttool get test-results summary --path "$work/Tests.xcresult" > "$out/test-summary.json"
+python3 - "$out/test-summary.json" <<'PY_SUMMARY'
+import json,sys
+s=json.load(open(sys.argv[1]))
+print(f"Cloud tests: {s['passedTests']} passed; {s['failedTests']} failed; {s['skippedTests']} skipped")
+PY_SUMMARY
 if [[ "$test_status" != 0 ]]; then tail -100 "$out/tests.log"; exit "$test_status"; fi
 xcodebuild "${common[@]}" -configuration Release -derivedDataPath "$work/Release" \
     CODE_SIGNING_ALLOWED=NO ENABLE_HARDENED_RUNTIME=YES ENABLE_TESTABILITY=NO build \

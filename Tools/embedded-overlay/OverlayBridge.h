@@ -39,7 +39,8 @@ typedef struct {
     _Atomic uint64_t gameX, gameY, gameWidth, gameHeight, gameScale;
     _Atomic uint64_t backend; /* 1: Metal backbuffer; 2: same-window native layer */
     _Atomic uint64_t blockedEvents, releasedKeys;
-    uint8_t reserved[96];
+    _Atomic uint64_t nativeLayerVisible;
+    uint8_t reserved[88];
 } SevoOverlayHeader;
 
 typedef struct {
