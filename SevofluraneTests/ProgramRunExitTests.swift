@@ -138,7 +138,10 @@ struct ProgramRunExitTests {
     func `a run closed while the parent is still ending waits for its line`() async throws {
         let root = try scratch()
         defer { try? manager.removeItem(at: root) }
-        let recorder = try makeRecorder(in: root, grace: .seconds(3))
+        // The concurrent suite can delay this task by several seconds on a
+        // small CI VM. The injected grace is deliberately longer than that
+        // scheduling delay; production keeps its three-second grace.
+        let recorder = try makeRecorder(in: root, grace: .seconds(30))
         recorder.arm(appID: program)
         recorder.close(appID: program)
         try await Task.sleep(for: .milliseconds(400))

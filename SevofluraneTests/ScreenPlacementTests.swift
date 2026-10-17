@@ -21,9 +21,11 @@ struct ScreenPlacementTests {
             owner.realize()
             defer { owner.detach(reason: .pageTeardown); NSWindow.removeFrame(usingName: owner.placementName) }
             let window = try #require(owner.nsWindow)
+            // AppKit rounds the origin to pixels: a 1x display can leave
+            // an unavoidable half-point difference when the usable height is odd.
             func expectCentered() {
-                #expect(abs(window.frame.midX - screen.visibleFrame.midX) < 0.5, "\(role)")
-                #expect(abs(window.frame.midY - screen.visibleFrame.midY) < 0.5, "\(role)")
+                #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 0.5, "\(role)")
+                #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 0.5, "\(role)")
             }
             expectCentered()
             owner.moveTo(x: 0, y: 0)
@@ -60,8 +62,8 @@ struct ScreenPlacementTests {
         child.prepareOpeningPlacement()
         let window = try #require(child.nsWindow)
         let screen = try #require(window.screen)
-        #expect(abs(window.frame.midX - screen.visibleFrame.midX) < 0.5)
-        #expect(abs(window.frame.midY - screen.visibleFrame.midY) < 0.5)
+        #expect(abs(window.frame.midX - screen.visibleFrame.midX) <= 0.5)
+        #expect(abs(window.frame.midY - screen.visibleFrame.midY) <= 0.5)
         _ = child.perform("SetHideOnClose", [true])
         window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 30, y: screen.visibleFrame.minY + 40))
         window.saveFrame(usingName: child.placementName)
