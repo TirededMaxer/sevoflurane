@@ -10,12 +10,31 @@ assert os.environ.get("GITHUB_ACTIONS") == "true", "Run through GitHub Actions"
 repo = os.environ["GITHUB_REPOSITORY"]
 out = Path(os.environ["RUNNER_TEMP"]) / "sevo-output"
 manifest = json.loads((out / "manifest.json").read_text())
-assert manifest["source"] == os.environ["GITHUB_SHA"]
 tag = "v" + manifest["version"]
 files = [out / manifest["dmg"], out / "SHA256SUMS.txt"]
 
 def gh(*args, **kwargs):
-    return subprocess.run(["gh", *args], check=True, capture_output=True, text=True, **kwargs).stdout
+    result = subprocess.run(["gh", *args], capture_output=True, text=True, **kwargs)
+    if result.returncode:
+        raise RuntimeError(f"gh {args}: {result.stderr}")
+    return result.stdout
+
+build_run = os.environ.get("SEVO_BUILD_RUN_ID", "")
+if build_run:
+    assert build_run.isdecimal(), "Build run must be a numeric Actions run ID"
+    run = json.loads(gh("api", f"repos/{repo}/actions/runs/{build_run}"))
+    assert run["head_sha"] == manifest["source"] and run["status"] == "completed"
+    assert run["path"] == ".github/workflows/release.yml"
+    assert run["repository"]["full_name"] == repo
+    jobs = json.loads(gh("api", f"repos/{repo}/actions/runs/{build_run}/jobs"))["jobs"]
+    successful = {step["name"] for job in jobs for step in job["steps"] if step["conclusion"] == "success"}
+    assert {"Test and build on a fresh Apple Silicon runner", "Sign, verify and package",
+            "Upload build and test evidence"} <= successful, "Original build checks must have passed"
+    summary = json.loads((out / "test-summary.json").read_text())
+    assert summary["passedTests"] > 0 and summary["failedTests"] == 0
+else:
+    assert manifest["source"] == os.environ["GITHUB_SHA"]
+assert hashlib.sha256(files[0].read_bytes()).hexdigest() == manifest["sha256"]
 
 releases = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100"))
 releases = [release for page in releases for release in page]
@@ -29,8 +48,12 @@ else:
 gh("release", "upload", tag, "--repo", repo, "--clobber", *(str(file) for file in files))
 gh("release", "edit", tag, "--repo", repo, "--notes-file", str(out / "release-notes.md"))
 
+# A draft has no Git tag yet. Find it by ID from the authenticated release list.
+current = json.loads(gh("api", f"repos/{repo}/releases?per_page=100"))
+release_id = next(release["id"] for release in current if release["tag_name"] == tag)
+
 def verify():
-    remote = json.loads(gh("api", f"repos/{repo}/releases/tags/{tag}"))
+    remote = json.loads(gh("api", f"repos/{repo}/releases/{release_id}"))
     assets = {asset["name"]: asset for asset in remote["assets"]}
     assert set(assets) == {file.name for file in files}, assets
     with tempfile.TemporaryDirectory(prefix="sevo-release-check-") as directory:

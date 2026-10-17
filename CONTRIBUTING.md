@@ -27,7 +27,10 @@ gh workflow run release.yml --repo TirededMaxer/sevoflurane --ref main -f publis
 ```
 
 Set `publish=false` for validation and a downloadable workflow artifact without
-changing Releases. When publishing, update the version/build number and
+changing Releases. If only publication failed after build and packaging passed,
+set `build_run_id` to that Actions run ID to reuse its verified cloud artifact.
+The publisher checks the original run, commit and successful build steps before
+using it. When publishing, update the version/build number and
 RELEASE_NOTES.md first. Cloud checks include the full test suite, Release build,
 CLI/MCP, hardened-runtime signatures, microphone entitlements and DMG integrity.
 Assets are downloaded and hash-checked before and after publication; only then

@@ -7,6 +7,10 @@ on:
         description: Publish the verified build and retain only the newest Release
         type: boolean
         default: true
+      build_run_id:
+        description: Optional previously verified build run, for retrying publication only
+        type: string
+        default: ''
 
 concurrency:
   group: sevoflurane-release
@@ -21,16 +25,28 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      actions: read
     env:
       SEVO_EMBED_ENGINE: '0'
     steps:
       - uses: actions/checkout@v4
+      - name: Restore a verified cloud build for publication retry
+        if: inputs.build_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          pattern: sevoflurane-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sevo-output/
       - name: Test and build on a fresh Apple Silicon runner
+        if: inputs.build_run_id == ''
         run: bash Tools/ci/build.sh
       - name: Sign, verify and package
+        if: inputs.build_run_id == ''
         run: python3 Tools/ci/package.py
       - name: Upload build and test evidence
-        if: always()
+        if: always() && inputs.build_run_id == ''
         uses: actions/upload-artifact@v4
         with:
           name: sevoflurane-${{ github.sha }}
@@ -41,4 +57,5 @@ jobs:
         if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
+          SEVO_BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: python3 Tools/ci/publish.py
