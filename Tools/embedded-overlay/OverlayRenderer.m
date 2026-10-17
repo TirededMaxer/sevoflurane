@@ -4,6 +4,7 @@
 #import <objc/runtime.h>
 #import <mach/mach_time.h>
 #import <crt_externs.h>
+#import <os/lock.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -19,10 +20,7 @@ static id<MTLRenderPipelineState> pipeline;
 static uint64_t textureGeneration;
 static MTLPixelFormat pipelineFormat;
 static BOOL installed;
-static BOOL composing;
-static NSString *bridgePath;
-static NSPoint lastMouse;
-static BOOL haveMouse;
+static os_unfair_lock renderLock = OS_UNFAIR_LOCK_INIT;
 static void (*originalPresent)(id, SEL, id);
 static void (*originalTimedPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalMinimumPresent)(id, SEL, id, CFTimeInterval);
@@ -61,7 +59,7 @@ static BOOL openBridge(void) {
     if (header->magic != SEVO_OVERLAY_MAGIC || header->version != SEVO_OVERLAY_VERSION) {
         munmap(address, SEVO_OVERLAY_FILE_SIZE); return NO;
     }
-    mapping = address; bridge = address; bridgePath = @(path);
+    mapping = address; bridge = address;
     note(@"shared surface connected");
     return YES;
 }
@@ -114,11 +112,11 @@ static BOOL preparePipeline(id<MTLDevice> device, MTLPixelFormat format) {
 /* Exported for the cloud-built pixel readback check; the game invokes exactly
  * this path from its existing command buffer, immediately before presentation. */
 __attribute__((visibility("default"))) BOOL SevoOverlayComposite(id<MTLCommandBuffer> command, id<MTLTexture> target) {
-    if (composing || !openBridge() || !target) return NO;
+    if (!target || !os_unfair_lock_trylock(&renderLock)) return NO;
+    if (!openBridge()) { os_unfair_lock_unlock(&renderLock); return NO; }
     atomic_store_explicit(&bridge->consumerTime, clockTicks(), memory_order_release);
     atomic_store_explicit(&bridge->drawableSize, ((uint64_t)target.width << 32) | target.height, memory_order_release);
-    if (!activeFrame()) return NO;
-    composing = YES;
+    if (!activeFrame()) { os_unfair_lock_unlock(&renderLock); return NO; }
     BOOL encoded = NO;
     @try {
         if (prepareTexture(command.device) && preparePipeline(command.device, target.pixelFormat)) {
@@ -139,7 +137,7 @@ __attribute__((visibility("default"))) BOOL SevoOverlayComposite(id<MTLCommandBu
             }
         }
     } @catch (NSException *exception) { note([@"composite refused: " stringByAppendingString:exception.reason ?: @"unknown"]); }
-    composing = NO;
+    os_unfair_lock_unlock(&renderLock);
     return encoded;
 }
 static void present(id self, SEL selector, id<MTLDrawable> drawable) {
@@ -183,10 +181,10 @@ static BOOL sendInput(NSEvent *event) {
     packet.x = point.x / MAX(1, content.size.width);
     packet.y = (content.size.height - point.y) / MAX(1, content.size.height);
     packet.modifiers = event.modifierFlags;
-    packet.clickCount = (packet.kind <= 5) ? (uint32_t)event.clickCount : 0;
+    packet.clickCount = (packet.kind == 1 || packet.kind == 2 || packet.kind == 4 || packet.kind == 5) ? (uint32_t)event.clickCount : 0;
     if (packet.kind >= 7) {
         packet.keyCode = event.keyCode;
-        NSData *text = [event.characters dataUsingEncoding:NSUTF8StringEncoding];
+        NSData *text = packet.kind == 9 ? nil : [event.characters dataUsingEncoding:NSUTF8StringEncoding];
         packet.textLength = (uint32_t)MIN(text.length, sizeof(packet.text));
         if (packet.textLength) memcpy(packet.text, text.bytes, packet.textLength);
     }
