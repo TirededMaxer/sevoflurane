@@ -35,7 +35,7 @@ __attribute__((visibility("default"))) void SevoOverlayPublish(void *map, const 
     memcpy((uint8_t *)map + SEVO_OVERLAY_PIXELS_OFFSET + (generation & 1) * SEVO_OVERLAY_PIXEL_CAPACITY, pixels, width * height * 4);
     atomic_store_explicit(&h->dimensions, ((uint64_t)width << 32) | height, memory_order_release);
     atomic_store_explicit(&h->generation, generation, memory_order_release);
-    atomic_store_explicit(&h->producerTime, mach_absolute_time(), memory_order_release);
+    atomic_store_explicit(&h->producerTime, SevoOverlayNow(), memory_order_release);
     atomic_store_explicit(&h->active, 1, memory_order_release);
 }
 __attribute__((visibility("default"))) int SevoOverlayPop(void *map, void *packet) {

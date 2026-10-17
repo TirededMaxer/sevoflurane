@@ -4,11 +4,13 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include "OverlayBridge.h"
 extern BOOL SevoOverlayComposite(id<MTLCommandBuffer>, id<MTLTexture>);
 
 int main(int argc, const char **argv) {
     @autoreleasepool {
+        if (argc == 2 && !strcmp(argv[1], "--clock")) { printf("%llu\n", (unsigned long long)SevoOverlayNow()); return 0; }
         if (argc != 2) { fprintf(stderr, "usage: sevo-overlay-check <temporary-surface-file>\n"); return 2; }
         int fd = open(argv[1], O_CREAT | O_EXCL | O_RDWR, 0600);
         if (fd < 0 || ftruncate(fd, SEVO_OVERLAY_FILE_SIZE)) return 2;
@@ -20,7 +22,7 @@ int main(int argc, const char **argv) {
         h->dimensions = (2ull << 32) | 2;
         uint8_t *pixels = (uint8_t *)map + SEVO_OVERLAY_PIXELS_OFFSET + SEVO_OVERLAY_PIXEL_CAPACITY;
         for (int i = 0; i < 4; ++i) { pixels[i*4+0] = 0; pixels[i*4+1] = 0; pixels[i*4+2] = 128; pixels[i*4+3] = 128; }
-        h->generation = 1; h->active = 1; h->producerTime = mach_absolute_time();
+        h->generation = 1; h->active = 1; h->producerTime = SevoOverlayNow();
         setenv("SEVO_OVERLAY_BRIDGE", argv[1], 1);
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
         if (!device) { fprintf(stderr, "SKIP: runner exposes no Metal device; run this cloud-built check on the target Mac\n"); unlink(argv[1]); return 77; }

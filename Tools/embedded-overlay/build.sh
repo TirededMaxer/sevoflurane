@@ -16,3 +16,12 @@ cat "$out/check.txt"
 [[ "$status" == 0 || "$status" == 77 ]]
 # The injected loader itself must not pull the GUI/GPU frameworks into Steam.
 ! otool -L "$out/SevoEmbeddedOverlay.dylib" | grep -E 'AppKit|Metal|QuartzCore'
+
+# A cross-architecture timestamp handshake catches Rosetta tick-scale drift.
+python3 - "$out/sevo-overlay-check" <<'PY_CLOCK'
+import subprocess, sys
+arm = int(subprocess.check_output([sys.argv[1], "--clock"]))
+intel = int(subprocess.check_output(["arch", "-x86_64", sys.argv[1], "--clock"]))
+assert abs(intel - arm) < 5_000_000_000, (arm, intel)
+print("PASS: arm64 and Rosetta share nanosecond timestamps")
+PY_CLOCK

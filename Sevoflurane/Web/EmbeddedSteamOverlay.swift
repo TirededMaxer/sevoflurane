@@ -45,10 +45,8 @@ final class EmbeddedSteamOverlay {
     /// is required before replacing the external overlay.
     var connected: Bool {
         guard let surface, let read else { return false }
-        let then = read(surface, 6), now = mach_absolute_time()
-        var base = mach_timebase_info_data_t()
-        mach_timebase_info(&base)
-        return then > 0 && now >= then && Double(now - then) * Double(base.numer) / Double(base.denom) < 750_000_000
+        let then = read(surface, 6), now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+        return then > 0 && now >= then && now - then < 750_000_000
     }
 
     func show(root: SteamWindow, frame: NSRect) {

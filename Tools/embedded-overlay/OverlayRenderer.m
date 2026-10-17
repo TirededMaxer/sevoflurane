@@ -26,12 +26,10 @@ static void (*originalTimedPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalMinimumPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalSendEvent)(id, SEL, NSEvent *);
 
-static uint64_t clockTicks(void) { return mach_absolute_time(); }
+static uint64_t clockTicks(void) { return SevoOverlayNow(); }
 static double secondsBetween(uint64_t now, uint64_t then) {
-    static mach_timebase_info_data_t timebase;
-    if (!timebase.denom) mach_timebase_info(&timebase);
     if (!then || now < then) return 1e9;
-    return (double)(now - then) * timebase.numer / timebase.denom / 1e9;
+    return (double)(now - then) / 1e9;
 }
 static void note(NSString *text) {
     const char *home = getenv("HOME");

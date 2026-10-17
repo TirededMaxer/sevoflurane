@@ -3,9 +3,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdatomic.h>
+#include <time.h>
 
 #define SEVO_OVERLAY_MAGIC 0x5345564f4f564c31ull
-#define SEVO_OVERLAY_VERSION 1
+#define SEVO_OVERLAY_VERSION 2
 #define SEVO_OVERLAY_WIDTH 2048u
 #define SEVO_OVERLAY_HEIGHT 2048u
 #define SEVO_OVERLAY_PIXEL_CAPACITY (SEVO_OVERLAY_WIDTH * SEVO_OVERLAY_HEIGHT * 4u)
@@ -14,6 +15,10 @@
 #define SEVO_OVERLAY_EVENT_SIZE 128u
 #define SEVO_OVERLAY_PIXELS_OFFSET (SEVO_OVERLAY_HEADER_SIZE + SEVO_OVERLAY_EVENT_COUNT * SEVO_OVERLAY_EVENT_SIZE)
 #define SEVO_OVERLAY_FILE_SIZE (SEVO_OVERLAY_PIXELS_OFFSET + 2ull * SEVO_OVERLAY_PIXEL_CAPACITY)
+
+/* Rosetta exposes a different mach_absolute_time tick scale from arm64.
+ * All shared timestamps therefore use architecture-independent nanoseconds. */
+static inline uint64_t SevoOverlayNow(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
 
 /* The two processes use aligned lock-free 64-bit words, with a single writer
  * for each word. Pixels are double-buffered and checked again after copying. */
