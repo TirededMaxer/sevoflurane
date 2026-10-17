@@ -1,31 +1,19 @@
-# Embedded macOS overlay prototype
+# Embedded overlay experiment
 
-This renderer composites the app's premultiplied BGRA surface into the game's
-existing Metal command buffer before drawable presentation. It does not present
-a second window. Native game events return through a shared-memory ring while
-the producer heartbeat is fresh. The library only installs hooks after Wine has
-assigned the exact `cs2.exe` executable identity; other processes are untouched.
+This code is excluded from stable application packages. The local daily-use application remains the stable native-panel overlay. Do not enable `EmbeddedOverlayLaunch` or package these libraries solely because a compositor counter or fixture passes.
 
-Build only in the **Cloud build and release** GitHub workflow (`overlay_probe=true` for a renderer-only check). The universal
-`sevo-overlay-check` performs actual GPU blending and pixel readback, and checks
-that a stale producer releases input/rendering. A runner with no Metal device
-reports an explicit skip; the downloaded check must then pass on the target Mac.
-The shared surface is a private, user-owned runtime IPC file, not a build cache.
+The previous live candidate produced real Metal composites but failed clarity, pointer interaction and game input isolation. The producer was 1512×982 for a 3024×1964 Retina display. WineContentView is flipped; the old normalization flipped its Y coordinate a second time. The installed CrossOver 26.3 driver also posts raw mouse/HID wheel events directly into WineEventQueue, bypassing NSApplication.sendEvent.
 
-The transport and renderer are the first prototype stage. A successful pixel
-check alone does not establish game injection, WebKit capture or input fidelity.
+The cloud-only probe now checks an alternative CALayer inside an existing game-sized NSWindow. It retains native physical-pixel stripes and refuses a 1x frame on a 2x surface. This is presentation inside the same window, not inside the game's Metal command buffer. The probe verifies no additional window or responder change. It does not demonstrate Steam or CS2 integration.
 
-The application captures existing WebKit pages and actual AppKit traffic lights.
-Alpha-zero backing panels schedule WebKit without taking key or intercepting
-native input. Only CS2 with a fresh game presentation heartbeat uses this path;
-other games retain the existing window implementation. Runtime acceptance must
-check injection, game pixels, hover/clicks and focus separately.
+The existing experimental renderer now uses flipped-aware pointer normalization, waits for Wine's actual NSApplication instance, and gates the CrossOver 26.3 event queue as well as AppKit events. Queue overflow no longer forwards captured UI input back to the game. Key and button releases remain available to clear previously held game input. The event prefix is specific to the currently installed CrossOver 26.3 ABI; do not apply it to other runtimes.
 
-The producer is statically linked into the signed app. Loading an ad-hoc dylib
-inside the hardened app is intentionally unnecessary; library validation and
-the existing microphone-only entitlements remain in place. The universal
-renderer dylib is loaded only by Wine, after its wrapper applies `--env`.
+Before any new game candidate can ship:
 
-Wine inherits a minimal libSystem loader. Only cs2.exe loads the AppKit/Metal
-renderer; Steam and CEF never load that renderer through the injection path.
-Desktop/sign-in windows are excluded from the non-activating overlay group.
+- Route the window-surface presenter into the game and produce a true backing-scale image from WKWebView. A 1x image enlarged to 2x must fail acceptance.
+- Verify pointer movement, click/drag, scrolling, child windows and keyboard entry through the actual hidden WKWebView. Validate English and Chinese composition separately.
+- Verify game-side keyboard state and raw input while opening, using and closing the overlay, including held Shift, mouse buttons and repeated toggles. The present policy alone does not prove that the opening chord releases an already-held game binding.
+- Verify fullscreen/windowed resizing, display changes, focus, menu-bar behavior, fallback and normal game controls after closing.
+- Keep the stable package and published Release unchanged until live usability passes.
+
+Run the `overlay_probe=true` GitHub workflow for the universal renderer, Metal readback, cross-architecture clock check and window-surface/input-policy fixture. Compile only in GitHub Actions.

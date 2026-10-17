@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <strings.h>
 #include "OverlayBridge.h"
+#import "WindowSurface.h"
+#include "InputPolicy.h"
 
 static SevoOverlayHeader *bridge;
 static void *mapping;
@@ -25,6 +27,7 @@ static void (*originalPresent)(id, SEL, id);
 static void (*originalTimedPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalMinimumPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalSendEvent)(id, SEL, NSEvent *);
+static void (*originalPostEvent)(id, SEL, const SevoCX263EventPrefix *);
 
 static uint64_t clockTicks(void) { return SevoOverlayNow(); }
 static double secondsBetween(uint64_t now, uint64_t then) {
@@ -182,10 +185,9 @@ static BOOL sendInput(NSEvent *event) {
     }
     NSWindow *window = event.window;
     if (!window) return NO;
-    NSRect content = window.contentView.bounds;
-    NSPoint point = [window.contentView convertPoint:event.locationInWindow fromView:nil];
-    packet.x = point.x / MAX(1, content.size.width);
-    packet.y = (content.size.height - point.y) / MAX(1, content.size.height);
+    NSPoint point = SevoOverlayNormalizedPoint(window.contentView, event.locationInWindow);
+    packet.x = point.x;
+    packet.y = point.y;
     packet.modifiers = event.modifierFlags;
     packet.clickCount = (packet.kind == 1 || packet.kind == 2 || packet.kind == 4 || packet.kind == 5) ? (uint32_t)event.clickCount : 0;
     if (packet.kind >= 7) {
@@ -196,7 +198,8 @@ static BOOL sendInput(NSEvent *event) {
     }
     uint64_t write = atomic_load_explicit(&bridge->eventWrite, memory_order_relaxed);
     uint64_t read = atomic_load_explicit(&bridge->eventRead, memory_order_acquire);
-    if (write - read >= SEVO_OVERLAY_EVENT_COUNT) return NO;
+    // Backpressure may drop a UI event, but must never leak it into the game.
+    if (write - read >= SEVO_OVERLAY_EVENT_COUNT) return YES;
     SevoOverlayEvent *events = (SevoOverlayEvent *)((uint8_t *)mapping + SEVO_OVERLAY_HEADER_SIZE);
     events[write % SEVO_OVERLAY_EVENT_COUNT] = packet;
     atomic_store_explicit(&bridge->eventWrite, write + 1, memory_order_release);
@@ -204,7 +207,15 @@ static BOOL sendInput(NSEvent *event) {
     return YES;
 }
 static void sendEvent(id self, SEL selector, NSEvent *event) {
-    if (!sendInput(event)) originalSendEvent(self, selector, event);
+    BOOL captured = sendInput(event);
+    // Wine must release keys/modifiers held before the overlay opened.
+    // Its event queue below drops new presses, while releases still flow.
+    BOOL release = event.type == NSEventTypeKeyUp || event.type == NSEventTypeFlagsChanged
+        || event.type == NSEventTypeLeftMouseUp || event.type == NSEventTypeRightMouseUp;
+    if (!captured || release) originalSendEvent(self, selector, event);
+}
+static void postEvent(id self, SEL selector, const SevoCX263EventPrefix *event) {
+    if (!SevoOverlayBlocksWineEvent(event, activeFrame())) originalPostEvent(self, selector, event);
 }
 static BOOL targetProcess(void) {
     char **args = *_NSGetArgv();
@@ -213,7 +224,9 @@ static BOOL targetProcess(void) {
     return !strcasecmp(name, "cs2.exe") || (getenv("SEVO_OVERLAY_TEST") && !strcmp(name, "sevo-overlay-check"));
 }
 static void installHooks(void) {
-    if (installed || !targetProcess()) return;
+    if (installed || !targetProcess() || !NSApp) return;
+    Class wineQueue = NSClassFromString(@"WineEventQueue");
+    if (!wineQueue || !class_getInstanceMethod(wineQueue, @selector(postEvent:))) return;
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     id<MTLCommandQueue> queue = [device newCommandQueue];
     id<MTLCommandBuffer> command = [queue commandBuffer];
@@ -222,8 +235,9 @@ static void installHooks(void) {
     originalPresent = (void *)replace(cls, @selector(presentDrawable:), (IMP)present);
     originalTimedPresent = (void *)replace(cls, @selector(presentDrawable:atTime:), (IMP)presentAt);
     originalMinimumPresent = (void *)replace(cls, @selector(presentDrawable:afterMinimumDuration:), (IMP)presentAfter);
-    originalSendEvent = (void *)replace(NSApp ? object_getClass(NSApp) : NSApplication.class, @selector(sendEvent:), (IMP)sendEvent);
-    installed = originalPresent != NULL;
+    originalSendEvent = (void *)replace(object_getClass(NSApp), @selector(sendEvent:), (IMP)sendEvent);
+    originalPostEvent = (void *)replace(wineQueue, @selector(postEvent:), (IMP)postEvent);
+    installed = originalPresent && originalSendEvent && originalPostEvent;
     note([NSString stringWithFormat:@"Metal presentation hook %@ on %s", installed ? @"installed" : @"unavailable", class_getName(cls)]);
 }
 __attribute__((constructor)) static void bootstrap(void) {
