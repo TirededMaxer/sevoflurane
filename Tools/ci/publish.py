@@ -10,6 +10,7 @@ assert os.environ.get("GITHUB_ACTIONS") == "true", "Run through GitHub Actions"
 repo = os.environ["GITHUB_REPOSITORY"]
 out = Path(os.environ["RUNNER_TEMP"]) / "sevo-output"
 manifest = json.loads((out / "manifest.json").read_text())
+assert not manifest.get("experimental", False), "Unaccepted overlay candidates cannot become a public Release"
 tag = "v" + manifest["version"]
 files = [out / manifest["dmg"], out / "SHA256SUMS.txt"]
 

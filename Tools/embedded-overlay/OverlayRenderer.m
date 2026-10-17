@@ -1,7 +1,9 @@
+#include <math.h>
 #import <AppKit/AppKit.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import <mach/mach_time.h>
 #import <crt_externs.h>
 #import <os/lock.h>
@@ -23,6 +25,12 @@ static uint64_t textureGeneration;
 static MTLPixelFormat pipelineFormat;
 static BOOL installed;
 static os_unfair_lock renderLock = OS_UNFAIR_LOCK_INIT;
+static SevoWindowSurface *windowSurface;
+static NSTimer *windowTimer;
+static uint64_t windowGeneration;
+static BOOL wasWindowActive;
+static _Atomic uint64_t heldKeys[4];
+static BOOL windowBackend(void) { return getenv("SEVO_OVERLAY_BACKEND") && !strcmp(getenv("SEVO_OVERLAY_BACKEND"), "window"); }
 static void (*originalPresent)(id, SEL, id);
 static void (*originalTimedPresent)(id, SEL, id, CFTimeInterval);
 static void (*originalMinimumPresent)(id, SEL, id, CFTimeInterval);
@@ -116,6 +124,7 @@ __attribute__((visibility("default"))) BOOL SevoOverlayComposite(id<MTLCommandBu
     if (!target || !os_unfair_lock_trylock(&renderLock)) return NO;
     if (!openBridge()) { os_unfair_lock_unlock(&renderLock); return NO; }
     atomic_store_explicit(&bridge->consumerTime, clockTicks(), memory_order_release);
+    atomic_store_explicit(&bridge->backend, 1, memory_order_release);
     atomic_store_explicit(&bridge->drawableSize, ((uint64_t)target.width << 32) | target.height, memory_order_release);
     if (!activeFrame()) { os_unfair_lock_unlock(&renderLock); return NO; }
     BOOL encoded = NO;
@@ -183,7 +192,7 @@ static BOOL sendInput(NSEvent *event) {
         case NSEventTypeFlagsChanged: packet.kind = 9; break;
         default: return NO;
     }
-    NSWindow *window = event.window;
+    NSWindow *window = event.window ?: NSApp.keyWindow;
     if (!window) return NO;
     NSPoint point = SevoOverlayNormalizedPoint(window.contentView, event.locationInWindow);
     packet.x = point.x;
@@ -215,7 +224,85 @@ static void sendEvent(id self, SEL selector, NSEvent *event) {
     if (!captured || release) originalSendEvent(self, selector, event);
 }
 static void postEvent(id self, SEL selector, const SevoCX263EventPrefix *event) {
-    if (!SevoOverlayBlocksWineEvent(event, activeFrame())) originalPostEvent(self, selector, event);
+    if (SevoOverlayBlocksWineEvent(event, activeFrame())) {
+        if (bridge) atomic_fetch_add_explicit(&bridge->blockedEvents, 1, memory_order_relaxed);
+        return;
+    }
+    if (event && (event->type == 8 || event->type == 9) && event->payload.key.keyCode < 256) {
+        uint16_t key = event->payload.key.keyCode;
+        uint64_t mask = 1ull << (key % 64);
+        if (event->type == 8) atomic_fetch_or(&heldKeys[key / 64], mask);
+        else atomic_fetch_and(&heldKeys[key / 64], ~mask);
+    }
+    originalPostEvent(self, selector, event);
+}
+static NSWindow *gameWindow(void) {
+    NSWindow *best = nil;
+    for (NSWindow *candidate in NSApp.windows) {
+        if (![candidate isKindOfClass:NSClassFromString(@"WineWindow")] || !candidate.isVisible
+            || NSWidth(candidate.contentView.bounds) < 128 || NSHeight(candidate.contentView.bounds) < 128) continue;
+        if (!best || NSWidth(candidate.frame) * NSHeight(candidate.frame) > NSWidth(best.frame) * NSHeight(best.frame)) best = candidate;
+    }
+    return best;
+}
+static void storeDouble(_Atomic uint64_t *word, double value) {
+    uint64_t bits; memcpy(&bits, &value, sizeof(bits));
+    atomic_store_explicit(word, bits, memory_order_release);
+}
+static void releaseHeldGameKeys(NSWindow *window) {
+    SEL post = NSSelectorFromString(@"postKeyEvent:");
+    if (![window respondsToSelector:post]) return;
+    Class controllerClass = NSClassFromString(@"WineApplicationController");
+    SEL shared = NSSelectorFromString(@"sharedController");
+    id controller = [controllerClass respondsToSelector:shared] ? ((id (*)(id, SEL))objc_msgSend)(controllerClass, shared) : nil;
+    SEL noteKey = NSSelectorFromString(@"noteKey:pressed:");
+    for (uint16_t key = 0; key < 256; ++key) {
+        if (!(atomic_load(&heldKeys[key / 64]) & (1ull << (key % 64)))) continue;
+        NSEvent *up = [NSEvent keyEventWithType:NSEventTypeKeyUp location:NSZeroPoint modifierFlags:0
+            timestamp:NSProcessInfo.processInfo.systemUptime windowNumber:window.windowNumber context:nil
+            characters:@"" charactersIgnoringModifiers:@"" isARepeat:NO keyCode:key];
+        // Invoke Wine's existing conversion, which allocates/owns its event.
+        ((void (*)(id, SEL, id))objc_msgSend)(window, post, up);
+        if ([controller respondsToSelector:noteKey]) ((void (*)(id, SEL, uint16_t, BOOL))objc_msgSend)(controller, noteKey, key, NO);
+        atomic_fetch_and(&heldKeys[key / 64], ~(1ull << (key % 64)));
+        atomic_fetch_add(&bridge->releasedKeys, 1);
+    }
+}
+static void updateWindowSurface(void) {
+    if (!installed || !openBridge()) return;
+    NSWindow *window = gameWindow();
+    if (!window) { [windowSurface detach]; wasWindowActive = NO; return; }
+    NSView *content = window.contentView;
+    NSRect screen = [window convertRectToScreen:[content convertRect:content.bounds toView:nil]];
+    CGFloat scale = window.backingScaleFactor;
+    storeDouble(&bridge->gameX, NSMinX(screen)); storeDouble(&bridge->gameY, NSMinY(screen));
+    storeDouble(&bridge->gameWidth, NSWidth(screen)); storeDouble(&bridge->gameHeight, NSHeight(screen));
+    storeDouble(&bridge->gameScale, scale);
+    atomic_store(&bridge->drawableSize, ((uint64_t)llround(NSWidth(screen)*scale) << 32) | (uint32_t)llround(NSHeight(screen)*scale));
+    atomic_store(&bridge->backend, 2);
+    atomic_store_explicit(&bridge->consumerTime, clockTicks(), memory_order_release);
+    BOOL active = activeFrame() && NSApp.isActive;
+    if (!active) { [windowSurface detach]; windowGeneration = 0; wasWindowActive = NO; return; }
+    if (!wasWindowActive) releaseHeldGameKeys(window);
+    wasWindowActive = YES;
+    uint64_t generation = atomic_load_explicit(&bridge->generation, memory_order_acquire);
+    uint64_t dimensions = atomic_load_explicit(&bridge->dimensions, memory_order_acquire);
+    size_t width = dimensions >> 32, height = dimensions & 0xffffffffu;
+    if (!generation || !width || !height || width > SEVO_OVERLAY_WIDTH || height > SEVO_OVERLAY_HEIGHT) return;
+    if (windowGeneration == generation && windowSurface.layer.superlayer == content.layer) return;
+    const uint8_t *source = (uint8_t *)mapping + SEVO_OVERLAY_PIXELS_OFFSET + (generation & 1u) * SEVO_OVERLAY_PIXEL_CAPACITY;
+    NSData *data = [NSData dataWithBytes:source length:width*height*4];
+    if (atomic_load_explicit(&bridge->generation, memory_order_acquire) != generation) return;
+    CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
+    CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
+    CGImageRef image = CGImageCreate(width,height,8,32,width*4,color,kCGBitmapByteOrder32Little|kCGImageAlphaPremultipliedFirst,
+                                     provider,NULL,false,kCGRenderingIntentDefault);
+    if (!windowSurface) windowSurface = [SevoWindowSurface new];
+    if ([windowSurface presentImage:image inWindow:window scale:scale]) {
+        windowGeneration = generation;
+        if (atomic_fetch_add(&bridge->composedFrames, 1) == 0) note(@"first native-resolution UI layer attached inside the game window");
+    } else { [windowSurface detach]; windowGeneration = 0; }
+    CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
 }
 static BOOL targetProcess(void) {
     char **args = *_NSGetArgv();
@@ -227,18 +314,26 @@ static void installHooks(void) {
     if (installed || !targetProcess() || !NSApp) return;
     Class wineQueue = NSClassFromString(@"WineEventQueue");
     if (!wineQueue || !class_getInstanceMethod(wineQueue, @selector(postEvent:))) return;
-    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-    id<MTLCommandQueue> queue = [device newCommandQueue];
-    id<MTLCommandBuffer> command = [queue commandBuffer];
-    if (!command) { note(@"no Metal command buffer available"); return; }
-    Class cls = object_getClass(command);
-    originalPresent = (void *)replace(cls, @selector(presentDrawable:), (IMP)present);
-    originalTimedPresent = (void *)replace(cls, @selector(presentDrawable:atTime:), (IMP)presentAt);
-    originalMinimumPresent = (void *)replace(cls, @selector(presentDrawable:afterMinimumDuration:), (IMP)presentAfter);
-    originalSendEvent = (void *)replace(object_getClass(NSApp), @selector(sendEvent:), (IMP)sendEvent);
-    originalPostEvent = (void *)replace(wineQueue, @selector(postEvent:), (IMP)postEvent);
-    installed = originalPresent && originalSendEvent && originalPostEvent;
-    note([NSString stringWithFormat:@"Metal presentation hook %@ on %s", installed ? @"installed" : @"unavailable", class_getName(cls)]);
+    if (windowBackend()) {
+        originalSendEvent = (void *)replace(object_getClass(NSApp), @selector(sendEvent:), (IMP)sendEvent);
+        originalPostEvent = (void *)replace(wineQueue, @selector(postEvent:), (IMP)postEvent);
+        installed = originalSendEvent && originalPostEvent;
+        windowTimer = [NSTimer timerWithTimeInterval:1.0/60 repeats:YES block:^(NSTimer *timer) { updateWindowSurface(); }];
+        [NSRunLoop.mainRunLoop addTimer:windowTimer forMode:NSRunLoopCommonModes];
+        note(@"same-window presentation and Wine input gate installed; no additional game UI window");
+    } else {
+        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+        id<MTLCommandBuffer> command = [[device newCommandQueue] commandBuffer];
+        if (!command) return;
+        Class cls = object_getClass(command);
+        originalPresent = (void *)replace(cls, @selector(presentDrawable:), (IMP)present);
+        originalTimedPresent = (void *)replace(cls, @selector(presentDrawable:atTime:), (IMP)presentAt);
+        originalMinimumPresent = (void *)replace(cls, @selector(presentDrawable:afterMinimumDuration:), (IMP)presentAfter);
+        originalSendEvent = (void *)replace(object_getClass(NSApp), @selector(sendEvent:), (IMP)sendEvent);
+        originalPostEvent = (void *)replace(wineQueue, @selector(postEvent:), (IMP)postEvent);
+        installed = originalPresent && originalSendEvent && originalPostEvent;
+        note([NSString stringWithFormat:@"Metal presentation hook installed on %s", class_getName(cls)]);
+    }
 }
 __attribute__((constructor)) static void bootstrap(void) {
     if (!getenv("SEVO_OVERLAY_BRIDGE")) return;

@@ -13,7 +13,10 @@
 typedef struct {
     int refs, deliver, type;
     void *window;
-    union { struct { int button; bool pressed; } mouseButton; } payload;
+    union {
+        struct { int button; bool pressed; } mouseButton;
+        struct { uint16_t keyCode; } key;
+    } payload;
 } SevoCX263EventPrefix;
 _Static_assert(offsetof(SevoCX263EventPrefix, type) == 8, "CrossOver 26.3 event type ABI");
 _Static_assert(offsetof(SevoCX263EventPrefix, payload) == 24, "CrossOver 26.3 event payload ABI");

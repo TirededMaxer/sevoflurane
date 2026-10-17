@@ -138,7 +138,7 @@ extension SteamWebHost {
                     size: window.bounds.size,
                 )
             }
-            if overlayAppID == "730", embeddedOverlay.connected, let frame {
+            if overlayAppID == "730", embeddedOverlay.nativeFrameFits, let frame {
                 embeddedOverlay.show(root: overlay, frame: frame)
             } else {
                 overlay.showOverlay(frame: frame, level: overlayGame.map { $0.layer + 1 })

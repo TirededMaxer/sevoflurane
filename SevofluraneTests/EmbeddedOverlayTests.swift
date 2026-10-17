@@ -42,7 +42,6 @@ struct EmbeddedOverlayTests {
         popup.setEmbeddedPresentation(true, frame: NSRect(x: 120, y: 160, width: 800, height: 600))
         defer { popup.detach(reason: .pageTeardown) }
         let window = try #require(popup.nsWindow)
-        let keyBefore = NSApp.keyWindow
         web.loadHTMLString("""
         <style>body{margin:0}input,button{position:absolute;left:20px;width:220px;height:40px}input{top:30px}button{top:100px}</style>
         <input id="field"><button id="button" onclick="window.clicks++">Click</button>
@@ -58,12 +57,14 @@ struct EmbeddedOverlayTests {
         }
         #expect(await read("String(!!window.fixtureReady)") == "true")
         func click(x: CGFloat, y: CGFloat) {
+            let keyBefore = NSApp.keyWindow
             let inWeb = NSPoint(x: x, y: web.isFlipped ? y : web.bounds.height - y)
             let point = window.convertPoint(toScreen: web.convert(inWeb, to: nil))
             for kind in [UInt32(1), UInt32(2)] {
                 host.embeddedOverlay.route(kind: kind, key: 0, point: point, delta: .zero,
                                            modifiers: [], clicks: 1, text: "")
             }
+            #expect(NSApp.keyWindow === keyBefore)
         }
         click(x: 60, y: 50)
         var focused: String?
@@ -74,10 +75,12 @@ struct EmbeddedOverlayTests {
         }
         #expect(focused == "field")
         for text in ["a", "中"] {
+            let keyBefore = NSApp.keyWindow
             host.embeddedOverlay.route(kind: 7, key: 0, point: .zero, delta: .zero,
                                        modifiers: [], clicks: 0, text: text)
             host.embeddedOverlay.route(kind: 8, key: 0, point: .zero, delta: .zero,
                                        modifiers: [], clicks: 0, text: text)
+            #expect(NSApp.keyWindow === keyBefore)
         }
         var value: String?
         for _ in 0..<40 {
@@ -99,7 +102,13 @@ struct EmbeddedOverlayTests {
         #expect(window.alphaValue == 0)
         #expect(window.ignoresMouseEvents)
         #expect(!window.isKeyWindow)
-        #expect(NSApp.keyWindow === keyBefore)
+    }
+
+    @Test
+    func `Retina capture keeps native pixel dimensions and refuses oversized frames`() throws {
+        let size = try #require(EmbeddedSteamOverlay.captureSize(frame: NSRect(x: 0, y: 0, width: 1512, height: 982), scale: 2))
+        #expect(size.width == 3024 && size.height == 1964)
+        #expect(EmbeddedSteamOverlay.captureSize(frame: NSRect(x: 0, y: 0, width: 2560, height: 1440), scale: 2) == nil)
     }
 
     @Test

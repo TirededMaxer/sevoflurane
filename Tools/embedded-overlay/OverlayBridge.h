@@ -6,9 +6,9 @@
 #include <time.h>
 
 #define SEVO_OVERLAY_MAGIC 0x5345564f4f564c31ull
-#define SEVO_OVERLAY_VERSION 2
-#define SEVO_OVERLAY_WIDTH 2048u
-#define SEVO_OVERLAY_HEIGHT 2048u
+#define SEVO_OVERLAY_VERSION 3
+#define SEVO_OVERLAY_WIDTH 4096u
+#define SEVO_OVERLAY_HEIGHT 4096u
 #define SEVO_OVERLAY_PIXEL_CAPACITY (SEVO_OVERLAY_WIDTH * SEVO_OVERLAY_HEIGHT * 4u)
 #define SEVO_OVERLAY_EVENT_COUNT 128u
 #define SEVO_OVERLAY_HEADER_SIZE 256u
@@ -35,7 +35,11 @@ typedef struct {
     _Atomic uint64_t eventRead;
     _Atomic uint64_t composedFrames;
     _Atomic uint64_t inputEvents;
-    uint8_t reserved[160];
+    /* IEEE-754 double bits in AppKit screen points; only the game writes. */
+    _Atomic uint64_t gameX, gameY, gameWidth, gameHeight, gameScale;
+    _Atomic uint64_t backend; /* 1: Metal backbuffer; 2: same-window native layer */
+    _Atomic uint64_t blockedEvents, releasedKeys;
+    uint8_t reserved[96];
 } SevoOverlayHeader;
 
 typedef struct {

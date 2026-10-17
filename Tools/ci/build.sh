@@ -14,6 +14,11 @@ common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
     -clonedSourcePackagesDirPath "$work/SourcePackages"
     -onlyUsePackageVersionsFromResolvedFile
     DEVELOPMENT_TEAM= ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO)
+if [[ "${SEVO_OVERLAY_EXPERIMENT:-0}" == 1 ]]; then
+    common+=('OTHER_SWIFT_FLAGS=$(inherited) -D SEVO_WINDOW_OVERLAY_EXPERIMENT')
+    bash Tools/embedded-overlay/build.sh
+    cp "$RUNNER_TEMP/sevo-overlay/window-check.txt" "$out/overlay-window-check.txt"
+fi
 test_status=0
 xcodebuild "${common[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
     CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO \

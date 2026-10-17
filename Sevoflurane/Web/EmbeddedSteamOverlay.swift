@@ -2,7 +2,7 @@ import AppKit
 import Darwin
 import WebKit
 
-/// macOS-hosted Steam pages become pixels in the game's existing Metal frame.
+/// macOS-hosted Steam pages become pixels inside the game's existing window.
 /// Backing windows stay invisible and never become key or activate this app.
 @MainActor
 final class EmbeddedSteamOverlay {
@@ -49,12 +49,19 @@ final class EmbeddedSteamOverlay {
         return then > 0 && now >= then && now - then < 750_000_000
     }
 
+    var nativeFrameFits: Bool {
+        guard connected, let surface, let read, read(surface, 17) == 2 else { return false }
+        let rect = NSRect(x: 0, y: 0, width: Double(bitPattern: read(surface, 14)),
+                          height: Double(bitPattern: read(surface, 15)))
+        return Self.captureSize(frame: rect, scale: CGFloat(Double(bitPattern: read(surface, 16)))) != nil
+    }
+
     func show(root: SteamWindow, frame: NSRect) {
         self.frame = frame
         presenting = true
         root.setEmbeddedPresentation(true, frame: frame)
         guard captureTask == nil else { return }
-        EventLog.shared.log(.window, "embedded overlay: using game's Metal presentation, no key window")
+        EventLog.shared.log(.window, "embedded overlay: using game's existing window, no key window")
         inputTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 120, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.drainInput() }
         }
@@ -85,10 +92,30 @@ final class EmbeddedSteamOverlay {
         return Array(root) + children + menus.sorted { $0.name < $1.name }
     }
 
+    static func captureSize(frame: NSRect, scale: CGFloat) -> (width: Int, height: Int)? {
+        guard frame.width.isFinite, frame.height.isFinite, scale.isFinite, scale > 0,
+              frame.width > 0, frame.height > 0, frame.width * scale <= 4096, frame.height * scale <= 4096 else { return nil }
+        return (Int((frame.width * scale).rounded()), Int((frame.height * scale).rounded()))
+    }
+
     private func capture() async {
         guard let surface, let publish, frame.width > 0, frame.height > 0 else { return }
-        let scale = min(1, 2048 / frame.width, 2048 / frame.height)
-        let width = max(1, Int(frame.width * scale)), height = max(1, Int(frame.height * scale))
+        if let read, read(surface, 17) == 2 {
+            let current = NSRect(x: Double(bitPattern: read(surface, 12)), y: Double(bitPattern: read(surface, 13)),
+                                 width: Double(bitPattern: read(surface, 14)), height: Double(bitPattern: read(surface, 15)))
+            if current.width > 0, current.height > 0, current != frame {
+                frame = current
+                windows.first(where: { $0.role == .gameOverlay })?.window?.setFrame(current, display: true)
+            }
+        }
+        let reportedScale: CGFloat? = read.flatMap { reader in
+            let value = Double(bitPattern: reader(surface, 16))
+            return value.isFinite && value > 0 ? CGFloat(value) : nil
+        }
+        let scale = reportedScale
+            ?? NSScreen.screens.first(where: { $0.frame.contains(NSPoint(x: frame.midX, y: frame.midY)) })?.backingScaleFactor ?? 1
+        guard let size = Self.captureSize(frame: frame, scale: scale) else { return }
+        let width = size.width, height = size.height
         guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue) else { return }

@@ -11,6 +11,10 @@ on:
         description: Build and check only the experimental Metal compositor
         type: boolean
         default: false
+      experimental_overlay:
+        description: Build a private same-window overlay candidate (publication forbidden)
+        type: boolean
+        default: false
       build_run_id:
         description: Optional previously verified build run, for retrying publication only
         type: string
@@ -47,8 +51,12 @@ jobs:
       actions: read
     env:
       SEVO_EMBED_ENGINE: '0'
+      SEVO_OVERLAY_EXPERIMENT: ${{ inputs.experimental_overlay && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Reject publication of an unaccepted experiment
+        if: inputs.experimental_overlay && inputs.publish
+        run: exit 1
       - name: Restore a verified cloud build for publication retry
         if: inputs.build_run_id != ''
         uses: actions/download-artifact@v4
