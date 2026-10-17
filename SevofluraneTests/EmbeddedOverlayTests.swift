@@ -33,6 +33,76 @@ struct EmbeddedOverlayTests {
     }
 
     @Test
+    func `hidden backing receives real pointer clicks and keyboard text without taking key`() async throws {
+        let host = SteamWebHost()
+        let web = host.makeWebView(configuration: WKWebViewConfiguration())
+        let popup = SteamWindow(webView: web, role: .gameOverlay, name: "desktopoverlay_fixture",
+                                size: CGSize(width: 800, height: 600), origin: nil, host: host)
+        host.popups[ObjectIdentifier(web)] = popup
+        popup.setEmbeddedPresentation(true, frame: NSRect(x: 120, y: 160, width: 800, height: 600))
+        defer { popup.detach(reason: .pageTeardown) }
+        let window = try #require(popup.nsWindow)
+        let keyBefore = NSApp.keyWindow
+        web.loadHTMLString("""
+        <style>body{margin:0}input,button{position:absolute;left:20px;width:220px;height:40px}input{top:30px}button{top:100px}</style>
+        <input id="field"><button id="button" onclick="window.clicks++">Click</button>
+        <script>window.clicks=0;window.fixtureReady=true;</script>
+        """, baseURL: nil)
+        let eval = JavaScriptEvaluator()
+        func read(_ js: String) async -> String? {
+            await eval.evaluateInWebView(js, webView: web, timeout: .seconds(2))
+        }
+        for _ in 0..<80 {
+            if await read("String(!!window.fixtureReady)") == "true" { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(await read("String(!!window.fixtureReady)") == "true")
+        func click(x: CGFloat, y: CGFloat) {
+            let inWeb = NSPoint(x: x, y: web.isFlipped ? y : web.bounds.height - y)
+            let point = window.convertPoint(toScreen: web.convert(inWeb, to: nil))
+            for kind: UInt32 in [1, 2] {
+                host.embeddedOverlay.route(kind: kind, key: 0, point: point, delta: .zero,
+                                           modifiers: [], clicks: 1, text: "")
+            }
+        }
+        click(x: 60, y: 50)
+        var focused: String?
+        for _ in 0..<40 {
+            focused = await read("document.activeElement.id")
+            if focused == "field" { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(focused == "field")
+        for text in ["a", "中"] {
+            host.embeddedOverlay.route(kind: 7, key: 0, point: .zero, delta: .zero,
+                                       modifiers: [], clicks: 0, text: text)
+            host.embeddedOverlay.route(kind: 8, key: 0, point: .zero, delta: .zero,
+                                       modifiers: [], clicks: 0, text: text)
+        }
+        var value: String?
+        for _ in 0..<40 {
+            value = await read("document.getElementById('field').value")
+            if value == "a中" { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        // This checks Unicode key-event delivery; live IME composition is a
+        // separate acceptance item and is not implied by the Chinese string.
+        #expect(value == "a中")
+        click(x: 60, y: 120)
+        var clicks: String?
+        for _ in 0..<40 {
+            clicks = await read("String(window.clicks)")
+            if clicks == "1" { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(clicks == "1")
+        #expect(window.alphaValue == 0)
+        #expect(window.ignoresMouseEvents)
+        #expect(!window.isKeyWindow)
+        #expect(NSApp.keyWindow === keyBefore)
+    }
+
+    @Test
     func `CrossOver wrapper quotes paths without invoking a shell`() {
         let result = EmbeddedOverlayLaunch.wrapperEnvironment([
             "SEVO_OVERLAY_BRIDGE": "/Users/Name With Space/Overlay/cs2.surface",

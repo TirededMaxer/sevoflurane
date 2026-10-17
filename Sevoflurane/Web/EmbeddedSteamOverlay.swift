@@ -141,7 +141,8 @@ final class EmbeddedSteamOverlay {
         }
     }
 
-    private func route(kind: UInt32, key: UInt16, point: NSPoint, delta: NSPoint,
+    // Internal so a real hidden WKWebView fixture can exercise the same route.
+    func route(kind: UInt32, key: UInt16, point: NSPoint, delta: NSPoint,
                        modifiers: NSEvent.ModifierFlags, clicks: Int, text: String) {
         if kind >= 7 {
             if kind == 7, key == 48, modifiers.contains(.shift) { host?.closeOverlay(); return }
@@ -166,8 +167,9 @@ final class EmbeddedSteamOverlay {
         if hovered !== hit { hovered?.relayReactHoverExit(); hovered = hit }
         guard let popup = (kind == 2 || kind == 5) ? (pressed ?? hit) : hit, let window = popup.window else { return }
         let local = window.convertPoint(fromScreen: point)
-        let web = popup.webView.convert(local, from: nil)
-        popup.relayReactHover(contentPoint: web, contentHeight: popup.webView.bounds.height)
+        guard let content = window.contentView else { return }
+        let contentPoint = content.convert(local, from: nil)
+        popup.relayReactHover(contentPoint: contentPoint, contentHeight: content.bounds.height)
         if kind == 1 || kind == 4 {
             keyboard = popup; pressed = popup
             for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
@@ -191,7 +193,9 @@ final class EmbeddedSteamOverlay {
         guard let event = NSEvent.mouseEvent(with: type, location: local, modifierFlags: modifiers,
                                              timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                                              context: nil, eventNumber: 0, clickCount: clicks, pressure: kind == 1 ? 1 : 0) else { return }
-        let view = popup.webView.hitTest(web) ?? popup.webView
+        // NSView.hitTest takes a point in its superview, not its own bounds.
+        let parentPoint = content.superview?.convert(local, from: nil) ?? local
+        let view = content.hitTest(parentPoint) ?? popup.webView
         switch kind {
         case 1: view.mouseDown(with: event)
         case 2: view.mouseUp(with: event); pressed = nil
