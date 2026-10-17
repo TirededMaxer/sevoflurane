@@ -60,7 +60,7 @@ struct EmbeddedOverlayTests {
         func click(x: CGFloat, y: CGFloat) {
             let inWeb = NSPoint(x: x, y: web.isFlipped ? y : web.bounds.height - y)
             let point = window.convertPoint(toScreen: web.convert(inWeb, to: nil))
-            for kind: UInt32 in [1, 2] {
+            for kind in [UInt32(1), UInt32(2)] {
                 host.embeddedOverlay.route(kind: kind, key: 0, point: point, delta: .zero,
                                            modifiers: [], clicks: 1, text: "")
             }
