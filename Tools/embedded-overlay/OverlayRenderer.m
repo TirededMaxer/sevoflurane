@@ -31,6 +31,9 @@ static uint64_t windowGeneration;
 static BOOL wasWindowActive;
 static CGPoint openingCursor, overlayCursor;
 static BOOL haveOverlayCursor;
+static CGPoint openingChordCursor;
+static uint64_t openingChordTime;
+static CGPoint currentCursor(void);
 static uint64_t cursorResumeEpoch;
 static _Atomic uint64_t heldKeys[4];
 static BOOL windowBackend(void) { return getenv("SEVO_OVERLAY_BACKEND") && !strcmp(getenv("SEVO_OVERLAY_BACKEND"), "window"); }
@@ -223,6 +226,13 @@ static BOOL sendInput(NSEvent *event) {
     return YES;
 }
 static void sendEvent(id self, SEL selector, NSEvent *event) {
+    // Capture the game-menu position before Steam sees the opening chord:
+    // Steam may move to its separately remembered overlay pointer on entry.
+    if (!activeFrame() && event.type == NSEventTypeKeyDown && event.keyCode == 48
+        && (event.modifierFlags & NSEventModifierFlagShift)) {
+        openingChordCursor = currentCursor();
+        openingChordTime = clockTicks();
+    }
     BOOL captured = sendInput(event);
     // Wine must release keys/modifiers held before the overlay opened.
     // Its event queue below drops new presses, while releases still flow.
@@ -364,8 +374,11 @@ static void updateWindowSurface(void) {
     }
     if (!wasWindowActive) {
         releaseHeldGameKeys(window);
-        openingCursor = overlayCursor = currentCursor();
-        haveOverlayCursor = isfinite(openingCursor.x);
+        overlayCursor = currentCursor();
+        openingCursor = secondsBetween(clockTicks(), openingChordTime) < 2
+            ? openingChordCursor : overlayCursor;
+        openingChordTime = 0;
+        haveOverlayCursor = isfinite(overlayCursor.x);
         ++cursorResumeEpoch;
     }
     wasWindowActive = YES;
