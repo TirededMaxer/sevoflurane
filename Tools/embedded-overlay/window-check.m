@@ -37,6 +37,9 @@ static void checkGPUContents(CALayer *source, NSData *bytes) {
     [CATransaction commit];
     CARenderer *renderer = [CARenderer rendererWithMTLTexture:texture options:@{kCARendererMetalCommandQueue:queue}];
     renderer.layer = root; renderer.bounds = root.bounds;
+    // This fixture deliberately never runs the AppKit loop. Flush its
+    // setup transaction after attaching the layer to the renderer context.
+    [CATransaction flush];
     [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
     [renderer addUpdateRect:root.bounds]; [renderer render]; [renderer endFrame];
     id<MTLCommandBuffer> completion = [queue commandBuffer];
@@ -58,6 +61,7 @@ static void checkGPUContents(CALayer *source, NSData *bytes) {
     [CATransaction begin]; [CATransaction setDisableActions:YES];
     root.contents = (__bridge id)reference;
     [CATransaction commit];
+    [CATransaction flush];
     [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
     [renderer addUpdateRect:root.bounds]; [renderer render]; [renderer endFrame];
     completion = [queue commandBuffer]; [completion commit]; [completion waitUntilCompleted];
