@@ -71,8 +71,6 @@ restarts.
 
 - Games and online modes that need Windows kernel anti-cheat do not run; a
   game's offline mode may still work.
-- Honkai: Star Rail installs and updates, but its protection closes it a few
-  seconds after it starts under Wine.
 - The Windows side runs under Rosetta, so it needs Rosetta installed and
   pays its translation cost. Setup installs Rosetta when it is missing.
 - DirectX 12 needs Apple's Game Porting Toolkit, which only Apple may
@@ -144,7 +142,6 @@ sevo recover [--deep]
 sevo daemon repair
 sevo app list|info|launch|terminate|install|verify|uninstall|compat|config|repair-dll|detect
 sevo program add PATH|list|remove ID|launch ID|run PATH [ARGS]
-sevo hoyo list|status FOLDER|install GAME FOLDER|update FOLDER|verify FOLDER [--repair]
 sevo engine list|install [--file TARBALL]|d3dmetal|use|check-manifest
 sevo update check|use|install|remove
 sevo bottle list|config <key> [value]|deps [install ID]
@@ -188,9 +185,9 @@ an engine folder inside Sevoflurane's `Engines` folder, nothing outside it.
 
 ### MCP
 
-`sevo mcp` provides a stdio MCP server. Its 31 tools cover diagnostics,
+`sevo mcp` provides a stdio MCP server. Its tools cover diagnostics,
 client recovery, library queries, game installation and launch, Quick Launch
-programs, downloads, HoYoverse game updates, recent runs, frame-time comparison, diagnostic levels and
+programs, downloads, recent runs, frame-time comparison, diagnostic levels and
 logs. It also exposes `sevo://status`, `sevo://doctor`, `sevo://log` and
 `sevo://library` resources.
 
@@ -494,20 +491,10 @@ runs on CrossOver.
   Big Picture, Steam Input and the overlay reach them, and a start from there
   keeps their settings, Dock tile and run records. Show in Steam's Library, in
   the row's menu or Settings › Games, takes one out.
-- **Genshin Impact at 120 fps**: the engine carries a frame-rate unlocker
-  (genshin-fps-unlock's stub, MIT, two megabytes). Switched on in
-  Settings › Games, it starts beside the game 30 seconds after launch, at the
-  rate picked there, or an unlocker of your own runs instead. It is off by
-  default because it changes the game's memory.
 - **Finder thumbnails**: every `.exe` shows its own icon in Finder's icon,
   list and gallery views and in Quick Look, read from the file without running
   it. Available once Sevoflurane has run once.
 - Sevoflurane reports when a program needs a Windows kernel driver.
-- **HoYoverse games without HoYoPlay**: Genshin Impact, Honkai: Star Rail and
-  Zenless Zone Zero install, update and verify from the servers HoYoPlay uses,
-  in Settings › HoYoverse or with `sevo hoyo`. An update downloads HoYoverse's
-  patches for the build you have; an interrupted download carries on where it
-  stopped. Genshin and Zenless join Quick Launch once installed.
 
 ### Settings
 
@@ -530,7 +517,6 @@ it. Every row has a one-line summary and an (i) for the full explanation.
   where the game has no value of its own, announced with an Undo; the settings
   it set say "Set by the fix list" with their undo. Engine › Apply known fixes
   automatically turns it off.
-- **HoYoverse**: install, update and verify HoYoverse games (above).
 - **Storage**, **Recovery**, **Diagnostics**: below.
 - **About**: version, links, Acknowledgements for every third-party component
   and data source, and the license.

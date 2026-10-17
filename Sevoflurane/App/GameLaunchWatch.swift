@@ -169,18 +169,8 @@ final class GameLaunchWatch {
     /// those is written against the wrong process.
     nonisolated static func launchProcess(named executable: String) -> String? {
         let exe = executable.lowercased()
-        guard WineWindowWatch.isGameProgram(exe), GameExecutables.isGameLike(exe), !isHelper(exe) else { return nil }
+        guard WineWindowWatch.isGameProgram(exe), GameExecutables.isGameLike(exe) else { return nil }
         return exe
-    }
-
-    /// A program the app itself runs beside a game: the frame-rate unlocker,
-    /// the engine's own or the one the user picked (``FPSUnlocker``). Its
-    /// process and window are never the game's.
-    nonisolated static func isHelper(_ exe: String) -> Bool {
-        let name = exe.lowercased()
-        if name == FPSUnlocker.ownName { return true }
-        guard let unlocker = FPSUnlocker.executable?.lastPathComponent.lowercased() else { return false }
-        return name == unlocker
     }
 
     /// Spends the activation right the launch took on the window that just
@@ -231,8 +221,7 @@ final class GameLaunchWatch {
         ) -> WineWindowWatch.Program? {
             if let build = WineWindowWatch.macOSBuild(of: pid, sessions: sessions) { return build }
             if let known = programs[pid] { return known }
-            let resolved = GameLaunchWatch.isHelper(owner)
-                ? nil : WineWindowWatch.resolve(owner: owner, pid: pid, sessions: [])
+            let resolved = WineWindowWatch.resolve(owner: owner, pid: pid, sessions: [])
             programs[pid] = resolved
             return resolved
         }

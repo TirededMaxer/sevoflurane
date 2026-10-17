@@ -47,7 +47,6 @@ macOS 版本在 Wine 之外原生运行，仍通过 Sevoflurane 的 Steam 登录
 ## 已知限制
 
 - 需要 Windows 内核反作弊的游戏或联机模式无法运行，但游戏的离线模式可能仍然可用。
-- 《崩坏：星穹铁道》可以安装和更新，但在 Wine 下启动几秒后会被其保护机制关闭。
 - Windows 部分通过 Rosetta 运行，因此需要安装 Rosetta，也会有转译开销。缺少 Rosetta 时，设置向导会安装它。
 - DirectX 12 需要 Apple 游戏移植工具包。它只能由 Apple 分发，设置向导会通过你的 Apple 账户下载。32 位 DirectX 12 游戏无法运行。
 - 画面缩放器在游戏启动时接入。运行中切换缩放算法会立即生效；如果要把缩放器从关闭改为开启，或从开启改为关闭，需要下次启动游戏才会生效。
@@ -86,7 +85,6 @@ sevo recover [--deep]
 sevo daemon repair
 sevo app list|info|launch|terminate|install|verify|uninstall|compat|config|repair-dll|detect
 sevo program add PATH|list|remove ID|launch ID|run PATH [ARGS]
-sevo hoyo list|status FOLDER|install GAME FOLDER|update FOLDER|verify FOLDER [--repair]
 sevo engine list|install [--file TARBALL]|d3dmetal|use|check-manifest
 sevo update check|use|install|remove
 sevo bottle list|config <key> [value]|deps [install ID]
@@ -114,7 +112,7 @@ sevo logs [--tail N] [-f] [--wine]
 
 ### MCP
 
-`sevo mcp` 提供一个 stdio MCP 服务器。它的 31 个工具涵盖诊断、客户端恢复、游戏库查询、游戏安装与启动、快速启动程序、下载、HoYoverse 游戏更新、最近的运行记录、帧时间比较、诊断级别和日志。还提供 `sevo://status`、`sevo://doctor`、`sevo://log` 和 `sevo://library` 资源。
+`sevo mcp` 提供一个 stdio MCP 服务器。它的工具涵盖诊断、客户端恢复、游戏库查询、游戏安装与启动、快速启动程序、下载、最近的运行记录、帧时间比较、诊断级别和日志。还提供 `sevo://status`、`sevo://doctor`、`sevo://log` 和 `sevo://library` 资源。
 
 “设置 › 通用”会列出检测到的助手，每个助手有独立的注册开关：Claude Code（附带一个指导诊断流程的 skill）、Claude Desktop、Codex 和 Hermes。其他助手可以手动添加：
 
@@ -290,10 +288,8 @@ msync 是 CrossOver 的同步后端。Windows 的事件、互斥体和信号量�
 - 安装程序运行完后，Sevoflurane 会列出它新增的程序，让你选择要保留哪些。移除程序时，会把其安装程序写入的文件移到废纸篓。
 - 快速启动程序和 Steam 游戏一样，支持单独设置、程序坞图标、运行记录和报告。
 - 快速启动程序会作为非 Steam 游戏列进 Steam 游戏库，因此大屏幕模式、Steam 输入和叠加界面都能用于它们；从那里启动时，单独设置、程序坞图标和运行记录照样保留。在该行的菜单或“设置 › 游戏”中关闭“在 Steam 库中显示”即可将其移出。
-- **《原神》120 fps**：引擎附带一个帧率解锁器（genshin-fps-unlock 的 stub，MIT 许可，2 MB）。在“设置 › 游戏”中开启后，它会在游戏启动 30 秒后随游戏一起运行，使用那里选定的帧率；也可以改用你自己的解锁器。因为它会修改游戏内存，默认关闭。
 - **访达缩略图**：在访达的图标、列表、画廊视图和快速查看中，`.exe` 会显示自己的图标。图标直接从文件读取，无需运行程序。Sevoflurane 运行过一次后即可使用。
 - 程序需要 Windows 内核驱动时，Sevoflurane 会提示。
-- **不用 HoYoPlay 玩 HoYoverse 游戏**：《原神》《崩坏：星穹铁道》和《绝区零》可以直接从 HoYoPlay 使用的服务器安装、更新和校验，在“设置 › HoYoverse”中或用 `sevo hoyo` 操作。更新会下载 HoYoverse 为你当前版本提供的补丁；下载中断后会从中断处继续。《原神》和《绝区零》安装后会加入快速启动。
 
 ### 设置
 
@@ -303,7 +299,6 @@ msync 是 CrossOver 的同步后端。Windows 的事件、互斥体和信号量�
 - **图形**：默认渲染器、向游戏报告的 GPU 信息、DXMT 和 DXVK 版本、可下载的画面缩放器（CuNNy、Anime4K）。
 - **引擎**：引擎和容器、msync+、所有游戏的默认设置、已知修复、游戏依赖项、DLL 覆盖设置、环境变量、Wine 配置、库加载日志、修复。
 - **游戏**：单款游戏的画面、鼠标、性能、DLL 覆盖设置和环境变量，未单独修改的项目会继承“引擎”中的设置。游戏需要某个设置时，会标出**已知修复**，点一下即可应用。修复列表（内置表格，加上社区数据库根据“需修复后可玩”报告整理的签名列表）会在游戏首次启动时自动应用到游戏尚未单独设置的项目，并附带“撤销”提示；被它修改的设置会标注“由修复列表设置”，可以撤销。在“引擎 › 自动应用已知修复”中可以关闭此功能。
-- **HoYoverse**：安装、更新和校验 HoYoverse 游戏（见上文）。
 - **存储空间**、**恢复**、**诊断**：见下文。
 - **关于**：版本、链接、各个第三方组件和数据源的致谢，以及许可证。
 

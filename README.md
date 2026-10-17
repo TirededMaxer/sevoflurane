@@ -28,7 +28,6 @@ Sevoflurane brings a Proton-like experience to Mac, running Windows and macOS ga
 - **Native games:** macOS game installs and per-game version switching on supported engines; optional handoff to Steam for Mac. Native NW.js games retain Steam playtime and achievements.
 - **Game sessions:** display-awake holds, stuck-game termination, complete process cleanup, Steam reconnection, and Discord activity; Dormison also relays games’ own Discord integration.
 - **External games:** Finder `.exe` launch and thumbnails, installer tracking, Quick Launch, non-Steam library entries, Steam Input, overlay, and run reports. Kernel-driver dependencies are reported.
-- **HoYoverse:** install, update, resume downloads, and verify Genshin Impact, Honkai: Star Rail, and Zenless Zone Zero. Optional Genshin frame-rate unlocker is off by default because it modifies game memory.
 - **Configuration:** searchable per-engine and per-game graphics, input, performance, DLL, and environment settings; known fixes with undo; dependency repair; Proton-style launch-option import.
 - **Storage:** per-game and category sizes, cache/engine cleanup, external libraries, and sharing installed games across bottles with separate saves.
 - **Recovery:** client watchdog, crash-loop detection, lost-wake recovery, orphan cleanup, helper/bottle repair, cache resets, and recovery guides. A running game survives a Sevoflurane crash; reopening reattaches.

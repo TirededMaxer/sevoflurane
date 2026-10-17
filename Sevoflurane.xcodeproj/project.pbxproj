@@ -12,9 +12,6 @@
 		0BAA000000000000000E000C /* SevofluraneThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0BAA000000000000000E0001 /* SevofluraneThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0BAA000000000000000F0001 /* sevo in Embed sevo */ = {isa = PBXBuildFile; fileRef = 0BAA000000000000000F0002 /* sevo */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		0BAA000000000000000F0003 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 0BAA000000000000000F0004 /* ArgumentParser */; };
-		0BAA00000000000000100005 /* SophonCodecs in Frameworks */ = {isa = PBXBuildFile; productRef = 0BAA00000000000000100002 /* SophonCodecs */; };
-		0BAA00000000000000100006 /* SophonCodecs in Frameworks */ = {isa = PBXBuildFile; productRef = 0BAA00000000000000100003 /* SophonCodecs */; };
-		0BAA00000000000000100007 /* SophonCodecs in Frameworks */ = {isa = PBXBuildFile; productRef = 0BAA00000000000000100004 /* SophonCodecs */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -168,7 +165,6 @@
 		0B33EFD730290E5E00182A68 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				0BAA00000000000000100005 /* SophonCodecs in Frameworks */,
 				0B487987304107D0001CB276 /* Propofol in Frameworks */,
 			);
 		};
@@ -180,7 +176,6 @@
 		0BAA000000000000000D000A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				0BAA00000000000000100006 /* SophonCodecs in Frameworks */,
 			);
 		};
 		0BAA000000000000000E0006 /* Frameworks */ = {
@@ -191,7 +186,6 @@
 		0BAA000000000000000F000A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				0BAA00000000000000100007 /* SophonCodecs in Frameworks */,
 				0BAA000000000000000F0003 /* ArgumentParser in Frameworks */,
 			);
 		};
@@ -256,7 +250,6 @@
 			);
 			name = Sevoflurane;
 			packageProductDependencies = (
-				0BAA00000000000000100002 /* SophonCodecs */,
 				7B0000000000000000000002 /* Propofol */,
 			);
 			productName = Sevoflurane;
@@ -301,7 +294,6 @@
 			);
 			name = SevofluraneDaemon;
 			packageProductDependencies = (
-				0BAA00000000000000100003 /* SophonCodecs */,
 			);
 			productName = SevofluraneDaemon;
 			productReference = 0BAA000000000000000D0001 /* SevofluraneDaemon */;
@@ -343,7 +335,6 @@
 			);
 			name = sevo;
 			packageProductDependencies = (
-				0BAA00000000000000100004 /* SophonCodecs */,
 				0BAA000000000000000F0004 /* ArgumentParser */,
 			);
 			productName = sevo;
@@ -380,7 +371,6 @@
 			mainGroup = 0B33EFD130290E5E00182A68;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */,
 				7B0000000000000000000001 /* XCRemoteSwiftPackageReference "propofol" */,
 				0BAA000000000000000F000E /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
 			);
@@ -661,7 +651,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -679,7 +669,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LM_SKIP_METADATA_EXTRACTION = YES;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -699,7 +689,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -716,7 +706,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LM_SKIP_METADATA_EXTRACTION = YES;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -733,13 +723,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
 				LM_SKIP_METADATA_EXTRACTION = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -755,13 +745,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
 				LM_SKIP_METADATA_EXTRACTION = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -813,7 +803,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -827,7 +817,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.debug.thumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -843,7 +833,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -857,7 +847,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = "1.7.0-fork.2";
+				MARKETING_VERSION = "1.7.0-fork.3";
 				PRODUCT_BUNDLE_IDENTIFIER = glass.kagerou.sevoflurane.thumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -952,10 +942,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/SophonCodecs;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -987,21 +973,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7B0000000000000000000001 /* XCRemoteSwiftPackageReference "propofol" */;
 			productName = Propofol;
-		};
-		0BAA00000000000000100002 /* SophonCodecs */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */;
-			productName = SophonCodecs;
-		};
-		0BAA00000000000000100003 /* SophonCodecs */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */;
-			productName = SophonCodecs;
-		};
-		0BAA00000000000000100004 /* SophonCodecs */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0BAA00000000000000100001 /* XCLocalSwiftPackageReference "Packages/SophonCodecs" */;
-			productName = SophonCodecs;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

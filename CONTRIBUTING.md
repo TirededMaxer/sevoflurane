@@ -16,25 +16,26 @@
 
 ## Building
 
-Xcode 26+, macOS 26+, Apple Silicon. Open `Sevoflurane.xcodeproj`, pick your
-own team under Signing & Capabilities, and build the `Sevoflurane` scheme. To
-run against Steam you need a bottle with Steam installed: the app's first-run
-assistant creates one on the engine it installs, and `sevo setup` does the
-same from the terminal.
+This fork builds, tests, signs and packages only on GitHub-hosted Apple Silicon
+runners (`xcode-27`; Xcode 27 project format, macOS 26 deployment target). Edit and review sources locally, commit and push,
+then run **Cloud build and release** in Actions. Keep the local checkout source
+only: no DerivedData, SwiftPM checkout cache or release packages. The workflow
+fetches the pinned Package.resolved dependencies on a new runner each time.
 
-A Debug build is a second installation beside the shipping app, so it can run
-while the installed one does: "Sevoflurane Debug", bundle id
-`glass.kagerou.sevoflurane.debug`, a hammer on its menu-bar icon, its own
-folders (`~/Library/Application Support/Sevoflurane Debug`, `Caches/Sevoflurane
-Debug`, `Logs/Sevoflurane-Debug*.log`), its own settings suite, background
-helper label and ports (877x, where the shipping app uses 876x), and a CLI
-linked as `sevo-debug`. Its first launch walks the setup assistant into a
-bottle of its own. `Core/AppIdentity.swift` holds all of it, and
-`Tools/name-helper.sh` names the helper's launchd plist after the bundle id.
-Its Quick Look extension claims no file type (`Tools/debug-thumbnail-types.sh`),
-because every Debug build Xcode registers is another copy of one extension
-identifier, and Quick Look stalls on a duplicate; build with
-`SEVO_DEBUG_THUMBNAIL=1` to work on thumbnails, then `lsregister -u` that build.
+```sh
+gh workflow run release.yml --repo TirededMaxer/sevoflurane --ref main -f publish=true
+```
+
+Set `publish=false` for validation and a downloadable workflow artifact without
+changing Releases. When publishing, update the version/build number and
+RELEASE_NOTES.md first. Cloud checks include the full test suite, Release build,
+CLI/MCP, hardened-runtime signatures, microphone entitlements and DMG integrity.
+Assets are downloaded and hash-checked before and after publication; only then
+are predecessor Releases removed. Git tags remain available.
+
+Install the verified cloud DMG after normally quitting the app. Existing engines,
+Steam bottles, games and saves remain in place. Debug test hosts never start a
+client or register a background helper (`TestHost.isHosting`).
 
 ## Simulating a Steam event
 

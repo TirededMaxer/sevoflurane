@@ -502,8 +502,7 @@ private struct ProgramRow: View {
     let quickLaunch: QuickLaunchStore
     /// What its launch is doing now; `nil` outside one.
     let launchDetail: String?
-    /// Its launch request is with the helper, which a first HoYoverse launch
-    /// keeps for a quarter of a minute while it makes the companion prefix.
+    /// Whether the launch request is still being handled by the helper.
     let isLaunching: Bool
     /// The renderers the machine offers right now (``GraphicsStore/menuRenderers``).
     let renderers: [Renderer]

@@ -235,22 +235,6 @@
         }
       }
     },
-    "%@ — could not reach HoYoPlay's servers: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ — could not reach HoYoPlay's servers: %2$@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ — 无法连接 HoYoPlay 的服务器：%2$@"
-          }
-        }
-      }
-    },
     "%@ — up to date" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1484,16 +1468,6 @@
         }
       }
     },
-    "Add Existing Folder…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加现有文件夹…"
-          }
-        }
-      }
-    },
     "Add from a Disk Image…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2248,16 +2222,6 @@
         }
       }
     },
-    "Checking files" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在检查文件"
-          }
-        }
-      }
-    },
     "checking the client…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2328,16 +2292,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择游戏"
-          }
-        }
-      }
-    },
-    "Choose a Game's Folder" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择游戏文件夹"
           }
         }
       }
@@ -2414,32 +2368,12 @@
         }
       }
     },
-    "Choose the folder that holds GenshinImpact.exe, StarRail.exe or ZenlessZoneZero.exe." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择包含 GenshinImpact.exe、StarRail.exe 或 ZenlessZoneZero.exe 的文件夹。"
-          }
-        }
-      }
-    },
     "Choose the folder your browser saves downloads into." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "请选择浏览器保存下载文件的文件夹。"
-          }
-        }
-      }
-    },
-    "Choose the FPS Unlocker" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择帧率解锁器"
           }
         }
       }
@@ -2451,16 +2385,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请选择已下载的 Game Porting Toolkit 磁盘映像。"
-          }
-        }
-      }
-    },
-    "Choose Where to Install" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择安装位置"
           }
         }
       }
@@ -4019,16 +3943,6 @@
         }
       }
     },
-    "Every file checks out." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所有文件均完好。"
-          }
-        }
-      }
-    },
     "Every game is a real Mac window. Fixed-size games, even old ones that never allowed it, become resizable and go native full screen." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4351,16 +4265,6 @@
         }
       }
     },
-    "Finishing" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在完成"
-          }
-        }
-      }
-    },
     "First window" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4581,16 +4485,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "强制退出 Steam？"
-          }
-        }
-      }
-    },
-    "FPS unlocker" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "帧率解锁器"
           }
         }
       }
@@ -4951,27 +4845,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通用"
-          }
-        }
-      }
-    },
-    "Genshin holds itself to 60 fps. An unlocker such as unlockfps_nc.exe raises the cap: Sevoflurane starts it beside the game 30 seconds after the game's process appears, in the same Windows, and points its fps_config.json at the game. It changes the running game's memory, which HoYoverse's terms do not allow, so the choice is yours." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原神将帧率限制在 60 fps。unlockfps_nc.exe 等解锁器可以提高上限：游戏进程出现 30 秒后，Sevoflurane 会在同一个 Windows 环境中启动它，并将其 fps_config.json 指向该游戏。它会修改运行中游戏的内存，这违反 HoYoverse 的条款，因此是否使用由你决定。"
-          }
-        }
-      }
-    },
-    "Genshin holds itself to 60 fps. Sevoflurane's engine carries an unlocker (genshin-fps-unlock's, MIT); switched on, it starts beside the game 30 seconds after the game's process appears. Choose another, such as unlockfps_nc.exe, to use that one instead. An unlocker changes the running game's memory, which HoYoverse's terms do not allow, so the switch is yours." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原神将帧率限制在 60 fps。Sevoflurane 的引擎自带一个解锁器（来自 genshin-fps-unlock，MIT 许可）；开启后，它会在游戏进程出现 30 秒后随游戏一起启动。也可以选择其他解锁器（例如 unlockfps_nc.exe）来代替它。解锁器会修改运行中游戏的内存，这违反 HoYoverse 的条款，因此是否开启由你决定。"
           }
         }
       }
@@ -5340,16 +5213,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "安装 %@"
-          }
-        }
-      }
-    },
-    "Install a game" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安装游戏"
           }
         }
       }
@@ -6604,26 +6467,6 @@
         }
       }
     },
-    "No HoYoverse game in this folder" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此文件夹中没有 HoYoverse 游戏"
-          }
-        }
-      }
-    },
-    "No HoYoverse games yet. Install one below, or add the folder of one you already have." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有 HoYoverse 游戏。可以在下方安装，或添加已有游戏的文件夹。"
-          }
-        }
-      }
-    },
     "No menu was tracking." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7282,16 +7125,6 @@
         }
       }
     },
-    "Patching" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在打补丁"
-          }
-        }
-      }
-    },
     "Performance and compatibility" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7568,16 +7401,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "游戏下次启动时生效；Steam 保持运行"
-          }
-        }
-      }
-    },
-    "Reading the build" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在读取版本"
           }
         }
       }
@@ -9180,16 +9003,6 @@
         }
       }
     },
-    "Start it with the game" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "随游戏启动"
-          }
-        }
-      }
-    },
     "Start Steam Anyway" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9768,16 +9581,6 @@
         }
       }
     },
-    "Stop Listing" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不再列出"
-          }
-        }
-      }
-    },
     "Stop watching this folder" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9828,16 +9631,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已按要求停止"
-          }
-        }
-      }
-    },
-    "Stopped. Running it again keeps what was downloaded." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已停止。再次运行会保留已下载的内容。"
           }
         }
       }
@@ -10108,16 +9901,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "游戏首次启动时，修复列表为其指定的设置会应用到游戏本身未设置的项。“设置 › 游戏”会逐项显示，并可撤销。"
-          }
-        }
-      }
-    },
-    "The folder the game's .exe is in." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "游戏 .exe 所在的文件夹。"
           }
         }
       }
@@ -10834,16 +10617,6 @@
         }
       }
     },
-    "unknown build" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未知版本"
-          }
-        }
-      }
-    },
     "unknown dependency %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10851,16 +10624,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未知依赖项：%@"
-          }
-        }
-      }
-    },
-    "Unlocker" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "解锁器"
           }
         }
       }
@@ -10965,16 +10728,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已更新至版本 %@"
-          }
-        }
-      }
-    },
-    "Updates come from the servers HoYoPlay uses, as patches when the game's build is recent enough and as the changed files otherwise. Honkai: Star Rail is kept up to date but does not start under Wine, so it is not added to Quick Launch." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新来自 HoYoPlay 使用的服务器：游戏版本较新时以补丁形式下载，否则下载有变动的文件。崩坏：星穹铁道会保持更新，但无法在 Wine 下启动，因此不会添加到快速启动。"
           }
         }
       }
@@ -11134,16 +10887,6 @@
         }
       }
     },
-    "Use Sevoflurane's" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用 Sevoflurane 自带的"
-          }
-        }
-      }
-    },
     "Use the copy the game or an installer brought, and Wine's where there is none. What a mod loader, ReShade or a Visual C++ runtime needs." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11205,16 +10948,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "vc_redist.%@.exe 安装失败（%@）"
-          }
-        }
-      }
-    },
-    "Verify Files" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "验证文件"
           }
         }
       }
@@ -11329,16 +11062,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Visual C++ 运行库（2015–2022）"
-          }
-        }
-      }
-    },
-    "Voice-over" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语音包"
           }
         }
       }

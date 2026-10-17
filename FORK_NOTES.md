@@ -1,8 +1,11 @@
-# TirededMaxer fork — 1.7.0-fork.2
+# TirededMaxer fork — 1.7.0-fork.3
 
 基于上游 Sevoflurane v1.6.0，保留原作者署名、许可证及本机现有 CrossOver 引擎、Steam 容器和输入/画面补丁。
 
 ## 本版范围
+
+- 完全移除米哈游模块：设置和搜索入口、安装/更新/校验/修复、CLI/MCP 工具、Sophon 编解码依赖、原神帧率解锁及专用伴随环境启动辅助。保留用户已有游戏文件、容器和通用日志/错误检测。
+- 单一 Git 工作副本迁至桌面 Projects/Sevoflurane，先在本地修改源码，再同步 GitHub；全部测试和构建由 GitHub 云端完成，本地只保留源码及相关文档。Release 只保留核验后的最新构建。
 
 - 删除应用自动更新模块与 Digoxin、TiptoeGitHub/AppUpdater 依赖，不再检查、下载或替换 Sevoflurane 自身；也不在启动时自动升级内置引擎。
 - 删除使用统计、运行统计、游戏报告、崩溃报告上传、共享数据身份和对应设置、引导、CLI 入口。诊断 ZIP 仅在本地保存；GitHub 问题链接不携带诊断查询参数。
@@ -25,22 +28,22 @@
 
 ## 构建与签名
 
-Xcode 26+、Apple Silicon、macOS 26+；遵循 CONTRIBUTING.md。原生对话框 helper 的源码、导入定义及构建方法见 Tools/steam-ui。
+通过 GitHub Actions 的 `Cloud build and release` 手动工作流构建：
 
 ```sh
-SEVO_EMBED_ENGINE=0 xcodebuild -project Sevoflurane.xcodeproj \
-  -scheme Sevoflurane -configuration Release \
-  -destination 'platform=macOS,arch=arm64' \
-  CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM= \
-  ENABLE_TESTABILITY=NO ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO \
-  ENABLE_HARDENED_RUNTIME=YES build
+git push origin HEAD:main
+gh workflow run release.yml --repo TirededMaxer/sevoflurane --ref main -f publish=true
 ```
 
-发行包逐层 ad-hoc 本地签名，保留 hardened runtime 和既有麦克风 capability，无测试包、无内嵌商业引擎。这不是 Developer ID 公证版本。现有容器和运行时不随应用替换。输入监控等系统授权仍由 macOS 管理；若更换 helper 签名导致旧授权失效，需在系统设置重新授权。本 fork 不修改 TCC。
+工作流使用全新 `xcode-27` Apple Silicon runner（工程格式为 Xcode 27，最低运行系统仍是 macOS 26），按 Package.resolved 获取依赖；不恢复编译缓存、不读取本机文件。源码内 Tools/ci 保存测试、构建、打包和发布脚本，共享 scheme 显式包含完整测试目标。测试宿主关闭 hardened runtime 以加载 ad-hoc 测试包，正式构建保持开启。云端保存日志、测试摘要及构建资产 7 天；Release DMG 和 SHA256SUMS.txt 回下载校验后发布，再删除旧 Release。本地仅临时下载已核验的云端安装包，安装后清理。
+
+原生对话框 helper 的源码、导入定义及构建方法见 Tools/steam-ui。
+
+发行包在云端逐层 ad-hoc 签名，保留 hardened runtime 和既有麦克风 capability，无测试包、无内嵌商业引擎。这不是 Developer ID 公证版本。现有容器和运行时不随应用替换。输入监控等系统授权仍由 macOS 管理；若更换 helper 签名导致旧授权失效，需在系统设置重新授权。本 fork 不修改 TCC。
 
 ## 验证
 
-- 本地完整 Debug 测试 1248 项通过，0 失败、0 跳过；测试宿主临时关闭 hardened runtime 仅用于加载 ad-hoc 测试包。正式 Release 保持 hardened runtime、关闭测试插桩。覆盖首次居中、尺寸和位置持久化、跨实例恢复、真实 WebKit 菜单高亮与离开清理，以及云状态观察订阅；底栏布局通过正式构建检查。
+- 完整 Debug 测试和正式 Release 构建由云端工作流执行，结果见 Release 中链接的 Actions 记录；测试宿主临时关闭 hardened runtime 仅用于加载 ad-hoc 测试包。正式 Release 保持 hardened runtime、关闭测试插桩。覆盖首次居中、尺寸和位置持久化、跨实例恢复、真实 WebKit 菜单高亮与离开清理，以及云状态观察订阅；底栏布局通过正式构建检查。
 - 云日志测试覆盖最终确认、单文件成功、并行游戏、失败重试、分段读取及日志轮换；窗口测试覆盖原生拖动、双击、工具栏事件范围、提示位置和非激活行为。
 - 实际登录达到 healthy；Steam 自带好友游戏/上线测试创建原版 notificationtoasts 页面，窗口位于屏幕右下方。上线提示测试仅临时覆盖测试目标的显示条件，不持久修改 Steam 设置。
 - 本地中文 Win32 错误测试由 NSAlert 显示完整文字和“确定/取消”；点击确定后原窗口收到 response:1 并正常退出，Steam 保持 healthy。

@@ -86,18 +86,16 @@ nonisolated enum GameLogs {
         return start ... end
     }
 
-    /// The Windows profiles a game can write under: the bottle's, and the
-    /// companion prefix's, where the programs that need a `steam.exe` parent
-    /// run (HoYoverse's games).
+    /// The Windows profiles under the current bottle.
     private static var windowsUserRoots: [URL] {
-        [SteamBottle.root, SteamBottle.companion].map { $0.appendingPathComponent("drive_c/users") }
+        [SteamBottle.root].map { $0.appendingPathComponent("drive_c/users") }
     }
 
     // MARK: - Unity
 
     /// The file the Unity player writes now, and the one it rotated the
     /// previous launch's output into, under Unity's names and under the ones
-    /// HoYoverse's players use.
+    /// some Unity players use.
     static let unityLogNames = ["Player.log", "Player-prev.log", "output_log.txt", "output_log.txt.last"]
 
     /// The names a player's current log goes by.

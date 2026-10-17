@@ -844,7 +844,7 @@ nonisolated enum ClientLifecycle {
     /// for. `@concurrent` so the spawn never runs on the calling actor.
     ///
     /// `environment` replaces the invocation's own, for a program that runs
-    /// in the bottle's companion prefix (``SteamParent``), and `directory`
+    /// with a custom Wine environment, and `directory`
     /// is the working directory its Windows side starts in.
     /// - Parameter programExit: For a launcher whose status is the program's
     ///   own — the `steam.exe` parent exits with its child's code — the

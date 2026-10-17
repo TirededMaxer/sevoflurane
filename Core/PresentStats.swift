@@ -20,8 +20,7 @@ final nonisolated class PresentStats: @unchecked Sendable {
     /// from the totals, which are not sampled.
     static let samplesKept = 4 * 60 * 60
 
-    /// Where the pages are, asked at every sample: the bottle and its
-    /// companion follow a bottle switch without an app restart.
+    /// Where the pages are, asked at every sample to follow bottle switches.
     private let runDirectories: () -> [URL]
     private let lock = NSLock()
     private var armed: [Int: Run] = [:]
@@ -30,18 +29,14 @@ final nonisolated class PresentStats: @unchecked Sendable {
     /// - Parameters:
     ///   - prefix: the bottle the games run in. Its `.sevo/run` is where the
     ///     driver writes the pages.
-    ///   - companions: the other prefixes games run in, whose pages are read
-    ///     too: the bottle's companion, where HoYoverse's games run
-    ///     (``SteamParent``).
-    init(prefix: URL, companions: [URL] = []) {
-        let directories = ([prefix] + companions).map { $0.appendingPathComponent(".sevo/run") }
+    init(prefix: URL) {
+        let directories = [prefix].map { $0.appendingPathComponent(".sevo/run") }
         runDirectories = { directories }
     }
 
-    /// The live bottle and its companion, whichever bottle is chosen when a
-    /// sample is taken.
+    /// The live bottle, whichever is chosen when a sample is taken.
     init() {
-        runDirectories = { [SteamBottle.root, SteamBottle.companion].map { $0.appendingPathComponent(".sevo/run") } }
+        runDirectories = { [SteamBottle.root].map { $0.appendingPathComponent(".sevo/run") } }
     }
 
     /// Counts `pid`'s page toward `appID`'s run whatever app id the page

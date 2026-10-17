@@ -84,8 +84,7 @@ final class QuickLaunchStore {
 
     /// The programs whose launch request is with the helper, from the press
     /// to its reply. A second press on one of them is the same wish again,
-    /// not a second launch: five presses during a first companion launch
-    /// made five games, 2026-09-26.
+    /// not a second launch.
     private(set) var launching: Set<Int> = []
 
     /// Starts a program through the daemon, which is the bottle's one parent.
@@ -96,8 +95,7 @@ final class QuickLaunchStore {
         let query = renderer.map { "&renderer=\($0.rawValue)" } ?? ""
         Task(name: "Launch \(entry.name)") {
             let logOffset = KernelDriverFailure.size()
-            // Long enough for a first launch that creates the companion
-            // prefix of a program that needs a steam.exe parent (SteamParent).
+            // Allow first-launch preparation to finish before another press.
             guard let reply = await DaemonService.postReply(
                 "/program/launch?id=\(entry.id)\(query)", timeout: 240,
             ) else {

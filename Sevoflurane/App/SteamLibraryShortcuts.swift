@@ -27,12 +27,9 @@ final class SteamLibraryShortcuts {
     private static let freshFor: Duration = .seconds(60)
 
     /// Whether a program can be listed at all: it lives in the bottle the
-    /// Steam client runs in, it is played rather than installed from, and it
-    /// does not need a `steam.exe` parent with no client beside it
-    /// (``SteamParent``), which a launch from Steam's library cannot give.
+    /// Steam client runs in, and it is played rather than installed from.
     static func canList(_ program: AdoptedProgram) -> Bool {
         program.bottle == SteamBottle.name && program.kind != ProgramKind.installer
-            && !SteamParent.wants(program)
     }
 
     /// Lists a program in Steam's library or takes it out.

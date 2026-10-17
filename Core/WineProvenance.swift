@@ -69,7 +69,7 @@ nonisolated enum WineProvenance {
 /// `sevo:program-exit appid=<id> exe=<name> status=<code>`. Steam's process
 /// log has no line for such a program, so this is the only place its exit
 /// code exists. Written only where the launcher's status is the program's own
-/// — the `steam.exe` parent (SteamParent) exits with its child's code — since
+/// when the launcher waits for the program, since
 /// `start /unix` returns 0 the moment the program is spawned.
 nonisolated enum ProgramExit {
     /// The program whose exit a launcher's status is.

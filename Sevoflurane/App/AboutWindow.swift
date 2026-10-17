@@ -177,7 +177,7 @@ enum Acknowledgements {
     static let components = [
         "wine", "liberation-fonts", "dxvk", "dxmt", "moltenvk", "d3dmetal", "nwjs",
         "anime4k", "cunny",
-        "propofol", "swift-argument-parser", "zstd", "hdiffpatch",
+        "propofol", "swift-argument-parser",
         "areweanticheatyet", "applegamingwiki", "protondb",
         "apache-2.0",
     ]

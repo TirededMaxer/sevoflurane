@@ -91,16 +91,6 @@ nonisolated enum StorageInventory {
                 bytes: -1,
                 removal: nil,
             ),
-            Entry(
-                id: "companions",
-                name: "Companion Windows",
-                detail: "A second Windows drive beside the bottle, without Steam, for HoYoverse\u{2019}s games.",
-                // `SteamParent.root`, which the CLI does not compile.
-                url: AppIdentity.supportFolder
-                    .appendingPathComponent("Companions"),
-                bytes: -1,
-                removal: .regenerated("Made again the next time one of those games starts; it asks you to sign in again."),
-            ),
         ]
     }
 
