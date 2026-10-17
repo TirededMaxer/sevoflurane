@@ -17,6 +17,10 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
 }
 - (instancetype)init {
     if ((self = [super init])) {
+        // Do not open an implicit transaction in Wine's custom event loop.
+        // It would also become the parent of the image transaction below.
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
         _layer = [CALayer layer];
         _layer.name = @"Sevoflurane window-surface experiment";
         _layer.zPosition = 1000000;
@@ -26,6 +30,7 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
         _layer.magnificationFilter = kCAFilterNearest;
         _layer.actions = @{@"contents": NSNull.null, @"bounds": NSNull.null,
                            @"position": NSNull.null, @"hidden": NSNull.null, @"opacity": NSNull.null};
+        [CATransaction commit];
     }
     return self;
 }
@@ -37,9 +42,9 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
     // image cannot recover sharp UI and must not count as an accepted frame.
     if (CGImageGetWidth(image) != (size_t)llround(NSWidth(content.bounds) * scale)
         || CGImageGetHeight(image) != (size_t)llround(NSHeight(content.bounds) * scale)) return NO;
-    content.wantsLayer = YES;
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
+    content.wantsLayer = YES;
     if (_layer.superlayer != content.layer) {
         [_layer removeFromSuperlayer];
         [content.layer addSublayer:_layer];
@@ -60,14 +65,28 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
     float distance = fabsf(target - _fromOpacity);
     double progress = distance > 0 ? fmin(1, fmax(0, (time - _transitionStart)
         / (SevoOverlayTransitionDuration * distance))) : 1;
-    _layer.opacity = _fromOpacity + (target - _fromOpacity) * progress;
-    if (!visible && _layer.opacity <= 0) [self detach];
+    float opacity = _fromOpacity + (target - _fromOpacity) * progress;
+    // Commit fade steps explicitly, just like new image contents. An
+    // implicit parent transaction can hold both updates until Wine yields
+    // its event loop. Once settled, leave the layer alone on timer ticks.
+    if (_layer.opacity != opacity) {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        _layer.opacity = opacity;
+        [CATransaction commit];
+    }
+    if (!visible && opacity <= 0) [self detach];
     return _layer.superlayer != nil;
 }
 - (void)detach {
-    [_layer removeFromSuperlayer];
-    _layer.contents = nil;
-    _layer.opacity = 0;
+    if (_layer.superlayer || _layer.contents || _layer.opacity != 0) {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [_layer removeFromSuperlayer];
+        _layer.contents = nil;
+        _layer.opacity = 0;
+        [CATransaction commit];
+    }
     _wantsVisible = NO;
     _fromOpacity = 0;
 }
