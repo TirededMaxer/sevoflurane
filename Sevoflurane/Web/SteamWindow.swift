@@ -581,6 +581,9 @@ final class SteamWindow: NSObject {
             NSApp.setActivationPolicy(.regular)
         }
         if role == .menu {
+            // Install native DOM tracking before a click can make this panel
+            // key and AppKit stops relaying its hover events.
+            webView.evaluateJavaScript(Self.controlledMenuHoverScript)
             window.alphaValue = 1
             window.ignoresMouseEvents = false
         }

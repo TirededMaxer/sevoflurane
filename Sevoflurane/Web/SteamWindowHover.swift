@@ -19,15 +19,18 @@ extension SteamWindow {
           if (r.cssRules) rewrite(r.cssRules);
         }
       }
-      for (var sheet of Array.from(document.styleSheets)) {
-        if (sheet.disabled) continue;
-        try {
-          if (seen.get(sheet) !== sheet.cssRules.length) {
-            rewrite(sheet.cssRules);
-            seen.set(sheet, sheet.cssRules.length);
-          }
-        } catch (e) {}
+      function refreshStyles() {
+        for (var sheet of Array.from(document.styleSheets)) {
+          if (sheet.disabled) continue;
+          try {
+            if (seen.get(sheet) !== sheet.cssRules.length) {
+              rewrite(sheet.cssRules);
+              seen.set(sheet, sheet.cssRules.length);
+            }
+          } catch (e) {}
+        }
       }
+      refreshStyles();
       if (!window.__sevoSetCSSHoverPath) {
         window.__sevoSetCSSHoverPath = function (path) {
           (window.__sevoCSSHoverPath || []).forEach(function (n) {
@@ -40,6 +43,7 @@ extension SteamWindow {
         // AppKit relay below. Both update the same CSS path without calling
         // React enter/leave twice in the native path.
         function track(event) {
+          refreshStyles();
           var path = [];
           for (var n = event.target; n && n.nodeType === 1; n = n.parentElement) path.push(n);
           window.__sevoSetCSSHoverPath(path);
@@ -58,7 +62,7 @@ extension SteamWindow {
     /// element path under the cursor.
     ///
     /// In a key window React's hover works off WKWebView's own tracking, but
-    /// a menu panel is never key — and there, no deliverable mouse event runs
+    /// a menu panel may be non-key — and there, no deliverable mouse event runs
     /// a React enter/leave handler: forwarded native events and script
     /// dispatches both reach the document and its React root listener with
     /// no handler firing (clicks work; hover does not — measured). The
