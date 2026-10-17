@@ -9,11 +9,14 @@ extension SteamWebHost {
     /// library is the optional part. Measured against a live client with
     /// `SP Desktop` hidden throughout.
     ///
-    /// With messages waiting, this opens the oldest of them instead, the way
-    /// clicking Steam's own tray badge does; Steam falls back to the plain
-    /// list when nothing is unread.
+    /// The unread badge reports waiting conversations; this button always
+    /// opens the friends list. Chat rows open individual conversations.
     func openFriends() {
-        runInContext(Self.friendsScript(unread: unreadChats > 0), describedAs: "friends list")
+        if let existing = popups.values.first(where: { $0.role == .friends }) {
+            existing.show(activating: true)
+            return
+        }
+        runInContext(Self.friendsScript, describedAs: "friends list")
     }
 
     /// Opens one friend's chat window, by the 32-bit account id Steam's own
@@ -74,30 +77,19 @@ extension SteamWebHost {
         }
     }
 
-    /// Opens the friends list, or the oldest unread conversation.
-    ///
-    /// `ShowChatUnreadMessages` is Steam's own "show me what is waiting": it
-    /// picks the oldest unread chat and activates it, and opens the plain
-    /// list when there is nothing unread after all.
-    private static func friendsScript(unread: Bool) -> String {
-        """
-        (function () {
-          var app = window.g_FriendsUIApp;
-          if (!app || typeof app.GetDefaultBrowserContext !== "function") return "unavailable";
-          var context = app.GetDefaultBrowserContext();
-          if (!context) return "no browser context";
-          var desktop = app.m_DesktopApp;
-          if (\(unread ? "true" : "false")
-              && desktop && typeof desktop.ShowChatUnreadMessages === "function") {
-            desktop.ShowChatUnreadMessages(context);
-            return "showing unread";
-          }
-          if (typeof app.ShowPopupFriendsList !== "function") return "unavailable";
-          app.ShowPopupFriendsList(context, false, true);
-          return "showing friends list";
-        })()
-        """
-    }
+    /// Steam's unread-conversation entry point in the current client returns
+    /// before opening a window. Use the explicit list entry point for Friends.
+    static let friendsScript = """
+    (function () {
+      var app = window.g_FriendsUIApp;
+      if (!app || typeof app.GetDefaultBrowserContext !== "function") return "unavailable";
+      var context = app.GetDefaultBrowserContext();
+      if (!context) return "no browser context";
+      if (typeof app.ShowPopupFriendsList !== "function") return "unavailable";
+      app.ShowPopupFriendsList(context, false, true);
+      return "showing friends list";
+    })()
+    """
 
     private static func chatScript(accountID: Int) -> String {
         """

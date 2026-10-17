@@ -116,9 +116,8 @@ private struct StatusChip: View {
 /// The friends list, with the number of waiting conversations beside the
 /// icon while there are any. The count is conversations, not messages — the
 /// number Steam posts to the client for its own tray badge, and a
-/// conversation is what a click opens. It opens the list, or the oldest
-/// waiting conversation, as its own window; Steam's desktop window is never
-/// involved.
+/// conversation is what the badge counts. A click opens the friends list
+/// as its own window; Steam's desktop window is never involved.
 private struct FriendsButton: View {
     let host: SteamWebHost
     @State private var isHovered = false

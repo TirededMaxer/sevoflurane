@@ -25,7 +25,11 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            PopoverHeader("Sevoflurane")
+            HStack(spacing: Theme.Space.sm) {
+                Text("Sevoflurane").font(.heroTitle)
+                Spacer()
+            }
+            .padding(.top, -Self.titleCapInset)
             if supervisor.isQuitting {
                 QuittingNotice()
             } else if let setup, setup.isUnfinished {
@@ -91,9 +95,15 @@ struct MenuBarView: View {
         }
     }
 
+    private static let titleCapInset: CGFloat = {
+        let base = NSFont.preferredFont(forTextStyle: .headline)
+        let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: base.pointSize) }
+        return (rounded ?? base).ascender - (rounded ?? base).capHeight
+    }()
+
     /// "Friends", or what is waiting in it. The count is conversations, not
     /// messages — it is the number Steam itself posts to the client for its
-    /// own tray badge, and a conversation is what a click opens.
+    /// own tray badge; a click always opens the friends list.
     static func friendsLabel(unreadChats: Int) -> String {
         switch unreadChats {
         case 0: String(localized: "Friends")
