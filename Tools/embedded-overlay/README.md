@@ -25,3 +25,7 @@ The producer is statically linked into the signed app. Loading an ad-hoc dylib
 inside the hardened app is intentionally unnecessary; library validation and
 the existing microphone-only entitlements remain in place. The universal
 renderer dylib is loaded only by Wine, after its wrapper applies `--env`.
+
+Wine inherits a minimal libSystem loader. Only cs2.exe loads the AppKit/Metal
+renderer; Steam and CEF never load that renderer through the injection path.
+Desktop/sign-in windows are excluded from the non-activating overlay group.

@@ -151,7 +151,7 @@ final class SteamWindow: NSObject {
                 return handled ? nil : event
             }
         }
-        if role != .gameOverlay, role != .toast, let childLevel = host?.overlayChildLevel {
+        if role.canBeOverlayChild, let childLevel = host?.overlayChildLevel {
             // Opened while the overlay is up — ride just above it rather than
             // at the normal level, where the overlay and game would hide it.
             // A `SteamPanel` hides itself when its app deactivates, and this
@@ -172,7 +172,7 @@ final class SteamWindow: NSObject {
 
     /// The bare `NSWindow` for this popup's role, before any dressing.
     private func makeWindow(content: NSRect) -> NSWindow {
-        if role != .gameOverlay, role != .toast, host?.isOverlayActive == true {
+        if role.canBeOverlayChild, host?.isOverlayActive == true {
             // A popup opened while the overlay is up (its Settings, a dialog):
             // a non-activating panel, so it does not pull focus off the game.
             // `realize` levels it above the overlay, and `show` orders it in
@@ -522,7 +522,7 @@ final class SteamWindow: NSObject {
         guard role != .gameOverlay else { return }
         guard !isDesktopChatMirrorInOverlay else { return }
         host?.noteWindowWillShow(self)
-        if host?.embeddedOverlay.presenting == true {
+        if role.canBeOverlayChild, host?.embeddedOverlay.presenting == true {
             prepareOpeningPlacement()
             setEmbeddedPresentation(true)
             return
@@ -530,7 +530,7 @@ final class SteamWindow: NSObject {
         // A popup opened while the overlay is up rides above it (a
         // non-activating panel levelled in `realize`) and is ordered in
         // without activating the app, so the game keeps focus.
-        if host?.isOverlayActive == true {
+        if role.canBeOverlayChild, host?.isOverlayActive == true {
             prepareOpeningPlacement()
             window?.orderFrontRegardless()
             return

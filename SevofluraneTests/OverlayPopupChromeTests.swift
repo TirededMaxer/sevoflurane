@@ -22,6 +22,20 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
+    func `desktop and login remain activating windows while overlay is open`() {
+        let host = SteamWebHost()
+        host.overlayActive = true
+        for role in [SteamWindowRole.desktop, .login] {
+            let popup = SteamWindow(webView: WKWebView(), role: role, name: "scope-test",
+                                    size: CGSize(width: 400, height: 300), origin: nil, host: host)
+            popup.realize()
+            #expect(!(popup.window is NSPanel))
+            #expect(popup.window?.styleMask.contains(.nonactivatingPanel) == false)
+            popup.window?.close()
+        }
+    }
+
+    @Test
     func `menus and the full game overlay remain borderless`() {
         for role in [SteamWindowRole.menu, .gameOverlay] {
             let panel = SteamPanel(

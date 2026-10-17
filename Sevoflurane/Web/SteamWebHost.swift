@@ -746,8 +746,7 @@ final class SteamWebHost {
         // up as ordinary windows over the game, so they are closed instead:
         // the overlay starts every session with nothing open.
         let fromOverlayInstance = SteamWindowRole.instanceUID(ofPopupNamed: window.name) != 0
-        let isOverlayFurniture = window.role != .desktop && window.role != .context
-            && window.role != .gameOverlay && window.role != .toast && window.role != .menu
+        let isOverlayFurniture = window.role.canBeOverlayChild && window.role != .menu
         if overlayActive, isOverlayFurniture {
             overlayChildren.append(window)
         } else if fromOverlayInstance, isOverlayFurniture {

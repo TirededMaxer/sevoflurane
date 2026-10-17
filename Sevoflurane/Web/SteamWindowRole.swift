@@ -131,6 +131,13 @@ nonisolated enum SteamWindowRole {
         self == .menu || self == .keyboard || self == .gameOverlay || self == .dialog || self == .toast
     }
 
+    /// Only actual overlay furniture may be a non-activating panel.
+    /// Desktop and sign-in windows keep normal app/keyboard ownership even
+    /// when Steam creates them while a game overlay happens to be open.
+    var canBeOverlayChild: Bool {
+        hasPopupChrome || self == .menu || self == .dialog || self == .keyboard
+    }
+
     /// Whether the window is one of Steam's ordinary popups — friends, chat,
     /// the configurator, notes and the rest — whose page draws a
     /// `.TitleBar.title-area` strip inside a header of its own
