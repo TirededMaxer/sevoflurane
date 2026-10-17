@@ -6,6 +6,12 @@ import WebKit
 @MainActor
 struct EmbeddedOverlayTests {
     @Test
+    func `stable builds never inject the unaccepted compositor`() {
+        #expect(EmbeddedOverlayLaunch.library == nil)
+        #expect(EmbeddedOverlayLaunch.environment.isEmpty)
+    }
+
+    @Test
     func `embedded backing stays invisible and cannot intercept native input`() {
         let popup = SteamWindow(webView: WKWebView(), role: .gameOverlay, name: "desktopoverlay_uid730",
                                 size: CGSize(width: 800, height: 600), origin: nil, host: nil)

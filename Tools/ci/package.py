@@ -17,10 +17,8 @@ assert summary["passedTests"] > 0 and summary["failedTests"] == 0, summary
 source = work / "Release/Build/Products/Release/Sevoflurane.app"
 stage = work / "dmg-root/Sevoflurane.app"
 shutil.copytree(source, stage, symlinks=True)
-overlay = stage / "Contents/Resources/EmbeddedOverlay"
-overlay.mkdir(parents=True)
-for name in ("SevoEmbeddedOverlay.dylib", "SevoOverlayRenderer.dylib"):
-    shutil.copy2(Path(os.environ["RUNNER_TEMP"]) / "sevo-overlay" / name, overlay)
+# The unaccepted compositor is retained in source only, never shipped.
+assert not (stage / "Contents/Resources/EmbeddedOverlay").exists()
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]
 assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-fork\.[0-9]+", version), version
@@ -38,9 +36,6 @@ def run(*args, **kwargs):
 def sign(path, entitlements):
     run("codesign", "--force", "--sign", "-", "--options", "runtime", "--timestamp=none",
         "--entitlements", str(entitlements), str(path))
-
-for library in overlay.glob("*.dylib"):
-    sign(library, empty)
 
 for helper in (stage / "Contents/Helpers").iterdir():
     if helper.is_file():

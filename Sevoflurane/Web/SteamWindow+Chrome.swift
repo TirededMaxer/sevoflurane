@@ -63,7 +63,9 @@ extension SteamWindow {
             window.isOpaque = false
             window.backgroundColor = .clear
             window.hasShadow = false
-            window.level = .statusBar
+            // Wine's fullscreen game is level 26, above the status bar (25).
+            // A non-activating popup-menu-level panel remains visible over it.
+            window.level = .popUpMenu
             window.hidesOnDeactivate = false
             window.isExcludedFromWindowsMenu = true
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
