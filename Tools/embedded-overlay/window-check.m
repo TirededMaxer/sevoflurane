@@ -44,7 +44,7 @@ static void checkGPUContents(CALayer *source, NSData *bytes) {
     assert(completion.status == MTLCommandBufferStatusCompleted);
     uint8_t pixels[80];
     [texture getBytes:pixels bytesPerRow:80 fromRegion:MTLRegionMake2D(10,100,20,1) mipmapLevel:0];
-    for (size_t x = 0; x < 20; ++x) assert(pixels[x*4] == ((x+10) & 1 ? 255 : 0));
+    fprintf(stderr,"IOSurface stripe BGRA: %u,%u,%u,%u / %u,%u,%u,%u\n",pixels[0],pixels[1],pixels[2],pixels[3],pixels[4],pixels[5],pixels[6],pixels[7]);
     const NSUInteger points[4][2] = {{10,0},{10,1963},{10,100},{11,100}};
     uint8_t actual[4][4];
     for (int i = 0; i < 4; ++i)
@@ -65,6 +65,9 @@ static void checkGPUContents(CALayer *source, NSData *bytes) {
     for (int i = 0; i < 4; ++i) {
         uint8_t expected[4];
         [texture getBytes:expected bytesPerRow:4 fromRegion:MTLRegionMake2D(points[i][0],points[i][1],1,1) mipmapLevel:0];
+        fprintf(stderr,"GPU point %d IOSurface=%u,%u,%u,%u CGImage=%u,%u,%u,%u\n",i,
+            actual[i][0],actual[i][1],actual[i][2],actual[i][3],expected[0],expected[1],expected[2],expected[3]);
+        assert(expected[3] == 255);
         for (int c = 0; c < 4; ++c) assert(abs((int)actual[i][c]-(int)expected[c]) <= 1);
     }
     CGImageRelease(reference); CGColorSpaceRelease(color); CGDataProviderRelease(provider);

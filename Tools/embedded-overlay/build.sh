@@ -30,3 +30,6 @@ PY_CLOCK
 xcrun clang "${common[@]}" Tools/embedded-overlay/window-check.m Tools/embedded-overlay/WindowSurface.m -o "$out/sevo-window-check"
 codesign --force --sign - --timestamp=none "$out/sevo-window-check"
 "$out/sevo-window-check" | tee "$out/window-check.txt"
+
+# The injected game runs under Rosetta; validate that architecture too.
+arch -x86_64 "$out/sevo-window-check" | tee "$out/window-check-rosetta.txt"
