@@ -110,6 +110,7 @@ final class SteamContentView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
+        if owner?.role == .menu { owner?.clearMenuHover(); return }
         relay(Self.simulateExit, event)
         if shouldRelay { owner?.relayReactHoverExit() }
     }

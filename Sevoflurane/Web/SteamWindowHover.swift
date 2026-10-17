@@ -86,6 +86,22 @@ extension SteamWindow {
         """)
     }
 
+    /// A selected menu can navigate before AppKit delivers mouseExited.
+    /// Clear both WebKit's native :hover and the React/CSS relay, including
+    /// when the panel became key during the press.
+    func clearMenuHover() {
+        guard role == .menu else { return }
+        let exit = Selector(("_simulateMouseExit:"))
+        if let window,
+           let event = NSEvent.enterExitEvent(with: .mouseExited, location: NSPoint(x: -1, y: -1),
+                                              modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                              windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                              trackingNumber: 0, userData: nil), webView.responds(to: exit) {
+            webView.perform(exit, with: event)
+        }
+        relayReactHoverExit()
+    }
+
     /// Once the panel takes key focus, WebKit owns CSS hover again.
     func clearHoverAppearance() {
         guard role == .menu else { return }

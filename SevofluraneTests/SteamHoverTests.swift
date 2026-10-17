@@ -57,7 +57,9 @@ struct SteamHoverTests {
         #expect(await read("getComputedStyle(document.querySelector('#two')).backgroundColor") == "rgb(220, 222, 223)")
         #expect(await read("getComputedStyle(document.querySelector('#one')).backgroundColor") == "rgb(10, 20, 30)")
         #expect(await read("document.querySelector('#two').classList.add('disabled'); getComputedStyle(document.querySelector('#two')).backgroundColor") == "rgb(10, 20, 30)")
-        owner.clearHoverAppearance()
+        #expect(await read("document.querySelector('#two').classList.remove('disabled'); getComputedStyle(document.querySelector('#two')).backgroundColor") == "rgb(220, 222, 223)")
+        // Selection/navigation must clear the native and relayed hover too.
+        owner.clearMenuHover()
         #expect(await read("String(document.querySelectorAll('[data-sevo-hover]').length)") == "0")
         content.mouseExited(with: try move(y: 180, type: .mouseExited))
         #expect(await read("JSON.stringify(left)") == #"["one","two"]"#)

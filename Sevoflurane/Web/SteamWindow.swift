@@ -73,7 +73,7 @@ final class SteamWindow: NSObject {
     /// with the origin at the top-left of the content. Steam marks them with
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
-    private var titleStripMonitor: Any?
+    private var mouseMonitor: Any?
     var hasBeenShown = false
 
     weak var host: SteamWebHost?
@@ -142,11 +142,17 @@ final class SteamWindow: NSObject {
         if let maximumSize { window.contentMaxSize = maximumSize }
         place(window)
         self.window = window
-        if role != .menu, role != .toast {
-            titleStripMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+        if role != .toast {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
                 let handled = MainActor.assumeIsolated {
-                    self?.takeKeyboardForUserPress(event)
-                    return self?.handleTitleStripMouseDown(event) == true
+                    guard let self, event.window === self.window else { return false }
+                    if self.role == .menu, event.type == .leftMouseUp {
+                        DispatchQueue.main.async { [weak self] in self?.clearMenuHover() }
+                        return false
+                    }
+                    guard event.type == .leftMouseDown else { return false }
+                    self.takeKeyboardForUserPress(event)
+                    return self.handleTitleStripMouseDown(event)
                 }
                 return handled ? nil : event
             }
@@ -646,7 +652,7 @@ final class SteamWindow: NSObject {
     private func hide() {
         embeddedPresented = false
         savePlacement()
-        if role == .menu { relayReactHoverExit() }
+        if role == .menu { clearMenuHover() }
         hasBeenShown = false
         showWasDeferredByHold = false
         guard let window else { return }
@@ -896,9 +902,9 @@ final class SteamWindow: NSObject {
     /// Drops the window and the page without asking the page to close itself.
     /// Used when WebKit has already closed the browsing context.
     func detach(reason: DetachReason) {
-        if let titleStripMonitor {
-            NSEvent.removeMonitor(titleStripMonitor)
-            self.titleStripMonitor = nil
+        if let mouseMonitor {
+            NSEvent.removeMonitor(mouseMonitor)
+            self.mouseMonitor = nil
         }
         isClosed = true
         for view in browserViews.values {
