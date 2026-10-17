@@ -6,7 +6,7 @@
 #include <time.h>
 
 #define SEVO_OVERLAY_MAGIC 0x5345564f4f564c31ull
-#define SEVO_OVERLAY_VERSION 3
+#define SEVO_OVERLAY_VERSION 4
 #define SEVO_OVERLAY_WIDTH 4096u
 #define SEVO_OVERLAY_HEIGHT 4096u
 #define SEVO_OVERLAY_PIXEL_CAPACITY (SEVO_OVERLAY_WIDTH * SEVO_OVERLAY_HEIGHT * 4u)
@@ -40,7 +40,9 @@ typedef struct {
     _Atomic uint64_t backend; /* 1: Metal backbuffer; 2: same-window native layer */
     _Atomic uint64_t blockedEvents, releasedKeys;
     _Atomic uint64_t nativeLayerVisible;
-    uint8_t reserved[88];
+    _Atomic uint64_t presentationOpacity; /* IEEE-754 double bits */
+    _Atomic uint64_t cursorResumes;
+    uint8_t reserved[72];
 } SevoOverlayHeader;
 
 typedef struct {

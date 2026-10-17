@@ -14,10 +14,12 @@ Before any new game candidate can ship:
 
 - Validate the game-integrated presenter and true backing-scale image on the target Mac. A 1x image enlarged to 2x must fail acceptance.
 - Verify pointer movement, click/drag, scrolling, child windows and keyboard entry through the actual hidden WKWebView. Validate English and Chinese composition separately.
-- Verify game-side keyboard state and raw input while opening, using and closing the overlay, including held Shift, mouse buttons and repeated toggles. The present policy alone does not prove that the opening chord releases an already-held game binding.
+- Verify game input while the overlay is active and normal controls after closing. Shift/Tab game actions before the full opening chord completes are not an acceptance failure; preserve the original Steam behavior.
 - Verify fullscreen/windowed resizing, display changes, focus, menu-bar behavior, fallback and normal game controls after closing.
 - Keep the stable package and published Release unchanged until live usability passes.
 
 Run the `overlay_probe=true` GitHub workflow for the universal renderer, Metal readback, cross-architecture clock check and window-surface/input-policy fixture. Compile only in GitHub Actions.
 
 A private full candidate uses `experimental_overlay=true` and `publish=false`. Normal builds omit the libraries; candidate manifests explicitly identify the experiment and the publisher rejects them. The public fork.4 Release remains the daily-use baseline until the new path passes live acceptance.
+
+Build 25 passed live clarity, hover/click/scroll and English/Chinese input acceptance. The remaining feedback is the visible CS2 menu pointer rolling back to its opening position and missing show/hide opacity transitions. Build 26 retains the last native-resolution frame for an interruptible 250 ms opacity transition (the value in the installed Steam gameoverlay.styles -> steam.styles Frame.TransitionEffectTime). This is a compatible presentation transition, not a claim about an unpublished native Steam compositor timing contract. The pointer handoff only corrects a rollback to the opening position after closing when Wine requests a visible cursor; hidden gameplay cursors, a new overlay, changed app focus and subsequent physical pointer motion retain control. Live revalidation of these two changes remains required.

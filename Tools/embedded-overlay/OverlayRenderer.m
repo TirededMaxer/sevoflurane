@@ -29,6 +29,9 @@ static SevoWindowSurface *windowSurface;
 static NSTimer *windowTimer;
 static uint64_t windowGeneration;
 static BOOL wasWindowActive;
+static CGPoint openingCursor, overlayCursor;
+static BOOL haveOverlayCursor;
+static uint64_t cursorResumeEpoch;
 static _Atomic uint64_t heldKeys[4];
 static BOOL windowBackend(void) { return getenv("SEVO_OVERLAY_BACKEND") && !strcmp(getenv("SEVO_OVERLAY_BACKEND"), "window"); }
 static void (*originalPresent)(id, SEL, id);
@@ -197,6 +200,10 @@ static BOOL sendInput(NSEvent *event) {
     NSPoint point = SevoOverlayNormalizedPoint(window.contentView, event.locationInWindow);
     packet.x = point.x;
     packet.y = point.y;
+    if (packet.kind <= 6 && event.CGEvent) {
+        overlayCursor = CGEventGetLocation(event.CGEvent);
+        haveOverlayCursor = YES;
+    }
     packet.modifiers = event.modifierFlags;
     packet.clickCount = (packet.kind == 1 || packet.kind == 2 || packet.kind == 4 || packet.kind == 5) ? (uint32_t)event.clickCount : 0;
     if (packet.kind >= 7) {
@@ -268,10 +275,71 @@ static void releaseHeldGameKeys(NSWindow *window) {
         atomic_fetch_add(&bridge->releasedKeys, 1);
     }
 }
+static id wineController(void) {
+    Class cls = NSClassFromString(@"WineApplicationController");
+    SEL shared = NSSelectorFromString(@"sharedController");
+    return [cls respondsToSelector:shared] ? ((id (*)(id, SEL))objc_msgSend)(cls, shared) : nil;
+}
+static BOOL gameRequestsVisibleCursor(id controller) {
+    // The 26.3 controller records the game's actual request, unlike the
+    // system cursor which the overlay temporarily shows during an FPS match.
+    Ivar ivar = class_getInstanceVariable(object_getClass(controller), "clientWantsCursorHidden");
+    if (!ivar) return NO;
+    const char *type = ivar_getTypeEncoding(ivar);
+    ptrdiff_t offset = ivar_getOffset(ivar);
+    if (!type || (strcmp(type, @encode(BOOL)) && strcmp(type, "c") && strcmp(type, "B"))
+        || offset < 0 || (size_t)offset + sizeof(BOOL) > class_getInstanceSize(object_getClass(controller))) return NO;
+    BOOL hidden;
+    memcpy(&hidden, (const uint8_t *)(__bridge const void *)controller + offset, sizeof(hidden));
+    return !hidden;
+}
+static CGPoint currentCursor(void) {
+    CGEventRef event = CGEventCreate(NULL);
+    CGPoint point = event ? CGEventGetLocation(event) : CGPointMake(NAN, NAN);
+    if (event) CFRelease(event);
+    return point;
+}
+static void resumeMenuCursor(NSWindow *window) {
+    if (!haveOverlayCursor) return;
+    CGPoint last = overlayCursor, opening = openingCursor;
+    uint64_t epoch = ++cursorResumeEpoch;
+    __weak NSWindow *target = window;
+    // Steam restores the game cursor after its deactivation callback. Wait
+    // one short handoff, then correct only the reported rollback to the
+    // opening position. New physical motion and hidden FPS cursors win.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        if (epoch != cursorResumeEpoch || activeFrame() || !NSApp.isActive || gameWindow() != target) return;
+        id controller = wineController();
+        SEL set = NSSelectorFromString(@"setCursorPosition:");
+        SEL move = NSSelectorFromString(@"handleMouseMove:");
+        CGPoint current = currentCursor();
+        if (!controller || !gameRequestsVisibleCursor(controller)
+            || ![controller respondsToSelector:set] || ![controller respondsToSelector:move]
+            || !isfinite(current.x) || !isfinite(last.x) || !isfinite(opening.x)
+            || hypot(current.x-opening.x, current.y-opening.y) > 2
+            || hypot(current.x-last.x, current.y-last.y) <= 2) return;
+        if (!((BOOL (*)(id, SEL, CGPoint))objc_msgSend)(controller, set, last)) return;
+        // Use Wine's own absolute-move conversion so Windows' cursor state
+        // catches up as well. This event is delivered to Wine directly,
+        // never posted globally and contains no button or raw look delta.
+        CGEventRef cg = CGEventCreateMouseEvent(NULL, kCGEventMouseMoved, last, kCGMouseButtonLeft);
+        if (cg) {
+            NSEvent *event = [NSEvent eventWithCGEvent:cg];
+            if (event) ((void (*)(id, SEL, id))objc_msgSend)(controller, move, event);
+            CFRelease(cg);
+        }
+        atomic_fetch_add(&bridge->cursorResumes, 1);
+        note(@"visible game-menu cursor continued from overlay exit position");
+    });
+}
+static void updatePresentationState(void) {
+    atomic_store(&bridge->nativeLayerVisible, windowSurface.layer.superlayer != nil);
+    storeDouble(&bridge->presentationOpacity, windowSurface.layer.opacity);
+}
 static void updateWindowSurface(void) {
     if (!installed || !openBridge()) return;
     NSWindow *window = gameWindow();
-    if (!window) { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); wasWindowActive = NO; return; }
+    if (!window) { [windowSurface detach]; updatePresentationState(); wasWindowActive = NO; ++cursorResumeEpoch; return; }
     NSView *content = window.contentView;
     NSRect screen = [window convertRectToScreen:[content convertRect:content.bounds toView:nil]];
     CGFloat scale = window.backingScaleFactor;
@@ -281,10 +349,27 @@ static void updateWindowSurface(void) {
     atomic_store(&bridge->drawableSize, ((uint64_t)llround(NSWidth(screen)*scale) << 32) | (uint32_t)llround(NSHeight(screen)*scale));
     atomic_store(&bridge->backend, 2);
     atomic_store_explicit(&bridge->consumerTime, clockTicks(), memory_order_release);
-    BOOL active = activeFrame() && NSApp.isActive;
-    if (!active) { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); windowGeneration = 0; wasWindowActive = NO; return; }
-    if (!wasWindowActive) releaseHeldGameKeys(window);
+    BOOL live = secondsBetween(clockTicks(), atomic_load(&bridge->producerTime)) < 0.75;
+    CFTimeInterval time = (double)clockTicks() / 1e9;
+    if (!NSApp.isActive || !live) {
+        [windowSurface detach]; updatePresentationState(); windowGeneration = 0;
+        wasWindowActive = NO; ++cursorResumeEpoch; return;
+    }
+    if (!activeFrame()) {
+        if (wasWindowActive) resumeMenuCursor(window);
+        wasWindowActive = NO;
+        [windowSurface updateVisibility:NO atTime:time]; updatePresentationState();
+        if (!windowSurface.layer.superlayer) windowGeneration = 0;
+        return;
+    }
+    if (!wasWindowActive) {
+        releaseHeldGameKeys(window);
+        openingCursor = overlayCursor = currentCursor();
+        haveOverlayCursor = isfinite(openingCursor.x);
+        ++cursorResumeEpoch;
+    }
     wasWindowActive = YES;
+    [windowSurface updateVisibility:YES atTime:time]; updatePresentationState();
     uint64_t generation = atomic_load_explicit(&bridge->generation, memory_order_acquire);
     uint64_t dimensions = atomic_load_explicit(&bridge->dimensions, memory_order_acquire);
     size_t width = dimensions >> 32, height = dimensions & 0xffffffffu;
@@ -300,9 +385,9 @@ static void updateWindowSurface(void) {
     if (!windowSurface) windowSurface = [SevoWindowSurface new];
     if ([windowSurface presentImage:image inWindow:window scale:scale]) {
         windowGeneration = generation;
-        atomic_store_explicit(&bridge->nativeLayerVisible, 1, memory_order_release);
+        [windowSurface updateVisibility:YES atTime:time]; updatePresentationState();
         if (atomic_fetch_add(&bridge->composedFrames, 1) == 0) note(@"first native-resolution UI layer attached inside the game window");
-    } else { [windowSurface detach]; atomic_store(&bridge->nativeLayerVisible, 0); windowGeneration = 0; }
+    } else { [windowSurface detach]; updatePresentationState(); windowGeneration = 0; }
     CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
 }
 static BOOL targetProcess(void) {

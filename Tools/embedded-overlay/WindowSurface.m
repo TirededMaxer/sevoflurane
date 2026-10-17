@@ -1,5 +1,6 @@
 #include <math.h>
 #import "WindowSurface.h"
+const CFTimeInterval SevoOverlayTransitionDuration = 0.25;
 NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
     NSPoint local = [view convertPoint:pointInWindow fromView:nil];
     NSRect bounds = view.bounds;
@@ -10,6 +11,9 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
 
 @implementation SevoWindowSurface {
     CALayer *_layer;
+    BOOL _wantsVisible;
+    float _fromOpacity;
+    CFTimeInterval _transitionStart;
 }
 - (instancetype)init {
     if ((self = [super init])) {
@@ -17,10 +21,11 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
         _layer.name = @"Sevoflurane window-surface experiment";
         _layer.zPosition = 1000000;
         _layer.contentsGravity = kCAGravityResize;
+        _layer.opacity = 0;
         _layer.minificationFilter = kCAFilterNearest;
         _layer.magnificationFilter = kCAFilterNearest;
         _layer.actions = @{@"contents": NSNull.null, @"bounds": NSNull.null,
-                           @"position": NSNull.null, @"hidden": NSNull.null};
+                           @"position": NSNull.null, @"hidden": NSNull.null, @"opacity": NSNull.null};
     }
     return self;
 }
@@ -45,8 +50,25 @@ NSPoint SevoOverlayNormalizedPoint(NSView *view, NSPoint pointInWindow) {
     [CATransaction commit];
     return YES;
 }
+- (BOOL)updateVisibility:(BOOL)visible atTime:(CFTimeInterval)time {
+    if (_wantsVisible != visible) {
+        _fromOpacity = _layer.opacity;
+        _transitionStart = time;
+        _wantsVisible = visible;
+    }
+    float target = visible ? 1 : 0;
+    float distance = fabsf(target - _fromOpacity);
+    double progress = distance > 0 ? fmin(1, fmax(0, (time - _transitionStart)
+        / (SevoOverlayTransitionDuration * distance))) : 1;
+    _layer.opacity = _fromOpacity + (target - _fromOpacity) * progress;
+    if (!visible && _layer.opacity <= 0) [self detach];
+    return _layer.superlayer != nil;
+}
 - (void)detach {
     [_layer removeFromSuperlayer];
     _layer.contents = nil;
+    _layer.opacity = 0;
+    _wantsVisible = NO;
+    _fromOpacity = 0;
 }
 @end

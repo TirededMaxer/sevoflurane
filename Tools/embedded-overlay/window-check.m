@@ -40,6 +40,19 @@ int main(void) {
         SevoWindowSurface *surface = [SevoWindowSurface new];
         assert(![surface presentImage:low inWindow:game scale:2]);
         assert([surface presentImage:image inWindow:game scale:2]);
+        // Check actual opacity and retained image, including a rapid
+        // reversal midway through a fade instead of restarting from 0/1.
+        assert([surface updateVisibility:YES atTime:10]);
+        assert(surface.layer.opacity == 0);
+        [surface updateVisibility:YES atTime:10.125];
+        assert(fabs(surface.layer.opacity - 0.5) < 1e-5);
+        [surface updateVisibility:NO atTime:10.125];
+        [surface updateVisibility:NO atTime:10.1875];
+        assert(fabs(surface.layer.opacity - 0.25) < 1e-5);
+        assert(surface.layer.contents && surface.layer.superlayer);
+        [surface updateVisibility:YES atTime:10.1875];
+        [surface updateVisibility:YES atTime:10.375];
+        assert(surface.layer.opacity == 1);
         assert(surface.layer.superlayer == game.contentView.layer);
         assert(surface.layer.contentsScale == 2);
         assert(backbuffer.drawableSize.width == 1512 && backbuffer.drawableSize.height == 982);
@@ -66,6 +79,11 @@ int main(void) {
             NSPoint a = SevoOverlayNormalizedPoint(view,top), b = SevoOverlayNormalizedPoint(view,bottom);
             assert(fabs(a.x)<1e-6 && fabs(a.y)<1e-6 && fabs(b.x-1)<1e-6 && fabs(b.y-1)<1e-6);
         }
+        [surface updateVisibility:NO atTime:11];
+        [surface updateVisibility:NO atTime:11.125];
+        assert(surface.layer.opacity > 0 && surface.layer.contents);
+        [surface updateVisibility:NO atTime:11.25];
+        assert(!surface.layer.superlayer && !surface.layer.contents);
         [surface detach]; assert(!surface.layer.superlayer && !surface.layer.contents);
         for (int type = 0; type < 37; ++type) {
             SevoCX263EventPrefix event = {.type=type};
@@ -78,7 +96,7 @@ int main(void) {
         button.payload.mouseButton.pressed = false; assert(!SevoOverlayBlocksWineEvent(&button,true));
         CGImageRelease(image); CGImageRelease(low);
         [game close];
-        puts("PASS: existing-window Retina layer preserves physical-pixel stripes, rejects 1x frames, creates no window, keeps responder; flipped coordinates agree; raw mouse/HID/keyboard gate preserves releases and lifecycle events");
+        puts("PASS: existing-window Retina layer preserves physical-pixel stripes, rejects 1x frames, creates no window, keeps responder; flipped coordinates agree; raw mouse/HID/keyboard gate preserves releases and lifecycle events; opacity fade retains frames and reverses continuously");
     }
     return 0;
 }
