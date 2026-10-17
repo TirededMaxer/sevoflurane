@@ -13,7 +13,6 @@ final class EmbeddedSteamOverlay {
     typealias Pop = @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Int32
 
     weak var host: SteamWebHost?
-    private var handle: UnsafeMutableRawPointer?
     private var surface: UnsafeMutableRawPointer?
     private var read: Read?
     private var publish: Publish?
@@ -30,20 +29,12 @@ final class EmbeddedSteamOverlay {
 
     init(host: SteamWebHost) {
         self.host = host
-        guard let library = EmbeddedOverlayLaunch.library else { return }
-        guard let handle = dlopen(library.path, RTLD_NOW | RTLD_LOCAL) else {
-            EventLog.shared.log(.window, "embedded overlay could not load renderer: \(String(cString: dlerror()))")
-            return
-        }
-        self.handle = handle
-        func symbol<T>(_ name: String, _: T.Type) -> T? {
-            dlsym(handle, name).map { unsafeBitCast($0, to: T.self) }
-        }
-        guard let create = symbol("SevoOverlayCreate", Create.self) else { return }
-        read = symbol("SevoOverlayRead", Read.self)
-        publish = symbol("SevoOverlayPublish", Publish.self)
-        deactivate = symbol("SevoOverlayDeactivate", Deactivate.self)
-        pop = symbol("SevoOverlayPop", Pop.self)
+        guard EmbeddedOverlayLaunch.library != nil else { return }
+        let create: Create = SevoOverlayCreate
+        read = SevoOverlayRead
+        publish = SevoOverlayPublish
+        deactivate = SevoOverlayDeactivate
+        pop = SevoOverlayPop
         try? FileManager.default.createDirectory(at: EmbeddedOverlayLaunch.surface.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true,
                                                 attributes: [.posixPermissions: 0o700])
