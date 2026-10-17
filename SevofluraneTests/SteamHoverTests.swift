@@ -64,5 +64,11 @@ struct SteamHoverTests {
         content.mouseExited(with: try move(y: 180, type: .mouseExited))
         #expect(await read("JSON.stringify(left)") == #"["one","two"]"#)
         #expect(await read("getComputedStyle(document.querySelector('#two')).backgroundColor") == "rgb(10, 20, 30)")
+        // After a click the panel is key: native DOM moves must update the
+        // controlled CSS path even though AppKit no longer relays them.
+        #expect(await read("document.querySelector('#one').dispatchEvent(new MouseEvent('mousemove', {bubbles:true})); getComputedStyle(document.querySelector('#one')).backgroundColor") == "rgb(220, 222, 223)")
+        #expect(await read("document.dispatchEvent(new MouseEvent('mouseleave')); getComputedStyle(document.querySelector('#one')).backgroundColor") == "rgb(10, 20, 30)")
+        #expect(await read("JSON.stringify(entered)") == #"["one","two"]"#)
+        #expect(await read("JSON.stringify(left)") == #"["one","two"]"#)
     }
 }

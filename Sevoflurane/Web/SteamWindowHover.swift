@@ -4,6 +4,56 @@ import WebKit
 // MARK: - React hover relay
 
 extension SteamWindow {
+    /// Menu CSS follows one explicit cursor path. WebKit can retain :hover
+    /// after a non-activating panel loses key; duplicating those selectors
+    /// leaves the original frozen rule active, so replace it in this document.
+    static let controlledMenuHoverScript = """
+    (function () {
+      var old = document.getElementById("sevo-nonkey-hover");
+      if (old) old.remove();
+      var seen = window.__sevoHoverSheets || (window.__sevoHoverSheets = new WeakMap());
+      function rewrite(rules) {
+        for (var r of rules) {
+          if (r.selectorText && r.selectorText.indexOf(":hover") >= 0)
+            r.selectorText = r.selectorText.replace(/:hover\\b/g, "[data-sevo-hover]");
+          if (r.cssRules) rewrite(r.cssRules);
+        }
+      }
+      for (var sheet of Array.from(document.styleSheets)) {
+        if (sheet.disabled) continue;
+        try {
+          if (seen.get(sheet) !== sheet.cssRules.length) {
+            rewrite(sheet.cssRules);
+            seen.set(sheet, sheet.cssRules.length);
+          }
+        } catch (e) {}
+      }
+      if (!window.__sevoSetCSSHoverPath) {
+        window.__sevoSetCSSHoverPath = function (path) {
+          (window.__sevoCSSHoverPath || []).forEach(function (n) {
+            if (path.indexOf(n) < 0) n.removeAttribute("data-sevo-hover");
+          });
+          path.forEach(function (n) { n.setAttribute("data-sevo-hover", ""); });
+          window.__sevoCSSHoverPath = path;
+        };
+        // A key menu receives native DOM events; a non-key menu uses the
+        // AppKit relay below. Both update the same CSS path without calling
+        // React enter/leave twice in the native path.
+        function track(event) {
+          var path = [];
+          for (var n = event.target; n && n.nodeType === 1; n = n.parentElement) path.push(n);
+          window.__sevoSetCSSHoverPath(path);
+        }
+        function clear() { window.__sevoSetCSSHoverPath([]); }
+        document.addEventListener("mousemove", track, true);
+        document.addEventListener("mouseover", track, true);
+        document.addEventListener("mouseleave", clear, true);
+        document.addEventListener("mouseup", clear, true);
+        window.addEventListener("blur", clear, true);
+      }
+    })();
+    """
+
     /// Runs Steam's own `onMouseEnter`/`onMouseLeave` handlers for the
     /// element path under the cursor.
     ///
@@ -28,7 +78,10 @@ extension SteamWindow {
           var prev = window.__sevoHoverPath || [];
           // WebKit freezes :hover in non-key windows, even when native mouse
           // events are forwarded. Reuse Steam's rules without taking key focus.
-          if (\((role == .menu || embeddedPresented) ? "true" : "false")) {
+          if (\(role == .menu ? "true" : "false")) {
+            \(Self.controlledMenuHoverScript)
+            window.__sevoSetCSSHoverPath(path);
+          } else if (\(embeddedPresented ? "true" : "false")) {
             var style = document.getElementById("sevo-nonkey-hover");
             if (!style || window.__sevoHoverCSSCount !== document.styleSheets.length) {
               if (!style) {
@@ -106,6 +159,7 @@ extension SteamWindow {
     func clearHoverAppearance() {
         guard role == .menu else { return }
         webView.evaluateJavaScript("""
+        if (window.__sevoSetCSSHoverPath) window.__sevoSetCSSHoverPath([]);
         document.querySelectorAll('[data-sevo-hover]').forEach(function (n) {
           n.removeAttribute('data-sevo-hover');
         }); "";
@@ -117,6 +171,7 @@ extension SteamWindow {
     func relayReactHoverExit() {
         webView.evaluateJavaScript("""
         (function () {
+          if (window.__sevoSetCSSHoverPath) window.__sevoSetCSSHoverPath([]);
           var prev = window.__sevoHoverPath || [];
           window.__sevoHoverPath = [];
           prev.forEach(function (n) {
