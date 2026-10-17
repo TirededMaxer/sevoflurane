@@ -391,17 +391,15 @@ static void updateWindowSurface(void) {
     const uint8_t *source = (uint8_t *)mapping + SEVO_OVERLAY_PIXELS_OFFSET + (generation & 1u) * SEVO_OVERLAY_PIXEL_CAPACITY;
     NSData *data = [NSData dataWithBytes:source length:width*height*4];
     if (atomic_load_explicit(&bridge->generation, memory_order_acquire) != generation) return;
-    CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
-    CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
-    CGImageRef image = CGImageCreate(width,height,8,32,width*4,color,kCGBitmapByteOrder32Little|kCGImageAlphaPremultipliedFirst,
-                                     provider,NULL,false,kCGRenderingIntentDefault);
     if (!windowSurface) windowSurface = [SevoWindowSurface new];
-    if ([windowSurface presentImage:image inWindow:window scale:scale]) {
+    SevoSurfaceResult result = [windowSurface presentPixels:data.bytes width:width height:height inWindow:window scale:scale];
+    if (result == SevoSurfacePresented) {
         windowGeneration = generation;
         [windowSurface updateVisibility:YES atTime:time]; updatePresentationState();
         if (atomic_fetch_add(&bridge->composedFrames, 1) == 0) note(@"first native-resolution UI layer attached inside the game window");
-    } else { [windowSurface detach]; updatePresentationState(); windowGeneration = 0; }
-    CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
+    } else if (result == SevoSurfaceRejected) {
+        [windowSurface detach]; updatePresentationState(); windowGeneration = 0;
+    }
 }
 static BOOL targetProcess(void) {
     char **args = *_NSGetArgv();

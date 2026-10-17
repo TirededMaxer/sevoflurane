@@ -18,6 +18,9 @@ final class SteamWindow: NSObject {
     /// rather than end them.
     private var hidesOnClose = false
     private var isClosed = false
+    private var desktopShowTask: Task<Void, Never>?
+    private var desktopShowWanted = false
+    private var desktopShowActivating = false
 
     var window: NSWindow?
     private(set) var embeddedPresented = false
@@ -587,6 +590,27 @@ final class SteamWindow: NSObject {
             return
         }
         prepareOpeningPlacement()
+        if role == .desktop || role == .login {
+            desktopShowWanted = true
+            desktopShowActivating = desktopShowActivating || activating
+            guard desktopShowTask == nil else { return }
+            desktopShowTask = Task { [weak self, weak window] in
+                guard let self, let window else { return }
+                let placed = await DesktopSpacePlacement.place(window)
+                desktopShowTask = nil
+                let requested = desktopShowWanted
+                let activate = desktopShowActivating
+                desktopShowWanted = false
+                desktopShowActivating = false
+                guard placed, requested, !isClosed, self.window === window else { return }
+                completeShow(window, activating: activate)
+            }
+            return
+        }
+        completeShow(window, activating: activating)
+    }
+
+    private func completeShow(_ window: NSWindow, activating: Bool) {
         let becameRegular = !role.isPanel && NSApp.activationPolicy() != .regular
         if becameRegular {
             NSApp.setActivationPolicy(.regular)
@@ -664,6 +688,8 @@ final class SteamWindow: NSObject {
     /// menu failed to appear" — the state flips back and a 30ms-delayed
     /// effect hides the window. That loop was the supernav blink.
     private func hide() {
+        desktopShowWanted = false
+        desktopShowActivating = false
         embeddedPresented = false
         savePlacement()
         if role == .menu { clearMenuHover() }
@@ -916,6 +942,8 @@ final class SteamWindow: NSObject {
     /// Drops the window and the page without asking the page to close itself.
     /// Used when WebKit has already closed the browsing context.
     func detach(reason: DetachReason) {
+        desktopShowWanted = false
+        desktopShowActivating = false
         if let mouseMonitor {
             NSEvent.removeMonitor(mouseMonitor)
             self.mouseMonitor = nil
@@ -1054,6 +1082,8 @@ extension SteamWindow {
 
 extension SteamWindow: NSWindowDelegate {
     func windowShouldClose(_: NSWindow) -> Bool {
+        desktopShowWanted = false
+        desktopShowActivating = false
         savePlacement()
         // The desktop window ends when it is closed, and overrides Steam's
         // `SetHideOnClose` to do it: its page is the whole library, which
