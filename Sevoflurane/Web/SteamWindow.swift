@@ -1016,6 +1016,7 @@ extension SteamWindow: NSWindowDelegate {
         // WebKit layer-commit path that has crashed the app twice from
         // exactly that state. `SteamWebHost.showSteam` builds a new one.
         guard role == .desktop || !hidesOnClose else {
+            embeddedPresented = false
             hasBeenShown = false
             window?.orderOut(nil)
             host?.windowDidHide(self)

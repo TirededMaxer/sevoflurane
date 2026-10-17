@@ -30,8 +30,11 @@ final class EmbeddedSteamOverlay {
 
     init(host: SteamWebHost) {
         self.host = host
-        guard let library = EmbeddedOverlayLaunch.library,
-              let handle = dlopen(library.path, RTLD_NOW | RTLD_LOCAL) else { return }
+        guard let library = EmbeddedOverlayLaunch.library else { return }
+        guard let handle = dlopen(library.path, RTLD_NOW | RTLD_LOCAL) else {
+            EventLog.shared.log(.window, "embedded overlay could not load renderer: \(String(cString: dlerror()))")
+            return
+        }
         self.handle = handle
         func symbol<T>(_ name: String, _: T.Type) -> T? {
             dlsym(handle, name).map { unsafeBitCast($0, to: T.self) }
@@ -76,6 +79,7 @@ final class EmbeddedSteamOverlay {
     }
 
     func hide() {
+        for menu in windows where menu.role == .menu { menu.setEmbeddedPresentation(false) }
         presenting = false
         captureTask?.cancel(); captureTask = nil
         inputTimer?.invalidate(); inputTimer = nil

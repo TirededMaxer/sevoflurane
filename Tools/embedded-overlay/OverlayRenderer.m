@@ -131,6 +131,14 @@ __attribute__((visibility("default"))) BOOL SevoOverlayComposite(id<MTLCommandBu
                 [encoder setFragmentTexture:overlayTexture atIndex:0];
                 [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
                 [encoder endEncoding];
+                // D3DMetal also uses commandBufferWithUnretainedReferences.
+                // Keep each frame's resources alive until that GPU work ends.
+                id<MTLTexture> frameTexture = overlayTexture;
+                id<MTLRenderPipelineState> framePipeline = pipeline;
+                [command addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+                    [frameTexture label]; [framePipeline label];
+                    if (completed.status == MTLCommandBufferStatusError) note(@"overlay command buffer failed");
+                }];
                 uint64_t count = atomic_fetch_add_explicit(&bridge->composedFrames, 1, memory_order_relaxed);
                 if (count == 0) note(@"first frame composited into game's Metal command buffer");
                 encoded = YES;
@@ -216,7 +224,7 @@ static void installHooks(void) {
     originalPresent = (void *)replace(cls, @selector(presentDrawable:), (IMP)present);
     originalTimedPresent = (void *)replace(cls, @selector(presentDrawable:atTime:), (IMP)presentAt);
     originalMinimumPresent = (void *)replace(cls, @selector(presentDrawable:afterMinimumDuration:), (IMP)presentAfter);
-    originalSendEvent = (void *)replace(NSApplication.class, @selector(sendEvent:), (IMP)sendEvent);
+    originalSendEvent = (void *)replace(NSApp ? object_getClass(NSApp) : NSApplication.class, @selector(sendEvent:), (IMP)sendEvent);
     installed = originalPresent != NULL;
     note([NSString stringWithFormat:@"Metal presentation hook %@ on %s", installed ? @"installed" : @"unavailable", class_getName(cls)]);
 }
