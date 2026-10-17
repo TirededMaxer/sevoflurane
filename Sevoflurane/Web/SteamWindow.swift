@@ -521,6 +521,17 @@ final class SteamWindow: NSObject {
     }
 
     func show(activating: Bool) {
+        if (role == .desktop || role == .login),
+           !(role == .login && host?.defersLoginWindow == true),
+           host?.clientIsStopping != true,
+           NSApp.activationPolicy() != .regular {
+            // Let the regular-app promotion reach the window server before
+            // creating/ordering a primary window. Accessory windows can
+            // otherwise first appear over the frontmost fullscreen app.
+            ActivationPolicy.becomeRegular()
+            DispatchQueue.main.async { [weak self] in self?.show(activating: activating) }
+            return
+        }
         realize()
         // The game overlay's visibility is the client's to decide, through
         // `setOverlayActive`; the `ShowWindow`/`BringToFront` Steam sends at

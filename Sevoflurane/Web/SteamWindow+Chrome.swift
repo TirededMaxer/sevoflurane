@@ -105,7 +105,11 @@ extension SteamWindow {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = Self.steamBackground
-        window.collectionBehavior.insert(.fullScreenPrimary)
+        // These are ordinary app windows, even when first created by the
+        // menu-bar accessory. Never inherit membership in another app's
+        // fullscreen Space; the user may still fullscreen Steam itself.
+        window.level = .normal
+        window.collectionBehavior = [.primary, .managed, .fullScreenPrimary]
         if role == .desktop {
             window.title = "Steam"
             // Steam's strip is 32pt tall; the bare titlebar's ~28pt sets
