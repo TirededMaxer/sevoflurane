@@ -236,10 +236,17 @@ final class EmbeddedSteamOverlay {
             guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
                                    wheel1: Int32(delta.y), wheel2: Int32(delta.x), wheel3: 0) else { return }
             cg.location = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.maxY ?? 0) - point.y)
-            cg.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
-            cg.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
             guard let event = NSEvent(cgEvent: cg) else { return }
-            popup.webView.scrollWheel(with: event); return
+            // A CG wheel event has no AppKit window. Use the same guarded
+            // retargeting SPI WebKit declares instead of assuming window-list
+            // CG fields make locationInWindow relative to this hidden popup.
+            let relative = Selector(("_eventRelativeToWindow:"))
+            guard event.responds(to: relative),
+                  let targeted = event.perform(relative, with: window)?.takeUnretainedValue() as? NSEvent else {
+                host?.fallBackFromEmbeddedOverlay("AppKit cannot retarget the wheel event")
+                return
+            }
+            popup.webView.scrollWheel(with: targeted); return
         }
         let type: NSEvent.EventType = kind == 1 ? .leftMouseDown : kind == 2 ? .leftMouseUp : kind == 4 ? .rightMouseDown : kind == 5 ? .rightMouseUp : .mouseMoved
         guard let event = NSEvent.mouseEvent(with: type, location: local, modifierFlags: modifiers,
