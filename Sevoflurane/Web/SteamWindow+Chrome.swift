@@ -109,17 +109,6 @@ extension SteamWindow {
         window.collectionBehavior.insert(.fullScreenPrimary)
         if role == .desktop {
             window.title = "Steam"
-            if !window.setFrameAutosaveName(Self.desktopFrameName) {
-                // The name belongs to another `NSWindow` that is still
-                // alive — the desktop window is rebuilt on every close and
-                // released only by ARC. This one will not remember where
-                // the user puts it.
-                EventLog.shared.log(
-                    .window,
-                    "the desktop window could not claim its saved frame: "
-                        + "\(Self.desktopFrameName) is held by another window",
-                )
-            }
             // Steam's strip is 32pt tall; the bare titlebar's ~28pt sets
             // the traffic lights slightly high against Steam's own row. An
             // empty unified-compact toolbar is the supported way to ask

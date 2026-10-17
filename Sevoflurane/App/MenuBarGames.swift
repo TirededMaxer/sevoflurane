@@ -380,8 +380,7 @@ private struct GameRow: View {
         }
         if let cloudPhase {
             switch cloudPhase {
-            case .uploading: break
-            case .uploaded: return (Text("Cloud saves uploaded"), false)
+            case .uploading, .uploaded: break
             case .failed: return (Text("Cloud save upload failed"), true)
             }
         }

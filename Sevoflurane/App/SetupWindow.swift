@@ -52,7 +52,7 @@ final class SetupWindow {
         }
         self.window = window
         isUnfinished = true
-        window.center()
+        WindowPlacement.center(window)
         show()
     }
 
@@ -89,6 +89,7 @@ final class SetupWindow {
         // The wizard is the app's only window during a first run, and an
         // accessory app's window has no Dock tile to say anything is going on.
         ActivationPolicy.becomeRegular()
+        if !window.isVisible { WindowPlacement.center(window) }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         return true

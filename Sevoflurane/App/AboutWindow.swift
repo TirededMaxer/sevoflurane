@@ -63,6 +63,7 @@ final class AboutWindows {
     private func show(_ kind: Kind, make: () -> NSWindow) {
         ActivationPolicy.becomeRegular()
         if let window = windows[kind] {
+            if !window.isVisible { WindowPlacement.center(window) }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -81,7 +82,7 @@ final class AboutWindows {
                 ActivationPolicy.recedeIfLastWindow(closing: window)
             }
         }
-        window.center()
+        WindowPlacement.center(window)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }

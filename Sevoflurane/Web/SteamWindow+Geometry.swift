@@ -1,39 +1,34 @@
 import AppKit
 
 extension SteamWindow {
-    /// Puts a freshly built window where Steam asked for it, or where the
-    /// user last left it.
+    /// Independent Steam windows open centered, ignoring CEF restore coordinates.
     func place(_ window: NSWindow) {
-        if role == .login {
-            // Steam centers its login window against its own screen model,
-            // which lands bottom-left here. A sign-in dialog belongs in the
-            // middle of the screen, wherever Steam thinks it put it.
-            window.center()
-        } else if role == .dialog {
-            centerOnDesktop(window)
+        if role.needsAReachableFrame {
+            centerForOpening(window)
         } else if let requestedOrigin {
-            window.setFrameOrigin(
-                SteamScreenSpace.appKitOrigin(
-                    steamX: requestedOrigin.x,
-                    steamY: requestedOrigin.y,
-                    size: window.frame.size,
-                ),
-            )
-        } else if role == .desktop, !window.setFrameUsingName(Self.desktopFrameName) {
-            // Centered only the first time: the desktop window is torn down
-            // and rebuilt on every close, and a window that forgets where the
-            // user put it is a window the user has to place again every time.
-            window.center()
+            window.setFrameOrigin(SteamScreenSpace.appKitOrigin(
+                steamX: requestedOrigin.x, steamY: requestedOrigin.y, size: window.frame.size,
+            ))
         }
-        centerIfOffScreen(window, placedBy: "the frame it was built with")
+    }
+
+    func centerForOpening(_ window: NSWindow) {
+        let overlayScreen = host?.isOverlayActive == true
+            ? host?.popups.values.first(where: { $0.role == .gameOverlay })?.nsWindow?.screen : nil
+        WindowPlacement.center(window, on: overlayScreen)
+    }
+
+    /// Recenter after Steam has finished applying a popup’s initial size.
+    func prepareOpeningPlacement() {
+        guard role.needsAReachableFrame, !hasBeenShown, let window = nsWindow else { return }
+        centerForOpening(window)
+        hasBeenShown = true
     }
 
     /// Brings a window back onto a display when the frame it was given lands
     /// on none. A frame saved on a display that has since been unplugged, and
     /// a `MoveTo` computed against Steam's own screen model, both produce a
-    /// window that exists and that nobody can reach — and the desktop
-    /// window's frame is autosaved, so one bad placement persists across
-    /// every later launch.
+    /// window that exists and that nobody can reach.
     private func centerIfOffScreen(_ window: NSWindow, placedBy source: String) {
         guard role.needsAReachableFrame,
               !SteamScreenSpace.isOnSomeScreen(window.frame) else { return }
@@ -42,21 +37,7 @@ extension SteamWindow {
             "\(name): \(source) put it at \(NSStringFromRect(window.frame)), "
                 + "which is on no display — centering instead",
         )
-        window.center()
-    }
-
-    /// A dialog sits in the middle of the desktop window when there is one on
-    /// screen, and in the middle of the screen otherwise.
-    private func centerOnDesktop(_ window: NSWindow) {
-        guard let parent = host?.desktop?.nsWindow, parent.isVisible else {
-            window.center()
-            return
-        }
-        let size = window.frame.size
-        window.setFrameOrigin(NSPoint(
-            x: parent.frame.midX - size.width / 2,
-            y: parent.frame.midY - size.height / 2,
-        ))
+        centerForOpening(window)
     }
 
     /// Makes a dialog the desktop window's child, so it rides above it and
@@ -101,6 +82,10 @@ extension SteamWindow {
     func moveTo(x: CGFloat, y: CGFloat) {
         requestedOrigin = CGPoint(x: x, y: y)
         guard let window else { return }
+        if role.needsAReachableFrame, !hasBeenShown {
+            centerForOpening(window)
+            return
+        }
         window.setFrameOrigin(
             SteamScreenSpace.appKitOrigin(
                 steamX: x,
@@ -119,7 +104,7 @@ extension SteamWindow {
         let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
         window.setContentSize(requestedSize)
         window.setFrameTopLeftPoint(topLeft)
-        if role == .dialog { centerOnDesktop(window) }
+        if role.needsAReachableFrame, !hasBeenShown { centerForOpening(window) }
         if role == .toast { placeToast(window) }
     }
 
@@ -140,6 +125,10 @@ extension SteamWindow {
         let parent = host?.steamOrigin(ofWindowNamed: parentName) ?? .zero
         requestedSize = CGSize(width: width, height: height)
         window.setContentSize(requestedSize)
+        if role.needsAReachableFrame, !hasBeenShown {
+            centerForOpening(window)
+            return
+        }
         window.setFrameOrigin(
             SteamScreenSpace.appKitOrigin(
                 steamX: parent.x + x,

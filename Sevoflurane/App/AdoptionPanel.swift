@@ -22,7 +22,7 @@ final class AdoptionPanel {
         self.panel = panel
         panel.contentView = NSHostingView(rootView: AdoptionView(model: model))
         panel.setContentSize(panel.contentView?.fittingSize ?? NSSize(width: 420, height: 260))
-        panel.center()
+        WindowPlacement.center(panel)
         // An agent app has no activation of its own, so the panel would open
         // behind whatever the user was in.
         NSApp.activate()

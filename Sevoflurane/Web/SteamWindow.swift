@@ -59,6 +59,7 @@ final class SteamWindow: NSObject {
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
     private var titleStripMonitor: Any?
+    var hasBeenShown = false
 
     weak var host: SteamWebHost?
 
@@ -509,6 +510,7 @@ final class SteamWindow: NSObject {
         // non-activating panel levelled in `realize`) and is ordered in
         // without activating the app, so the game keeps focus.
         if host?.isOverlayActive == true {
+            prepareOpeningPlacement()
             window?.orderFrontRegardless()
             return
         }
@@ -546,6 +548,7 @@ final class SteamWindow: NSObject {
             // look. What is already on screen stays; nothing new comes up.
             return
         }
+        prepareOpeningPlacement()
         let becameRegular = !role.isPanel && NSApp.activationPolicy() != .regular
         if becameRegular {
             NSApp.setActivationPolicy(.regular)
@@ -594,6 +597,7 @@ final class SteamWindow: NSObject {
     /// menu failed to appear" — the state flips back and a 30ms-delayed
     /// effect hides the window. That loop was the supernav blink.
     private func hide() {
+        hasBeenShown = false
         showWasDeferredByHold = false
         guard let window else { return }
         if role == .menu || role == .gameOverlay {
@@ -647,6 +651,7 @@ final class SteamWindow: NSObject {
             // Returning from another app must not reveal a hidden desktop
             // chat twin through the overlay group's separate ordering path.
             guard !isDesktopChatMirrorInOverlay else { return }
+            prepareOpeningPlacement()
             window.orderFrontRegardless()
         } else {
             window.orderOut(nil)
@@ -986,6 +991,7 @@ extension SteamWindow: NSWindowDelegate {
         // WebKit layer-commit path that has crashed the app twice from
         // exactly that state. `SteamWebHost.showSteam` builds a new one.
         guard role == .desktop || !hidesOnClose else {
+            hasBeenShown = false
             window?.orderOut(nil)
             host?.windowDidHide(self)
             return false

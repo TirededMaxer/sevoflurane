@@ -24,6 +24,7 @@ final class ReportWindows {
     func show() {
         ActivationPolicy.becomeRegular()
         if let window {
+            if !window.isVisible { WindowPlacement.center(window) }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
@@ -50,7 +51,7 @@ final class ReportWindows {
                 ActivationPolicy.recedeIfLastWindow(closing: window)
             }
         }
-        window.center()
+        WindowPlacement.center(window)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
