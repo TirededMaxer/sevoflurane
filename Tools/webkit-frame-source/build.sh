@@ -27,7 +27,7 @@ clang -arch arm64 -mmacosx-version-min=13.0 -fobjc-arc -O2 -Wall -Wextra -Werror
   -framework Metal -framework IOSurface -framework CoreGraphics -framework CoreFoundation \
   -o "$app/Contents/MacOS/WebKitFrameSource"
 cp Info.plist "$app/Contents/Info.plist"
-cp fixture.html "$app/Contents/Resources/fixture.html"
+cp fixture.html frame-proof.html "$app/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Add :SevoBuildCommit string $GITHUB_SHA" "$app/Contents/Info.plist"
 codesign --force --sign - --timestamp=none --options runtime "$app"
 codesign --verify --deep --strict "$app"

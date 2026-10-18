@@ -51,6 +51,15 @@ static void call_gpu(void *self) {
 static void *worker(void *unused) {
     (void)unused;for(int i=0;i<1000;i++){call_cpu(&painter);call_gpu(&painter);}return NULL;
 }
+static int frame_restore_expected;
+static void CPP_ABI frame_original(void *self,void *browser,int type,const void *dirty,const void *pixels,
+                                   int width,int height,const void *scroll,float scale) {
+    assert(self==&painter&&browser==(void *)(uintptr_t)0x11111111&&type==0);
+    assert(pixels==(frame_restore_expected?(void *)(uintptr_t)0x33333333:cpp_frame_pixels)&&width==3024&&height==1964&&scroll==(void *)(uintptr_t)0x44444444&&scale==1.625f);
+    const int *const *v=dirty;assert(v[1]-v[0]==4&&v[2]==v[1]);
+    assert(v[0][0]==0&&v[0][1]==0&&v[0][2]==width&&v[0][3]==height&&cpp_error()==23);
+    cpp_set_error(73);
+}
 int main(int argc,char **argv) {
     cpp_data=&storage;memcpy(cpp_data->magic,CPP_MAGIC,8);cpp_data->schema=CPP_SCHEMA;
     cpp_data->bytes=sizeof(*cpp_data);cpp_data->pid=99;
@@ -90,6 +99,18 @@ int main(int argc,char **argv) {
     assert(cpp_data->counters[CPP_MISSING_ORIGINAL]==0);
     cpp_data->ready=1;
     if(argc==2){FILE *out=fopen(argv[1],"wb");assert(out&&fwrite(cpp_data,1,sizeof(*cpp_data),out)==sizeof(*cpp_data));assert(!fclose(out));}
-    puts("PASS: same-source Microsoft x64 C++ 9-argument CPU/float and 5-argument GPU opaque forwarding; once, LastError, strict slots, native identity and concurrency");
+    /* The exact callback substitutes only the selected full view, then forwards once. */
+    cpp_frame_header packet={{'S','E','V','O','F','R','M','1'},3024,1964,262146,3024u*1964u*4u};
+    assert(cpp_frame_valid(packet));packet.target=0;assert(!cpp_frame_valid(packet));packet.target=262146;
+    cpp_frame_stats proof={0};cpp_frame=packet;cpp_frame_counts=&proof;cpp_frame_pixels=(void *)(uintptr_t)0x12345678;
+    assert(!cpp_frame_use(((uint64_t)1<<32)|262147,0,3024,1964));
+    assert(!cpp_frame_use(((uint64_t)1<<32)|262146,1,3024,1964));
+    assert(!cpp_frame_use(262146,0,3024,1964));
+    assert(!cpp_frame_use(((uint64_t)1<<32)|262146,0,1,1964)&&proof.dimensions_rejected==1);
+    cpp_cpu_original=frame_original;call_cpu(&painter);assert(proof.applied==1);
+    cpp_frame_started=cpp_tick()-15001;
+    frame_restore_expected=1;call_cpu(&painter);assert(proof.restored==1&&proof.applied==1);
+    assert(!cpp_frame_use(((uint64_t)1<<32)|262146,0,3024,1964));
+    puts("PASS: same-source Microsoft x64 C++ 9-argument CPU/float and 5-argument GPU opaque forwarding; once, LastError, strict slots, native identity, concurrency, scoped frame substitution and expiry");
     return 0;
 }

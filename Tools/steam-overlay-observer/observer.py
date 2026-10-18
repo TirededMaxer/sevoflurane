@@ -1,4 +1,4 @@
-"""Opt-in metadata-only CEF observer; never starts/stops Steam or writes Valve files."""
+"""Opt-in CEF paint observer and scoped single-frame proof; preserves Steam lifecycle."""
 import argparse
 import ctypes as C
 import hashlib
@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import struct
 import tempfile
 
 CEF_SHA = 'c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3'
@@ -156,7 +157,7 @@ def session_at(path, kind=None):
     return path, state
 
 
-def attach(resources, steam, session, kind=None):
+def attach(resources, steam, session, kind=None, frame=None):
     if session:
         directory, state = session_at(session, kind)
         kind = state.get('kind', 'capi')
@@ -164,6 +165,17 @@ def attach(resources, steam, session, kind=None):
         kind = kind or 'capi'
     names = payloads_for(kind)
     spec = KINDS[kind]
+    frame_data = None
+    if frame is not None:
+        if kind != 'cpp' or session:
+            raise RuntimeError('A frame proof requires a fresh C++ session')
+        frame_data = frame.read_bytes()
+        if len(frame_data) < 24:
+            raise RuntimeError('Truncated frame packet')
+        magic, width, height, target, size = struct.unpack('<8sIIII', frame_data[:24])
+        if (magic != b'SEVOFRM1' or not target or not 64 <= width <= 8192 or not 64 <= height <= 8192
+                or size != width * height * 4 or size > 128 * 1024 * 1024 or len(frame_data) != 24 + size):
+            raise RuntimeError('Invalid frame packet geometry/target/size')
     client = json.loads(subprocess.check_output([CLI, 'status', '--json']))['client']
     if client != 'running':
         raise RuntimeError('Steam must already be running; the observer will not start it')
@@ -191,6 +203,8 @@ def attach(resources, steam, session, kind=None):
             state['helper_sha256'] = HELPER_SHA
         (directory / 'session.json').write_text(json.dumps(state, indent=2) + '\n')
         (directory / spec['config']).write_text(windows_path(directory) + '\n')
+        if frame_data is not None:
+            (directory / 'frame.bgra').write_bytes(frame_data)
     output = directory / 'attach-result.json'
     output.unlink(missing_ok=True)
     command = [CLI, 'run', '--wait', str(directory / ATTACHER),
@@ -204,14 +218,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('attach', 'status'))
     parser.add_argument('--session', type=Path)
+    parser.add_argument('--frame', type=Path, help='One Mac BGRA frame for a 15-second native-paint proof')
     parser.add_argument('--kind', choices=tuple(KINDS), help='Default capi; an existing session determines its kind')
     parser.add_argument('--steam', type=Path, default=Path.home() / 'Library/Application Support/CrossOver/Bottles/Steam/drive_c/Program Files (x86)/Steam')
     args = parser.parse_args()
     if args.action == 'attach':
-        return attach(Path(__file__).resolve().parent, args.steam, args.session, args.kind)
+        return attach(Path(__file__).resolve().parent, args.steam, args.session, args.kind, args.frame)
     if not args.session:
         parser.error('status requires --session')
-    directory, state = session_at(args.session, args.kind)
+    directory, state = session_at(args.session, args.kind, args.frame)
     kind = state.get('kind', 'capi')
     print(json.dumps({'kind': kind, 'source': state['source'],
                       'stats': [read_stats(p, kind) for p in sorted(directory.glob(KINDS[kind]['stats']))]}, indent=2))

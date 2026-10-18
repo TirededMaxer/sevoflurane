@@ -1,5 +1,6 @@
-/* Exact-build CChromePainter metadata observer. Never consumes or replaces frames. */
+/* Exact-build CChromePainter observer with an opt-in, expiring single-frame proof. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
 #include "cpp_observer.h"
@@ -42,6 +43,35 @@ static uint64_t cpp_tick(void) { return GetTickCount64(); }
 static cpp_stats *cpp_data;
 static cpp_cpu_fn cpp_cpu_original;
 static cpp_gpu_fn cpp_gpu_original;
+/* Opt-in single-frame proof. All bytes are loaded before installing callbacks. */
+typedef struct { char magic[8];uint32_t width,height,target,bytes; } cpp_frame_header;
+typedef struct { char magic[8];uint64_t target,width,height,applied,dimensions_rejected,restored; } cpp_frame_stats;
+_Static_assert(sizeof(cpp_frame_header)==24,"Frame packet ABI changed");
+_Static_assert(sizeof(cpp_frame_stats)==56,"Frame proof stats ABI changed");
+static cpp_frame_header cpp_frame;
+static cpp_frame_stats *cpp_frame_counts;
+static const void *cpp_frame_pixels;
+static uint64_t cpp_frame_started,cpp_frame_restored;
+static int cpp_frame_valid(cpp_frame_header h) {
+    return !memcmp(h.magic,"SEVOFRM1",8)&&h.width>=64&&h.height>=64&&h.width<=8192&&h.height<=8192&&
+        h.target && (uint64_t)h.width*h.height*4==h.bytes && h.bytes<=128u*1024u*1024u;
+}
+static int cpp_frame_use(uint64_t identity,int type,int width,int height) {
+    if(!cpp_frame_pixels||!cpp_frame_counts||!(identity>>32)||type!=0||(uint32_t)identity!=cpp_frame.target)return 0;
+    if(width!=(int)cpp_frame.width||height!=(int)cpp_frame.height){
+        __atomic_add_fetch(&cpp_frame_counts->dimensions_rejected,1,__ATOMIC_RELAXED);return 0;
+    }
+    uint64_t now=cpp_tick(),expected=0;
+    __atomic_compare_exchange_n(&cpp_frame_started,&expected,now,0,__ATOMIC_RELAXED,__ATOMIC_RELAXED);
+    if(now-__atomic_load_n(&cpp_frame_started,__ATOMIC_RELAXED)>=15000){
+        expected=0;
+        if(__atomic_compare_exchange_n(&cpp_frame_restored,&expected,1,0,__ATOMIC_RELAXED,__ATOMIC_RELAXED)){
+            __atomic_add_fetch(&cpp_frame_counts->restored,1,__ATOMIC_RELAXED);return 2;
+        }
+        return 0;
+    }
+    __atomic_add_fetch(&cpp_frame_counts->applied,1,__ATOMIC_RELAXED);return 1;
+}
 static void CPP_ABI cpp_on_cpu(void *,void *,int,const void *,const void *,int,int,const void *,float);
 static void CPP_ABI cpp_on_gpu(void *,void *,int,const void *,const void *);
 static void cpp_count(enum cpp_counter c) { __atomic_add_fetch(&cpp_data->counters[c],1,__ATOMIC_RELAXED); }
@@ -54,7 +84,7 @@ static int cpp_native_id(void *painter,uint32_t *id) {
     if(!owner||owner>UINTPTR_MAX-0x328-sizeof(*id)||!cpp_readable((const void *)(owner+0x328),sizeof(*id)))return 0;
     memcpy(id,(const void *)(owner+0x328),sizeof(*id));return 1;
 }
-static void cpp_note(void *painter,int type,int gpu,int width,int height) {
+static uint64_t cpp_note(void *painter,int type,int gpu,int width,int height) {
     uint32_t id=0;int valid=cpp_native_id(painter,&id);
     if(!valid)cpp_count(CPP_NATIVE_ID_UNREADABLE);
     cpp_begin();cpp_painter *row=NULL;
@@ -73,14 +103,23 @@ static void cpp_note(void *painter,int type,int gpu,int width,int height) {
         if(type==0)row->view_entries++;else if(type==1)row->popup_entries++;else row->other_entries++;
         row->last_type=type;row->last_tick=cpp_tick();
     }
-    cpp_end();
+    cpp_end();return ((uint64_t)valid<<32)|id;
 }
 static void CPP_ABI cpp_on_cpu(void *self,void *browser_ref,int type,const void *dirty_vector,const void *pixels,
                                int width,int height,const void *scroll,float scale) {
     unsigned long error=cpp_error();cpp_count(CPP_CPU_ENTRIES);
     cpp_cpu_fn original=__atomic_load_n(&cpp_cpu_original,__ATOMIC_ACQUIRE);
     if(!original){cpp_count(CPP_MISSING_ORIGINAL);cpp_set_error(error);return;}
-    cpp_note(self,type,0,width,height);cpp_set_error(error);
+    uint64_t identity=cpp_note(self,type,0,width,height);
+    int frame_choice=cpp_frame_use(identity,type,width,height);
+    if(frame_choice){
+        /* REA 11a640 reads a borrowed MSVC vector's begin/end, then its full-view rect.
+         * The original owns the paint map, message publication and browser-ref release. */
+        int full[4]={0,0,width,height};const void *vector[3]={full,full+4,full+4};
+        cpp_set_error(error);
+        original(self,browser_ref,type,vector,frame_choice==1?cpp_frame_pixels:pixels,width,height,scroll,scale);return;
+    }
+    cpp_set_error(error);
     /* No work after the original: its final LastError and reference lifecycle survive. */
     original(self,browser_ref,type,dirty_vector,pixels,width,height,scroll,scale);
 }
@@ -166,6 +205,29 @@ static int cpp_create_stats(void) {
     memset(cpp_data,0,sizeof(*cpp_data));memcpy(cpp_data->magic,CPP_MAGIC,8);
     cpp_data->schema=CPP_SCHEMA;cpp_data->bytes=sizeof(*cpp_data);cpp_data->pid=GetCurrentProcessId();cpp_data->process_start=start;return 1;
 }
+static int cpp_load_frame(void) {
+    wchar_t path[32768],stats[32768];DWORD length=GetModuleFileNameW(cpp_module,path,32768);
+    if(!length||length>=32768)return 0;
+    wchar_t *slash=wcsrchr(path,L'\\');if(!slash)return 0;
+    wcscpy(slash+1,L"frame.bgra");FILE *file=_wfopen(path,L"rb");
+    if(!file)return GetFileAttributesW(path)==INVALID_FILE_ATTRIBUTES; /* Default observer mode. */
+    cpp_frame_header h;int ok=fread(&h,1,sizeof(h),file)==sizeof(h)&&cpp_frame_valid(h);
+    void *pixels=ok?malloc(h.bytes):NULL;
+    ok=ok&&pixels&&fread(pixels,1,h.bytes,file)==h.bytes&&fgetc(file)==EOF;fclose(file);
+    if(!ok){free(pixels);return 0;}
+    wcscpy(stats,path);slash=wcsrchr(stats,L'\\');
+    swprintf(slash+1,64,L"frame-%lu.stats",GetCurrentProcessId());
+    HANDLE output=CreateFileW(stats,GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+                              NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);
+    if(output==INVALID_HANDLE_VALUE){free(pixels);return 0;}
+    HANDLE map=CreateFileMappingW(output,NULL,PAGE_READWRITE,0,sizeof(cpp_frame_stats),NULL);CloseHandle(output);
+    if(!map){free(pixels);return 0;}
+    cpp_frame_counts=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,0);CloseHandle(map);
+    if(!cpp_frame_counts){free(pixels);return 0;}
+    memset(cpp_frame_counts,0,sizeof(*cpp_frame_counts));memcpy(cpp_frame_counts->magic,"SEVOFP01",8);
+    cpp_frame_counts->target=h.target;cpp_frame_counts->width=h.width;cpp_frame_counts->height=h.height;
+    cpp_frame=h;cpp_frame_pixels=pixels;return 1;
+}
 static int cpp_executable(void *address) {
     MEMORY_BASIC_INFORMATION m;
     return VirtualQuery(address,&m,sizeof(m))&&m.State==MEM_COMMIT&&!(m.Protect&(PAGE_GUARD|PAGE_NOACCESS))&&
@@ -185,6 +247,7 @@ static DWORD WINAPI cpp_attach(LPVOID ignored) {
     if(nt.Signature!=IMAGE_NT_SIGNATURE||nt.FileHeader.Machine!=IMAGE_FILE_MACHINE_AMD64||
        nt.OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC||nt.OptionalHeader.SizeOfImage!=CPP_IMAGE_BYTES){cpp_data->status=2;return 2;}
     cpp_data->helper_base=(uintptr_t)image;cpp_data->image_bytes=nt.OptionalHeader.SizeOfImage;
+    if(!cpp_load_frame()){cpp_data->status=10;return 10;}
     void **cpu=(void **)(image+CPP_CPU_SLOT_RVA),**gpu=(void **)(image+CPP_GPU_SLOT_RVA);
     void *expected_cpu=image+CPP_CPU_RVA,*expected_gpu=image+CPP_GPU_RVA;
     if(!cpp_readable(cpu,2*sizeof(void *))||!cpp_executable(expected_cpu)||!cpp_executable(expected_gpu)){

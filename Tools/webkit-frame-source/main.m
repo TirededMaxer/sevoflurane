@@ -155,6 +155,7 @@ static NSDictionary *viewInventory(NSView *root) {
 @property(nonatomic,strong) RenderServerFrameSource *renderServer;
 @property(nonatomic,weak) CALayer *originalSourceParent;
 @property(nonatomic) BOOL useRenderServer;
+@property(nonatomic,copy) NSString *exportFrame;
 @property(nonatomic,strong) CALayer *pixelRoot;
 @property(nonatomic,strong) CALayer *logicalCarrier;
 @property(nonatomic,strong) NSArray<SurfaceSlot *> *slots;
@@ -202,7 +203,7 @@ static NSDictionary *viewInventory(NSView *root) {
     self.window.delegate=self; self.window.contentView=self.web;
     self.window.backgroundColor=NSColor.clearColor;self.window.opaque=NO;
     [self.window center];[self.window orderFront:nil]; // Never activate or make key.
-    NSURL *html=[NSBundle.mainBundle URLForResource:@"fixture" withExtension:@"html"];
+    NSURL *html=[NSBundle.mainBundle URLForResource:self.exportFrame ? @"frame-proof" : @"fixture" withExtension:@"html"];
     NSError *readError=nil;
     NSString *source=html ? [NSString stringWithContentsOfURL:html encoding:NSUTF8StringEncoding error:&readError] : nil;
     if (!source) { [self.errors addObject:@"missing-synthetic-html"];[self finish];return; }
@@ -235,6 +236,12 @@ static NSDictionary *viewInventory(NSView *root) {
 - (void)beginPhase:(NSString *)name {
     CFTimeInterval now=CACurrentMediaTime();Phase *previous=self.phases.lastObject;if (previous) previous->end=now;
     Phase *phase=[Phase new];phase.name=name;phase->start=now;[self.phases addObject:phase];
+}
+- (void)webView:(WKWebView *)view didFinishNavigation:(WKNavigation *)navigation {
+    (void)view;(void)navigation;
+    if (!self.exportFrame || self.ready || self.finishing) return;
+    if (![self prepareRenderer]) { [self finish];return; }
+    self.ready=YES;self.readyTime=CACurrentMediaTime();
 }
 - (void)configureDiagnosticSPI {
     BOOL backgroundSetter=[self.web respondsToSelector:@selector(_setDrawsBackground:)];
@@ -429,6 +436,15 @@ static NSDictionary *viewInventory(NSView *root) {
         NSArray *timing=@[@(milliseconds(began,submitted)),@(milliseconds(submitted,gpuDone)),
             @(milliseconds(gpuDone,locked)),@(milliseconds(locked,copied)),@(milliseconds(began,done))];
         dispatch_async(dispatch_get_main_queue(),^{
+            if (self.exportFrame && copyOK && lockOK && gpuOK && orientation>=0) {
+                uint32_t header[4]={(uint32_t)geometry.width,(uint32_t)geometry.height,0,(uint32_t)slot.copySize};
+                NSMutableData *packet=[NSMutableData dataWithBytes:"SEVOFRM1" length:8];
+                [packet appendBytes:header length:sizeof(header)];[packet appendBytes:slot.copy length:slot.copySize];
+                BOOL wrote=[packet writeToFile:self.exportFrame atomically:YES];
+                NSData *line=[NSJSONSerialization dataWithJSONObject:@{@"frame_exported":@(wrote),@"path":self.exportFrame,
+                    @"width":@(geometry.width),@"height":@(geometry.height),@"source":@"Mac-WebKit-static-page"} options:0 error:NULL];
+                fwrite(line.bytes,1,line.length,stdout);fputc('\n',stdout);fflush(stdout);_Exit(wrote ? 0 : 2);
+            }
             phase->frames++;[phase.timings addObject:timing];
             if (!gpuOK) phase->gpuErrors++;
             if (!sourceNested) phase->sourceReparentedFrames++;
@@ -521,15 +537,16 @@ static NSDictionary *viewInventory(NSView *root) {
 @end
 
 int main(int argc,const char **argv) {
-    BOOL server=NO;
-    if (argc==3 && !strcmp(argv[1],"--backend") && !strcmp(argv[2],"render-server")) server=YES;
+    BOOL server=NO;NSString *exportPath=nil;
+    if (argc==3 && !strcmp(argv[1],"--export-frame")) exportPath=@(argv[2]);
+    else if (argc==3 && !strcmp(argv[1],"--backend") && !strcmp(argv[2],"render-server")) server=YES;
     else if (argc!=1 && !(argc==3 && !strcmp(argv[1],"--backend") && !strcmp(argv[2],"carenderer"))) {
-        fprintf(stderr,"usage: WebKitFrameSource [--backend carenderer|render-server]\n");return 2;
+        fprintf(stderr,"usage: WebKitFrameSource [--backend carenderer|render-server] | --export-frame /tmp/frame.bgra\n");return 2;
     }
     static Fixture *owner; // NSApplication.delegate does not own its delegate.
     @autoreleasepool {
         NSApplication *app=NSApplication.sharedApplication;owner=[Fixture new];
-        owner.useRenderServer=server;app.delegate=owner;[app run];
+        owner.useRenderServer=server;owner.exportFrame=exportPath;app.delegate=owner;[app run];
     }
     return 2;
 }
