@@ -55,7 +55,11 @@ static uintptr_t remote_module(DWORD pid, const wchar_t *name, int full, DWORD *
     if (!base) { DWORD e = GetLastError(); *error = e && e != ERROR_NO_MORE_FILES ? e : ERROR_MOD_NOT_FOUND; }
     CloseHandle(snapshot); return base;
 }
-static result attach(DWORD pid, const wchar_t *target, const wchar_t *dll) {
+static int allowed_observer_leaf(const wchar_t *leaf) {
+    return same_path(leaf, L"sevo-overlay-observer.dll") ||
+           same_path(leaf, L"sevo-overlay-cpp-observer.dll");
+}
+static result attach(DWORD pid, const wchar_t *target, const wchar_t *dll, const wchar_t *leaf) {
     result r = {"open_failed", 0, WAIT_FAILED, 0, 0, 0, 0};
     HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION |
                                  PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, pid);
@@ -69,7 +73,7 @@ static result attach(DWORD pid, const wchar_t *target, const wchar_t *dll) {
         r.state = "already_loaded"; r.loaded = 1; r.error = 0; goto done;
     }
     if (prior_error != ERROR_MOD_NOT_FOUND) { r.state = "module_query_failed"; r.error = prior_error; goto done; }
-    if (remote_module(pid, L"sevo-overlay-observer.dll", 0, &prior_size, &prior_error)) {
+    if (remote_module(pid, leaf, 0, &prior_size, &prior_error)) {
         r.state = "other_session_loaded"; r.error = ERROR_ALREADY_EXISTS; goto done;
     }
     if (prior_error != ERROR_MOD_NOT_FOUND) { r.state = "module_query_failed"; r.error = prior_error; goto done; }
@@ -125,7 +129,8 @@ int wmain(int argc, wchar_t **argv) {
     const wchar_t *name = wcsrchr(target, L'\\');
     if (!name || !same_path(name + 1, L"steamwebhelper.exe")) { error = ERROR_INVALID_NAME; goto invalid; }
     name = wcsrchr(dll, L'\\');
-    if (!name || !same_path(name + 1, L"sevo-overlay-observer.dll")) { error = ERROR_INVALID_NAME; goto invalid; }
+    if (!name || !allowed_observer_leaf(name + 1)) { error = ERROR_INVALID_NAME; goto invalid; }
+    const wchar_t *leaf = name + 1;
     DWORD attributes = GetFileAttributesW(dll);
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
         error = attributes == INVALID_FILE_ATTRIBUTES ? GetLastError() : ERROR_DIRECTORY; goto invalid;
@@ -142,7 +147,7 @@ int wmain(int argc, wchar_t **argv) {
             if (query) CloseHandle(query);
             if (match == 1 || match < 0) {
                 result r = {"query_failed", query_error, WAIT_FAILED, 0, 0, 0, 0}; candidates++;
-                if (match == 1) { matched++; r = attach(entry.th32ProcessID, target, dll); loaded += r.loaded; }
+                if (match == 1) { matched++; r = attach(entry.th32ProcessID, target, dll, leaf); loaded += r.loaded; }
                 fprintf(out, "%s{\"pid\":%lu,\"status\":\"%s\",\"error\":%lu,\"wait_result\":%lu,\"thread_exit_code\":%lu,\"loaded_verified\":%s,\"remote_path_retained\":%s,\"loader_thread_started\":%s}",
                         comma ? "," : "", entry.th32ProcessID, r.state, r.error, r.wait, r.exit_code, r.loaded ? "true" : "false", r.retained ? "true" : "false", r.started ? "true" : "false"); comma = 1;
             }

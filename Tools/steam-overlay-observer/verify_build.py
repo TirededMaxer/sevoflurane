@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import struct
 import sys
-from observer import CEF_SHA, PAYLOADS
+from observer import CEF_SHA, HELPER_SHA, PAYLOADS
 
 work, output, source = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 hashes = {}
@@ -18,9 +18,10 @@ for name in PAYLOADS:
     if struct.unpack_from('<H', data, pe + 24)[0] != 0x20b:
         raise SystemExit('Payload is not PE32+: ' + name)
     hashes[name] = hashlib.sha256(data).hexdigest()
-manifest = {'schema': 1, 'source': source, 'cef_sha256': CEF_SHA,
+manifest = {'schema': 1, 'source': source, 'cef_sha256': CEF_SHA, 'helper_sha256': HELPER_SHA,
             'payload_sha256': hashes, 'tests': {
-                'callback_fixture': 'Same source, Microsoft x64 ABI on macOS x86_64/Rosetta',
+                'callback_fixture': 'Same source CAPI, Microsoft x64 ABI on macOS x86_64/Rosetta',
+                'cpp_callback_fixture': 'Same source 9-argument CPU/float and 5-argument GPU; Microsoft x64 ABI',
                 'windows_payloads': 'Cross-compiled PE32+ AMD64; real Steam runtime not exercised in CI'}}
 (work / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 (output / 'observer-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

@@ -25,7 +25,7 @@ To cover helpers which appeared later, explicitly repeat attach with **the same 
 python3 -B observer.py attach --session /private/tmp/sevo-overlay-observer-SESSION
 ```
 
-An already-loaded exact DLL path is reported `already_loaded` without starting another loader thread or resetting statistics. A different observer session already present in a process is rejected. Each attach enumerates once; it does not follow future processes. A load timeout retains path memory which the loader might still be using; it neither frees that memory nor terminates the thread.
+An already-loaded exact DLL path is reported `already_loaded` without starting another loader thread or resetting statistics. A different session of the requested DLL kind already present in a process is rejected. The CAPI and C++ observers have distinct names and can coexist in one helper. Each attach enumerates once; it does not follow future processes. A load timeout retains path memory which the loader might still be using; it neither frees that memory nor terminates the thread.
 
 Keep the session directory and DLL present until Steam and all matching helpers have exited normally. There is intentionally no live unload, automatic process termination or automatic session deletion. After normal exit and verifying no matching helper remains, the session directory and downloaded build can be removed.
 
@@ -42,3 +42,33 @@ The probe only hooks the main helper EXE's existing `libcef.dll` creation import
 ## ABI provenance
 
 Calibration is archived in `Docs/LocalValidation/steam-overlay-rea-42/cef-abi-evidence.json` and `native-report.json`: CEF126/Chromium126.0.6478.183, original libcef SHA-256 `c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3`, customized platform/universal/commit API hashes pinned in `observer.h`. This customized ABI differs from official CEF6478. The confirmed client/display/render/browser slots and custom ten-argument paint signature are used; lifespan, input and accelerated-info layouts are not inferred from upstream headers. Original six-argument create calls/results, callback pointers, original return references and all callback arguments are forwarded unchanged once. The tool does not own the client's or handler's reference lifecycle.
+
+
+## Direct C++ painter observation
+
+The original `steamwebhelper.exe` CAPI getter at RVA `0x2eba10` allocates and initializes a render-handler wrapper on each call. Reuse of its allocation address does not imply a stable callback slot: construction reinstalls the original CAPI callbacks. That is established from the original instructions; whether libcef unwraps and directly dispatches the underlying C++ object is a separate runtime question. Zero CAPI callbacks while the overlay is visible therefore does not prove that neither CPU nor accelerated painting occurs.
+
+The additional `cpp` kind observes only `CChromePainter`'s two fixed vtable entries in the main helper image. The controller and DLL both require helper SHA-256 `5ee6df1a5a2237dd3efb7d7042b02ba20f2238ba15d961b1a10ef6d575c59362`; the DLL also checks the AMD64 image size and exact original pointers before changing either entry:
+
+| Vtable entry RVA | Original target RVA | Confirmed call ABI |
+| --- | --- | --- |
+| `0x4a0ab0` | `0x11a040` | 9 arguments: this, opaque browser ref, type, opaque dirty vector, pixels, width, height, opaque scroll reference, float scale |
+| `0x4a0ab8` | `0x119cb0` | 5 arguments: this, opaque browser ref, type, opaque dirty vector, opaque accelerated info |
+
+No object discovery scan, executable prologue patch or libcef hook is installed. Each slot uses compare-and-swap, and failure to install the second restores the first only if it still belongs to this observer. Original functions are published before a callback can run. Both callbacks forward all arguments once, including the float's ABI position and opaque references, preserving incoming and original final LastError. They neither inspect nor own the browser reference, dirty vector, pixels, scroll or accelerated-info contents. The original accelerated target in this exact vtable is a default reference-release implementation; a `gpu_entries` count here is an entry count, not proof of GPU frame submission or usable shared textures.
+
+A new C++ session can attach to helpers already containing a CAPI observer without restarting Steam:
+
+```sh
+python3 -B observer.py attach --kind cpp
+python3 -B observer.py status --session /private/tmp/sevo-overlay-cpp-observer-SESSION
+python3 -B observer.py attach --kind cpp --session /private/tmp/sevo-overlay-cpp-observer-SESSION
+```
+
+`--kind capi` remains the default for a new session. Existing sessions infer their kind; legacy schema-1 CAPI sessions without a `kind` field remain valid. An explicit conflicting kind is rejected. The static attacher whitelist contains only `sevo-overlay-observer.dll` and `sevo-overlay-cpp-observer.dll`, and checks for other-session copies by the requested leaf name. It never loads an arbitrary DLL name.
+
+C++ sessions use independent `cpp-observer.cfg`, `cpp-observer-PID-CREATIONTIME.stats`, `SEVOCPP1` magic and schema. Painter rows contain weak numeric addresses, native Steam browser ID from `this+0x10` owner `+0x328` after readable-range checks, CPU dimensions, paint type and counts. They do not call `cef_browser_t.get_identifier`; `identity_valid=0` distinguishes an unavailable native ID from numeric ID zero. Addresses and IDs are not retained references, and address/ID reuse cannot be distinguished if both values repeat within one process. GPU dimensions are not inferred from opaque data. Bounded-row overflow increments `records_dropped` while the original call continues.
+
+For C++ status, `ready=true` means both exact slots were installed and their page protection restored. Status is 2=invalid host image, 3=helper SHA/path/read failure, 4=unreadable slot/non-executable original, 5=page protection change failed, 6=original pointer/CAS rejected, 7=page protection restore failed, 8=DLL lifetime pin failed, 9=rollback lost ownership. `ready=false,status=0` can mean initialization is still running. A partially installed failure remains observable and forwards through its already-published original. The DLL stays resident until normal helper exit; no live unload or retry is offered.
+
+The cloud build adds a same-source Microsoft x64 C++ fixture for nine-argument CPU/float and five-argument opaque GPU forwarding, exact once counts, LastError, foreign-slot rejection, native-ID readability, bounded metadata and concurrent calls. Python decodes its actual stats and verifies independent sessions with mocked launch calls only. All compilation and tests remain cloud-only; these fixtures do not establish real Steam dispatch coverage, correctness of an unobserved accelerated-info layout, frame timing or game performance.
