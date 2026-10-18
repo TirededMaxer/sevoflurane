@@ -22,7 +22,7 @@ assert not (stage / "Contents/Resources/SteamUI").exists()
 probe_source = work / "overlay-painter"
 probe_stage = stage / "Contents/Resources/OverlayPainterProbe"
 probe_stage.mkdir()
-for name in ["libcef.dll", "sevo-painter-frame", "install_probe.py", "README.md", "cef-exports.json", "cef-abi-evidence.json", "probe-manifest.json"]:
+for name in ["sevo-painter.dll", "sevo-painter-attach.exe", "sevo-painter-frame", "painter_probe.py", "README.md", "cef-abi-evidence.json", "probe-manifest.json"]:
     shutil.copy2(probe_source / name, probe_stage / name)
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]

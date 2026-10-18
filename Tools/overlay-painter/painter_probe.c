@@ -138,8 +138,7 @@ static void * __cdecl get_render(void *self) {
 }
 static BOOL CALLBACK initialize(PINIT_ONCE once, PVOID parameter, PVOID *context) {
     (void)once;(void)parameter;(void)context;
-    original_module=GetModuleHandleW(L"sevo_libcef_original.dll");
-    if(!original_module)original_module=LoadLibraryW(L"sevo_libcef_original.dll");
+    original_module=GetModuleHandleW(L"libcef.dll");
     if(!original_module)return TRUE;
     wchar_t config[2304];GetModuleFileNameW(this_module,config,2304);wchar_t *slash=wcsrchr(config,L'\\');if(!slash)return TRUE;wcscpy(slash+1,L"sevo-painter-probe.txt");
     FILE *f=_wfopen(config,L"rb");if(!f)return TRUE;char line[4096]={0};size_t n=fread(line,1,sizeof(line)-1,f);fclose(f);while(n&&(line[n-1]=='\n'||line[n-1]=='\r'))line[--n]=0;
@@ -150,7 +149,7 @@ static BOOL CALLBACK initialize(PINIT_ONCE once, PVOID parameter, PVOID *context
     HANDLE map=CreateFileMappingW(file,NULL,PAGE_READWRITE,0,sizeof(sevo_probe_stats),NULL);
     CloseHandle(file);
     if(!map) { return TRUE; }
-    stats=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,0);CloseHandle(map);if(!stats)return TRUE;memset(stats,0,sizeof(*stats));memcpy(stats->magic,SEVO_STATS_MAGIC,8);stats->version=1;stats->pid=GetCurrentProcessId();
+    stats=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,0);CloseHandle(map);if(!stats)return TRUE;memset(stats,0,sizeof(*stats));memcpy(stats->magic,SEVO_STATS_MAGIC,8);stats->version=2;stats->pid=GetCurrentProcessId();
     typedef const char *(__cdecl *hash_fn)(int);hash_fn hash=(hash_fn)GetProcAddress(original_module,"cef_api_hash");
     if(!hash || strcmp(hash(0),API_PLATFORM)||strcmp(hash(1),API_UNIVERSAL)){InterlockedIncrement64(&stats->abi_rejected);return TRUE;}
     enabled=1;return TRUE;
@@ -160,4 +159,51 @@ void *sevo_create_target(uintptr_t sync,void *client) {
     if(enabled){InterlockedIncrement64(&stats->created_browsers);patch_slot(client,CLIENT_DISPLAY,get_display);patch_slot(client,CLIENT_RENDER,get_render);}
     return original_module ? GetProcAddress(original_module,sync?"cef_browser_host_create_browser_sync":"cef_browser_host_create_browser") : NULL;
 }
-BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID reserved){(void)reserved;if(reason==DLL_PROCESS_ATTACH){this_module=module;DisableThreadLibraryCalls(module);}return TRUE;}
+extern void sevo_create_browser_thunk(void);
+extern void sevo_create_browser_sync_thunk(void);
+static DWORD WINAPI attach_imports(LPVOID parameter) {
+    (void)parameter;
+    InitOnceExecuteOnce(&init_once,initialize,NULL,NULL);
+    if(!enabled) return 1;
+    uint8_t *image=(uint8_t *)GetModuleHandleW(NULL);
+    IMAGE_DOS_HEADER *dos=(IMAGE_DOS_HEADER *)image;
+    if(dos->e_magic!=IMAGE_DOS_SIGNATURE) return 2;
+    IMAGE_NT_HEADERS64 *nt=(IMAGE_NT_HEADERS64 *)(image+dos->e_lfanew);
+    if(nt->Signature!=IMAGE_NT_SIGNATURE || nt->OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC) return 3;
+    DWORD rva=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    if(!rva) return 4;
+    IMAGE_IMPORT_DESCRIPTOR *d=(IMAGE_IMPORT_DESCRIPTOR *)(image+rva);
+    for(;d->Name;d++) {
+        if(_stricmp((char *)(image+d->Name),"libcef.dll") || !d->OriginalFirstThunk) continue;
+        IMAGE_THUNK_DATA64 *names=(IMAGE_THUNK_DATA64 *)(image+d->OriginalFirstThunk);
+        IMAGE_THUNK_DATA64 *addresses=(IMAGE_THUNK_DATA64 *)(image+d->FirstThunk);
+        for(;names->u1.AddressOfData;names++,addresses++) {
+            if(IMAGE_SNAP_BY_ORDINAL64(names->u1.Ordinal)) continue;
+            char *name=(char *)((IMAGE_IMPORT_BY_NAME *)(image+names->u1.AddressOfData))->Name;
+            void *replacement=NULL;
+            if(!strcmp(name,"cef_browser_host_create_browser")) replacement=sevo_create_browser_thunk;
+            if(!strcmp(name,"cef_browser_host_create_browser_sync")) replacement=sevo_create_browser_sync_thunk;
+            if(!replacement) continue;
+            void *expected=(void *)GetProcAddress(original_module,name);
+            if((void *)(uintptr_t)addresses->u1.Function!=expected) { InterlockedIncrement64(&stats->abi_rejected);continue; }
+            DWORD protection,ignored;
+            if(VirtualProtect(&addresses->u1.Function,sizeof(void *),PAGE_READWRITE,&protection)) {
+                InterlockedExchangePointer((PVOID volatile *)&addresses->u1.Function,replacement);
+                VirtualProtect(&addresses->u1.Function,sizeof(void *),protection,&ignored);
+                InterlockedIncrement64(&stats->iat_hooks);
+            } else { InterlockedIncrement64(&stats->abi_rejected); }
+        }
+    }
+    return 0;
+}
+BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID reserved) {
+    (void)reserved;
+    if(reason==DLL_PROCESS_ATTACH) {
+        this_module=module;
+        DisableThreadLibraryCalls(module);
+        /* No waits under loader lock. The worker runs after DLL attach returns. */
+        HANDLE thread=CreateThread(NULL,0,attach_imports,NULL,0,NULL);
+        if(thread) CloseHandle(thread);
+    }
+    return TRUE;
+}
