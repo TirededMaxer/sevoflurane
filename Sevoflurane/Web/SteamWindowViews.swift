@@ -25,12 +25,10 @@ final class SteamDocumentWindow: NSWindow {
 /// happens if it could hold focus in the first place — a plain borderless
 /// `NSWindow` never becomes key, so every menu would stay on screen forever.
 final class SteamPanel: NSPanel {
-    init(contentRect: NSRect, hasTitleBar: Bool = false) {
+    init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: hasTitleBar
-                ? [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
-                : [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false,
         )

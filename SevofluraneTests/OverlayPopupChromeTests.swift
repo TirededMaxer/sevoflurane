@@ -6,22 +6,6 @@ import WebKit
 @MainActor
 struct OverlayPopupChromeTests {
     @Test
-    func `overlay popup panels retain close controls without activating the app`() throws {
-        for role in [SteamWindowRole.friends, .chat, .auxiliary, .controllerConfig] {
-            let panel = SteamPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-                hasTitleBar: role.hasPopupChrome,
-            )
-            #expect(panel.styleMask.contains(.nonactivatingPanel))
-            #expect(panel.styleMask.contains(.titled))
-            #expect(panel.styleMask.contains(.closable))
-            let closeButton = try #require(panel.standardWindowButton(.closeButton))
-            #expect(!closeButton.isHidden)
-            #expect(closeButton.isEnabled)
-        }
-    }
-
-    @Test
     func `desktop and login remain activating windows while overlay is open`() {
         let host = SteamWebHost()
         host.overlayActive = true
@@ -36,12 +20,12 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `menus and the full game overlay remain borderless`() {
-        for role in [SteamWindowRole.menu, .gameOverlay] {
-            let panel = SteamPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-                hasTitleBar: role.hasPopupChrome,
-            )
+    func `actual menu and dialog panels retain the original document frame`() throws {
+        for role in [SteamWindowRole.menu, .dialog, .keyboard] {
+            let owner = popup(role: role)
+            owner.realize()
+            defer { owner.detach(reason: .pageTeardown) }
+            let panel = try #require(owner.nsWindow as? SteamPanel)
             #expect(panel.styleMask.contains(.nonactivatingPanel))
             #expect(!panel.styleMask.contains(.titled))
             #expect(panel.standardWindowButton(.closeButton) == nil)
@@ -86,9 +70,8 @@ struct OverlayPopupChromeTests {
         owner.window = window
 
         owner.show(activating: false)
-        owner.setOrderedIn(true)
-        #expect(window.orderCount == 2)
-        owner.setOrderedIn(false)
+        #expect(window.orderCount == 1)
+        _ = owner.perform("HideWindow", [])
         #expect(window.hideCount == 1)
     }
 
@@ -101,7 +84,6 @@ struct OverlayPopupChromeTests {
         owner.window = window
 
         owner.show(activating: false)
-        owner.setOrderedIn(true)
         #expect(window.orderCount == 0)
     }
 
