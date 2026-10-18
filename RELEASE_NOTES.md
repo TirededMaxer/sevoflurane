@@ -1,4 +1,4 @@
-本机验证候选：1.7.0-fork.5（构建 38）。完成真实组件验收前不发布公开 Release。
+本机验证候选：1.7.0-fork.5（构建 39）。完成真实组件验收前不发布公开 Release。
 
 移除 macOS 顶部重复的 Steam、View、Friends、Games、Edit、Window、Help 菜单，只保留 Sevoflurane 应用菜单；复制、粘贴、剪切、全选、撤销、重做、关闭和最小化快捷键继续经过 AppKit 响应链处理。Steam 原始窗口内的菜单和标题按钮保持原样。
 

@@ -7,8 +7,8 @@ import WebKit
 struct SteamBrowserDialogTests {
     @Test(arguments: [true, false])
     func originalConfirmEventWaitsForSteamResponse(_ accepted: Bool) async throws {
-        let (child, page) = try await fixture()
-        defer { child.destroy() }
+        let (child, page, window) = try await fixture()
+        defer { child.destroy(); window.close() }
         let result = Task { @MainActor in
             try await child.webView.evaluateJavaScript("String(confirm('Original warning 原始提示'))") as? String
         }
@@ -21,8 +21,8 @@ struct SteamBrowserDialogTests {
 
     @Test
     func originalAlertAcknowledgesAndTeardownCancelsConfirm() async throws {
-        let (child, page) = try await fixture()
-        defer { child.destroy() }
+        let (child, page, window) = try await fixture()
+        defer { child.destroy(); window.close() }
         let alert = Task { @MainActor in
             try await child.webView.evaluateJavaScript("alert('Original alert');'acknowledged'") as? String
         }
@@ -38,14 +38,22 @@ struct SteamBrowserDialogTests {
         #expect(try await confirm.value == "false")
     }
 
-    private func fixture() async throws -> (BrowserViewChild, WKWebView) {
+    private func fixture() async throws -> (BrowserViewChild, WKWebView, NSWindow) {
         let page = WKWebView()
         page.loadHTMLString("""
         <script>window.__sevoBV={91:function(event,args){if(event.endsWith('-dialog'))
           window.lastDialog=JSON.stringify({event:event,args:args})}};window.ready=true;</script>
         """, baseURL: nil)
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 300))
+        let window = NSWindow(contentRect: container.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = container
+        page.frame = container.bounds
+        container.addSubview(page)
         let child = BrowserViewChild(id: 91, container: container, hostPage: page, host: SteamWebHost())
+        child.setBounds(x: 0, y: 0, width: 500, height: 300)
+        child.setVisible(true)
+        window.orderFront(nil)
         child.webView.loadHTMLString("<script>window.ready=true;</script>", baseURL: nil)
         for web in [page, child.webView] {
             for _ in 0..<80 {
@@ -54,7 +62,7 @@ struct SteamBrowserDialogTests {
             }
             _ = try #require(try await web.evaluateJavaScript("window.ready===true") as? Bool == true)
         }
-        return (child, page)
+        return (child, page, window)
     }
 
     private func waitForDialog(_ page: WKWebView) async throws -> String {
