@@ -108,26 +108,73 @@ struct SteamPresentationTests {
         #expect(window.frame.origin.y == first.y - 30)
     }
 
-    @Test
-    func nativeWarningsKeepOriginalDefaultDisabledCancelAndOptionState() throws {
-        let source = #"{"dialogs":[{"handle":33,"pid":22,"title":"Original warning","body":"Original detail","canClose":true,"buttons":[{"id":6,"title":"&Yes","enabled":false,"default":false},{"id":7,"title":"&No","enabled":true,"default":true},{"id":2,"title":"Cancel","enabled":true,"default":false}],"toggles":[{"id":21,"title":"Keep && remember","radio":false,"checked":true,"enabled":true}]}]}"#
-        let dialog = try #require(SteamNativeDialog.decode(source).first)
-        let alert = dialog.makeAlert()
-        #expect(alert.messageText == "Original warning")
-        #expect(alert.informativeText == "Original detail")
-        #expect(dialog.presentedButtons.map(\.id) == [6, 7, 2])
-        #expect(alert.buttons.map(\.title) == ["Yes", "No", "Cancel"])
-        #expect(alert.buttons.map(\.isEnabled) == [false, true, true])
-        #expect(alert.buttons.map(\.keyEquivalent) == ["", "\r", "\u{1b}"])
-        #expect(dialog.toggles?.first?.checked == true)
-        #expect(SteamNativeDialog.displayTitle("Keep && remember") == "Keep & remember")
+    private func originalWarning() throws -> SteamNativeDialog {
+        let source = #"{"dialogs":[{"handle":33,"pid":22,"title":"Original warning","body":"Not a layout specification","canClose":true,"clientWidth":404,"clientHeight":142,"buttons":[],"controls":[{"handle":101,"id":10,"className":"Static","text":"Original detail","style":0,"x":16,"y":20,"width":370,"height":40,"enabled":true,"tabStop":false,"password":false,"default":false,"checkState":0},{"handle":102,"id":1,"className":"Button","text":"&Yes","style":0,"x":220,"y":82,"width":80,"height":28,"enabled":false,"tabStop":true,"password":false,"default":false,"checkState":0},{"handle":103,"id":2,"className":"Button","text":"&Cancel","style":1,"x":310,"y":82,"width":80,"height":28,"enabled":true,"tabStop":true,"password":false,"default":true,"checkState":0},{"handle":104,"id":21,"className":"Button","text":"Keep && remember","style":3,"x":16,"y":65,"width":180,"height":24,"enabled":true,"tabStop":true,"password":false,"default":false,"checkState":1}]}]}"#
+        return try #require(SteamNativeDialog.decode(source).first)
     }
 
     @Test
-    func unanswerableProgressWindowsGetNoInventedAction() throws {
+    func nativeWarningsKeepOriginalGeometryControlsDefaultAndOptions() throws {
+        let adapter = try #require(NativeSteamDialogWindow(dialog: try originalWarning(), send: { _ in }))
+        defer { adapter.originalDidClose() }
+        #expect(adapter.window.title == "Original warning")
+        #expect(adapter.window.contentView?.frame.size == NSSize(width: 404, height: 142))
+        #expect(adapter.controls.count == 4)
+        #expect(adapter.controls[101]?.frame == NSRect(x: 16, y: 20, width: 370, height: 40))
+        #expect((adapter.controls[101] as? NSTextField)?.stringValue == "Original detail")
+        let yes = try #require(adapter.controls[102] as? NSButton)
+        let cancel = try #require(adapter.controls[103] as? NSButton)
+        let toggle = try #require(adapter.controls[104] as? NSButton)
+        #expect(yes.title == "Yes")
+        #expect(!yes.isEnabled)
+        #expect(cancel.frame == NSRect(x: 310, y: 82, width: 80, height: 28))
+        #expect(adapter.window.defaultButtonCell === cancel.cell)
+        #expect(cancel.keyEquivalent == "\r")
+        #expect(toggle.title == "Keep & remember")
+        #expect(toggle.state == .on)
+        #expect(cancel.nextKeyView === toggle)
+        #expect(toggle.nextKeyView === cancel)
+    }
+
+    @Test
+    func nativeActionsForwardTheOriginalControlAndWaitForItsLifetime() throws {
+        var calls: [[String]] = []
+        let adapter = try #require(NativeSteamDialogWindow(dialog: try originalWarning(), send: { calls.append($0) }))
+        defer { adapter.originalDidClose() }
+        let cancel = try #require(adapter.controls[103] as? NSButton)
+        cancel.performClick(nil)
+        #expect(calls == [["control", "33", "22", "103", "click"]])
+        #expect(adapter.controls.count == 4)
+        adapter.window.cancelOperation(nil)
+        #expect(calls.last == ["control", "33", "22", "103", "click"])
+        #expect(!adapter.windowShouldClose(adapter.window))
+        #expect(calls.last == ["answer", "33", "22", "0"])
+    }
+
+    @Test
+    func originalChangesUpdateExistingControlsWithoutRebuildingOrRecentring() throws {
+        var snapshot = try originalWarning()
+        let adapter = try #require(NativeSteamDialogWindow(dialog: snapshot, send: { _ in }))
+        defer { adapter.originalDidClose() }
+        let originalLabel = adapter.controls[101]
+        let origin = NSPoint(x: 120, y: 160)
+        adapter.window.setFrameOrigin(origin)
+        snapshot.controls?[0].text = "Original changed detail"
+        snapshot.controls?[1].enabled = true
+        snapshot.controls?[3].checkState = 0
+        adapter.update(snapshot)
+        #expect(adapter.controls[101] === originalLabel)
+        #expect((adapter.controls[101] as? NSTextField)?.stringValue == "Original changed detail")
+        #expect((adapter.controls[102] as? NSButton)?.isEnabled == true)
+        #expect((adapter.controls[104] as? NSButton)?.state == .off)
+        #expect(adapter.window.frame.origin == origin)
+    }
+
+    @Test
+    func missingOriginalLayoutNeverBecomesAnInventedAlert() throws {
         let source = #"{"dialogs":[{"handle":1,"pid":2,"title":"Steam","body":"Original progress","buttons":[],"canClose":false}]}"#
         let dialog = try #require(SteamNativeDialog.decode(source).first)
-        #expect(dialog.presentedButtons.isEmpty)
+        #expect(NativeSteamDialogWindow(dialog: dialog, send: { _ in }) == nil)
     }
 
     @Test

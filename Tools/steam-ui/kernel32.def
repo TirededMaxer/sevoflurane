@@ -10,3 +10,9 @@ ExitProcess
 GetModuleHandleW
 LoadLibraryW
 GetProcAddress
+CreateFileW
+ReadFile
+GetFileSizeEx
+GetProcessHeap
+HeapAlloc
+HeapFree

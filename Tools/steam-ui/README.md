@@ -1,27 +1,33 @@
-# Steam native-dialog relay
+# Steam original-window presentation bridge
 
-`sevo-steam-ui.exe` is a freestanding x86-64 Windows console helper built from
-`steam-ui.c`, using Wine headers and Windows import libraries. It enumerates
-Steam/Steam error-reporter Win32 dialogs in the daemon’s bottle and returns UTF-16
-text as escaped JSON. The app presents that text and the original button labels in
-an `NSAlert`. Button answers verify the owning PID and control before posting
-`WM_COMMAND`; neither scanning nor answering terminates Steam.
+The source of truth is the original Steam window, not a replacement message-box
+workflow. The helper enumerates Steam/Steam error-reporter Win32 dialogs in the
+same daemon-owned bottle. The AppKit host uses the original client size and each
+control's rectangle, order, text, ID/handle, enabled/default/check state and icon
+resource. It does not collapse the dialog into an `NSAlert`, invent a Close button,
+close after a click, or infer the result. Original disappearance removes the host;
+original changes update the same controls in place.
 
-The helper reads conventional dialog children, excluding password edits. It handles
-standard `#32770` dialogs and VGUI/SDL dialogs exposing child text. Custom-drawn
-dialogs with no readable controls cannot be reconstructed by this bridge. CEF
-windows are handled by the existing WebKit bridge; game and installer UI stay
-interactive. The CrossOver driver suppression patch is a separate, matching-runtime
-requirement; see `../crossover-ui/README.md`.
+Actions validate the original PID and descendant handle. Buttons receive
+`BM_CLICK`; closing requests `WM_CLOSE`; edit changes use `SetWindowTextW` on the
+original edit control. The original Steam code still receives and handles the
+result. Password contents are not collected. The UI does not terminate Steam.
 
-Build with Homebrew `llvm` and `lld`, matching Wine headers/generated headers and
-the matching `kernel32` import library:
+The current AppKit adapters cover text/static icons, buttons, checkbox/radio/group
+controls, text edits and progress bars. Custom-drawn dialogs with no readable
+controls and other complex Win32 controls are not yet equivalent. CEF Steam
+popups retain their original DOM in the existing WebKit bridge; game popups stay
+in Steam's renderer. Do not count these paths as verified merely because the
+Win32 helper fixture passed.
 
-```sh
-Tools/steam-ui/build.sh /path/to/wine /path/to/wine-build/include /path/to/libkernel32.a
-```
+Build and test on the fresh GitHub Apple Silicon runner with
+`Tools/steam-ui/build-cloud.sh`. It uses the checked-in minimal Win32 ABI and
+import definitions, without a local Wine SDK or build cache. The older
+`build.sh WINE_SOURCE GENERATED_HEADERS KERNEL32_IMPORT_LIBRARY` entry point is
+retained for matching upstream-source comparison, not the local project workflow.
 
-For a local relay fixture, copy the helper as `steamerrorreporter64.exe` and launch
-it with `--fixture` through `sevo run --wait`. It creates a Chinese error dialog,
-prints the selected button ID, and times out after 45 seconds. Production scans use
-only the daemon’s authenticated bottle-run API. No network submission is included.
+For the local fixture, copy the verified packaged helper as
+`steamerrorreporter64.exe` and run `--fixture` through the authenticated daemon
+`POST /bottle/run?timeout=60` API (one program argument per line), not the direct
+`sevo run` debug launcher. It emits the original selected control ID and exits
+after 45 seconds if unanswered. Tests do not submit anything to Steam or friends.

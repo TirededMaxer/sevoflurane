@@ -21,3 +21,9 @@ DispatchMessageW
 GetDlgItem
 PostMessageW
 SendMessageW
+GetClientRect
+GetWindowRect
+ScreenToClient
+IsChild
+SetWindowTextW
+DrawIconEx

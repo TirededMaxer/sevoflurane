@@ -12,16 +12,33 @@ typedef unsigned int UINT, DWORD;
 typedef unsigned short WCHAR, ATOM;
 typedef unsigned long long ULONGLONG, ULONG_PTR, WPARAM;
 typedef long long LONG_PTR, LPARAM, LRESULT;
-typedef void *HANDLE, *HWND, *HINSTANCE, *HICON, *HCURSOR, *HBRUSH, *HMENU;
+typedef void *HANDLE, *HWND, *HINSTANCE, *HICON, *HCURSOR, *HBRUSH, *HMENU, *HDC, *HBITMAP, *HGDIOBJ;
 typedef LRESULT (CALLBACK *WNDPROC)(HWND,UINT,WPARAM,LPARAM);
 typedef BOOL (CALLBACK *WNDENUMPROC)(HWND,LPARAM);
 typedef struct { int x,y; } POINT;
+typedef struct { int left,top,right,bottom; } RECT;
+typedef struct { DWORD biSize; int biWidth,biHeight; unsigned short biPlanes,biBitCount; DWORD biCompression,biSizeImage; int biXPelsPerMeter,biYPelsPerMeter; DWORD biClrUsed,biClrImportant; } BITMAPINFOHEADER;
+typedef struct { unsigned char rgbBlue,rgbGreen,rgbRed,rgbReserved; } RGBQUAD;
+typedef struct { BITMAPINFOHEADER bmiHeader; RGBQUAD bmiColors[1]; } BITMAPINFO;
 typedef struct { HWND hwnd; UINT message; WPARAM wParam; LPARAM lParam; DWORD time; POINT pt; DWORD lPrivate; } MSG;
 typedef struct { UINT style; WNDPROC lpfnWndProc; int cbClsExtra,cbWndExtra; HINSTANCE hInstance; HICON hIcon; HCURSOR hCursor; HBRUSH hbrBackground; const WCHAR *lpszMenuName,*lpszClassName; } WNDCLASSW;
+#define GENERIC_READ 0x80000000u
+#define FILE_SHARE_READ 1
+#define OPEN_EXISTING 3
+#define FILE_ATTRIBUTE_NORMAL 0x80
+#define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
 #define PROCESS_QUERY_LIMITED_INFORMATION 0x1000
 #define STD_OUTPUT_HANDLE ((DWORD)-11)
 #define GWL_STYLE (-16)
 #define ES_PASSWORD 0x20
+#define WS_TABSTOP 0x00010000u
+#define WM_NEXTDLGCTL 0x28
+#define STM_GETICON 0x171
+#define DI_NORMAL 3
+#define DIB_RGB_COLORS 0
+#define BI_RGB 0
+#define PBM_GETPOS 0x408
+#define PBM_GETRANGE 0x407
 #define BS_DEFPUSHBUTTON 1
 #define BS_CHECKBOX 2
 #define BS_AUTOCHECKBOX 3
@@ -52,6 +69,12 @@ typedef struct { UINT style; WNDPROC lpfnWndProc; int cbClsExtra,cbWndExtra; HIN
 API HANDLE WINAPI OpenProcess(DWORD,BOOL,DWORD);
 API BOOL WINAPI QueryFullProcessImageNameW(HANDLE,DWORD,WCHAR *,DWORD *);
 API BOOL WINAPI CloseHandle(HANDLE);
+API HANDLE WINAPI CreateFileW(const WCHAR *,DWORD,DWORD,void *,DWORD,DWORD,HANDLE);
+API BOOL WINAPI ReadFile(HANDLE,void *,DWORD,DWORD *,void *);
+API BOOL WINAPI GetFileSizeEx(HANDLE,long long *);
+API HANDLE WINAPI GetProcessHeap(void);
+API void *WINAPI HeapAlloc(HANDLE,DWORD,ULONG_PTR);
+API BOOL WINAPI HeapFree(HANDLE,DWORD,void *);
 API BOOL WINAPI WriteFile(HANDLE,const void *,DWORD,DWORD *,void *);
 API HANDLE WINAPI GetStdHandle(DWORD);
 API WCHAR *WINAPI GetCommandLineW(void);
@@ -68,6 +91,18 @@ API BOOL WINAPI EnumChildWindows(HWND,WNDENUMPROC,LPARAM);
 API BOOL WINAPI EnumWindows(WNDENUMPROC,LPARAM);
 API BOOL WINAPI IsWindowEnabled(HWND);
 API int WINAPI GetDlgCtrlID(HWND);
+API BOOL WINAPI GetClientRect(HWND,RECT *);
+API BOOL WINAPI GetWindowRect(HWND,RECT *);
+API BOOL WINAPI ScreenToClient(HWND,POINT *);
+API BOOL WINAPI IsChild(HWND,HWND);
+API BOOL WINAPI SetWindowTextW(HWND,const WCHAR *);
+API BOOL WINAPI DrawIconEx(HDC,int,int,HICON,int,int,UINT,HBRUSH,UINT);
+API HDC WINAPI CreateCompatibleDC(HDC);
+API BOOL WINAPI DeleteDC(HDC);
+API BOOL WINAPI GdiFlush(void);
+API HGDIOBJ WINAPI SelectObject(HDC,HGDIOBJ);
+API BOOL WINAPI DeleteObject(HGDIOBJ);
+API HBITMAP WINAPI CreateDIBSection(HDC,const BITMAPINFO *,UINT,void **,HANDLE,DWORD);
 API HWND WINAPI GetDlgItem(HWND,int);
 API BOOL WINAPI PostMessageW(HWND,UINT,WPARAM,LPARAM);
 API LRESULT WINAPI SendMessageW(HWND,UINT,WPARAM,LPARAM);

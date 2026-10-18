@@ -17,6 +17,33 @@ struct SteamNativeDialog: Decodable, Equatable, Sendable {
         var enabled: Bool
         var checked: Bool
     }
+    /// Controls are in the original client coordinate space and enumeration
+    /// order. IDs/handles always refer to the still-running Steam window.
+    struct Control: Decodable, Equatable, Sendable {
+        var handle: UInt64
+        var id: UInt32
+        var className: String
+        var text: String
+        var style: UInt32
+        var x: Double
+        var y: Double
+        var width: Double
+        var height: Double
+        var enabled: Bool
+        var tabStop: Bool
+        var password: Bool
+        var isDefault: Bool
+        var checkState: Int
+        var value: Double? = nil
+        var minimum: Double? = nil
+        var maximum: Double? = nil
+        var iconBGRA: String? = nil
+        private enum CodingKeys: String, CodingKey {
+            case handle, id, className, text, style, x, y, width, height, enabled, tabStop, password
+            case checkState, value, minimum, maximum, iconBGRA
+            case isDefault = "default"
+        }
+    }
     var handle: UInt64
     var pid: UInt32
     var title: String
@@ -24,13 +51,18 @@ struct SteamNativeDialog: Decodable, Equatable, Sendable {
     var buttons: [Button]
     var toggles: [Toggle]? = nil
     var canClose: Bool? = nil
+    var clientWidth: Double? = nil
+    var clientHeight: Double? = nil
+    var controls: [Control]? = nil
     var identity: String { "\(pid):\(handle)" }
 
-    static func decode(_ output: String) -> [SteamNativeDialog] {
+    static func decode(_ output: String) -> [SteamNativeDialog] { snapshot(output) ?? [] }
+
+    static func snapshot(_ output: String) -> [SteamNativeDialog]? {
         struct Scan: Decodable { var dialogs: [SteamNativeDialog] }
         guard let line = output.split(separator: "\n").first(where: { $0.hasPrefix("{\"dialogs\":") }),
               let data = String(line).data(using: .utf8),
-              let scan = try? JSONDecoder().decode(Scan.self, from: data) else { return [] }
+              let scan = try? JSONDecoder().decode(Scan.self, from: data) else { return nil }
         return scan.dialogs
     }
 }
@@ -40,12 +72,8 @@ struct SteamNativeDialog: Decodable, Equatable, Sendable {
 @MainActor
 final class NativeSteamDialogs {
     private var monitor: Task<Void, Never>?
-    private var seen: Set<String> = []
-    private var queued: [SteamNativeDialog] = []
-    private var presenting = false
-    private var activeAlert: (String, NSAlert)?
-    private var passivePanels: [String: NSPanel] = [:]
-
+    private var windows: [String: NativeSteamDialogWindow] = [:]
+    private var revision = 0
 
     static var helperURL: URL? {
         Bundle.main.url(forResource: "sevo-steam-ui", withExtension: "exe", subdirectory: "SteamUI")
@@ -61,28 +89,56 @@ final class NativeSteamDialogs {
         monitor = Task(name: "Mirror native Steam dialogs") { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                if shouldScan(), let result = await Self.run(helper, arguments: []), result.status == 0 {
-                    let dialogs = SteamNativeDialog.decode(result.output)
-                    let current = Set(dialogs.map(\.identity))
-                    for identity in self.passivePanels.keys where !current.contains(identity) {
-                        self.passivePanels.removeValue(forKey: identity)?.close()
+                let beforeScan = self.revision
+                if shouldScan(), let result = await Self.run(helper, arguments: []), result.status == 0, beforeScan == self.revision {
+                    if let dialogs = SteamNativeDialog.snapshot(result.output) {
+                        self.synchronize(dialogs, helper: helper)
                     }
-                    if let (identity, alert) = self.activeAlert, !current.contains(identity), NSApp.modalWindow === alert.window {
-                        NSApp.abortModal()
-                        alert.window.orderOut(nil)
-                    }
-                    for dialog in dialogs where !self.seen.contains(dialog.identity) {
-                        if dialog.buttons.isEmpty && dialog.canClose == false {
-                            self.showPassive(dialog)
-                            continue
-                        }
-                        self.queued.append(dialog)
-                        EventLog.shared.log(.client, "native Steam dialog mirrored: \(dialog.title)")
-                    }
-                    self.seen = current
-                    self.presentNext(helper)
                 }
                 try? await Task.sleep(for: .seconds(3))
+            }
+        }
+    }
+
+    private func synchronize(_ dialogs: [SteamNativeDialog], helper: URL) {
+        let current = Set(dialogs.map(\.identity))
+        for identity in Array(windows.keys) where !current.contains(identity) {
+            windows.removeValue(forKey: identity)?.originalDidClose()
+        }
+        for dialog in dialogs {
+            if let existing = windows[dialog.identity] { existing.update(dialog) }
+            else if let window = NativeSteamDialogWindow(dialog: dialog, send: { [weak self] arguments in
+                self?.forward(arguments, helper: helper)
+            }) {
+                windows[dialog.identity] = window
+                EventLog.shared.log(.client, "original Steam dialog hosted with AppKit controls: \(dialog.title)")
+                window.showOriginal()
+            }
+        }
+    }
+
+    private var actionTask: Task<Void, Never>?
+    private func forward(_ arguments: [String], helper: URL) {
+        revision += 1
+        let currentRevision = revision
+        let preceding = actionTask
+        actionTask = Task { [weak self] in
+            await preceding?.value
+            var forwarded = arguments
+            var inputFile: URL?
+            if arguments.count == 6, arguments[0] == "control", arguments[4] == "text" {
+                let file = FileManager.default.temporaryDirectory.appendingPathComponent("sevo-native-input-\(UUID().uuidString).txt")
+                guard let data = arguments[5].data(using: .utf16LittleEndian),
+                      FileManager.default.createFile(atPath: file.path, contents: data, attributes: [.posixPermissions: 0o600]) else { return }
+                inputFile = file
+                forwarded[4] = "text-file"
+                forwarded[5] = SteamBottle.windowsPath(for: file)
+            }
+            defer { if let inputFile { try? FileManager.default.removeItem(at: inputFile) } }
+            _ = await Self.run(helper, arguments: forwarded)
+            if self?.revision == currentRevision, let result = await Self.run(helper, arguments: []), result.status == 0,
+               let dialogs = SteamNativeDialog.snapshot(result.output), self?.revision == currentRevision {
+                self?.synchronize(dialogs, helper: helper)
             }
         }
     }
@@ -95,79 +151,9 @@ final class NativeSteamDialogs {
         }
     }
 
-    private func showPassive(_ dialog: SteamNativeDialog) {
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 150),
-                            styleMask: [.titled], backing: .buffered, defer: false)
-        panel.isReleasedWhenClosed = false
-        panel.title = dialog.title
-        let label = NSTextField(wrappingLabelWithString: dialog.body)
-        label.frame = NSRect(x: 24, y: 24, width: 392, height: 100)
-        label.autoresizingMask = [.width, .height]
-        panel.contentView?.addSubview(label)
-        panel.center()
-        panel.orderFront(nil)
-        passivePanels[dialog.identity] = panel
-    }
-
-    private func presentNext(_ helper: URL) {
-        guard !presenting, !queued.isEmpty else { return }
-        let dialog = queued.removeFirst()
-        guard seen.contains(dialog.identity) else { presentNext(helper); return }
-        presenting = true
-        ModalAlerts.present { [weak self] in
-            let alert = dialog.makeAlert()
-            self?.activeAlert = (dialog.identity, alert)
-            let actions = (dialog.toggles ?? []).map { toggle in
-                NativeDialogToggle(toggle: toggle) {
-                    Task(name: "Click original Steam dialog option") {
-                        _ = await Self.run(helper, arguments: ["answer", String(dialog.handle), String(dialog.pid), String(toggle.id)])
-                    }
-                }
-            }
-            if !actions.isEmpty {
-                let stack = NSStackView(views: actions.map(\.button))
-                stack.orientation = .vertical
-                stack.alignment = .leading
-                alert.accessoryView = stack
-            }
-            let buttons = dialog.presentedButtons
-            let index = alert.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
-            withExtendedLifetime(actions) {}
-            self?.activeAlert = nil
-            if buttons.indices.contains(index) {
-                Task(name: "Answer native Steam dialog") {
-                    _ = await Self.run(helper, arguments: ["answer", String(dialog.handle), String(dialog.pid), String(buttons[index].id)])
-                    self?.presenting = false
-                    self?.presentNext(helper)
-                }
-            } else {
-                self?.presenting = false
-            }
-        }
-    }
 }
 
-@MainActor
 extension SteamNativeDialog {
-    var presentedButtons: [Button] {
-        buttons.isEmpty && canClose != false
-            ? [Button(id: 0, title: String(localized: "Close"))] : buttons
-    }
-
-    func makeAlert() -> NSAlert {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = body
-        for original in presentedButtons {
-            let button = alert.addButton(withTitle: Self.displayTitle(original.title))
-            button.isEnabled = original.enabled ?? true
-            // NSAlert otherwise makes its first button the default, which can
-            // invert a Windows warning whose default is No or Cancel.
-            button.keyEquivalent = original.isDefault == true ? "\r" : original.id == 2 ? "\u{1b}" : ""
-        }
-        return alert
-    }
-
     static func displayTitle(_ title: String) -> String {
         var result = ""
         var characters = title.makeIterator()
@@ -178,21 +164,4 @@ extension SteamNativeDialog {
         }
         return result
     }
-}
-
-@MainActor
-private final class NativeDialogToggle: NSObject {
-    let button: NSButton
-    let action: () -> Void
-    init(toggle: SteamNativeDialog.Toggle, action: @escaping () -> Void) {
-        button = NSButton(checkboxWithTitle: SteamNativeDialog.displayTitle(toggle.title), target: nil, action: nil)
-        if toggle.radio { button.setButtonType(.radio) }
-        button.state = toggle.checked ? .on : .off
-        button.isEnabled = toggle.enabled
-        self.action = action
-        super.init()
-        button.target = self
-        button.action = #selector(clicked)
-    }
-    @objc private func clicked() { action() }
 }
