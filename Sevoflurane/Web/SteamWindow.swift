@@ -667,9 +667,9 @@ final class SteamWindow: NSObject {
         keyboardSwitchObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] notification in
+            let activatedPID = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
             MainActor.assumeIsolated {
-                guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                      app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+                guard let activatedPID, activatedPID != ProcessInfo.processInfo.processIdentifier else { return }
                 self?.cancelPendingKeyboardPress()
             }
         }
