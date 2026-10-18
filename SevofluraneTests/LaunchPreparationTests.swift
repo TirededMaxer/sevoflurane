@@ -57,7 +57,9 @@ struct LaunchPreparationTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let settings = Settings()
 
-        let outcome = await LaunchPreparation.run(within: .seconds(5)) { gate in
+        // This case checks commit/spawn ordering. The short-budget cases below
+        // check timeout policy; concurrent suites may delay worker scheduling.
+        let outcome = await LaunchPreparation.run(within: .seconds(30)) { gate in
             Self.prepare(root: root, settings: settings, delay: 0.2, gate: gate)
         }
 
