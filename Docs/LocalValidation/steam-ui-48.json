@@ -4,7 +4,7 @@
   "exeSHA256": "4f24b583e9f868b2550afbe7961304778834fe5c36d183bef40df3f1c684616c",
   "dmgSHA256": "64f382367ac54ea627cd4dfa4d67d26d6f3fb24299d0f11fb1fe70b6fb72d1c6",
   "source": "524434d25dfbdf11b7de18d058617d16e6fbdf68",
-  "recordedUTC": "2026-10-18T14:32:16.047991+00:00",
+  "recordedUTC": "2026-10-18T14:46:22.147755+00:00",
   "cloud": {
     "run": 39134201885,
     "attempt": 2,
@@ -27,15 +27,50 @@
       "protocol": 2,
       "exitStatus": 0,
       "actualLegacyDialogTested": false
+    },
+    "signedIn": true,
+    "originalOverlay": {
+      "userConfirmedVisible": true,
+      "userConfirmedClosedAtCS2MainMenu": true,
+      "nativeGameBrowserCount": 1,
+      "hostedGameBrowserCount": 0,
+      "nativeGameNotificationPosition": {
+        "position": 3,
+        "meaning": "BottomRight",
+        "horizontalInset": 0,
+        "verticalInset": 0
+      }
+    },
+    "ordinaryNotification": {
+      "test": "original local TestFriendIngame with identical original serialized notification delivered to both realms",
+      "outgoingFriendOrChatMessageSent": false,
+      "userConfirmedOneBottomRightToastAndNoBottomLeftReplay": true,
+      "latestTestNotificationID": 10004,
+      "latestTestType": 3,
+      "hostedOriginalQueuePops": [
+        {
+          "id": 10004,
+          "type": 3,
+          "source": 1,
+          "context": 0
+        }
+      ],
+      "nativeOriginalQueuePops": [],
+      "temporaryQueueCountersRestored": true
     }
   },
   "pending": [
-    "single ordinary toast above CS2 with no native replay",
-    "original overlay automatic browser ownership",
-    "game-only notification position",
     "actual legacy Steam error visual acceptance"
   ],
   "files": {
-    "libcef.sha256": "45927f2baff5479aef1513af2fa7311a84a27d71b4bf72b47556824408385874"
+    "activeCEF": {
+      "path": "bin/cef/cef.win64/libcef.dll",
+      "sha256": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+      "unchangedFromBuild47": true
+    },
+    "legacyCEF": {
+      "path": "bin/cef/cef.win7x64/libcef.dll",
+      "sha256": "45927f2baff5479aef1513af2fa7311a84a27d71b4bf72b47556824408385874"
+    }
   }
 }
