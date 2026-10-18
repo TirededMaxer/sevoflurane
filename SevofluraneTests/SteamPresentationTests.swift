@@ -298,3 +298,53 @@ private final class DocumentZoom: NSObject, NSWindowDelegate {
     init(frame: NSRect) { self.frame = frame }
     func windowWillUseStandardFrame(_: NSWindow, defaultFrame: NSRect) -> NSRect { frame }
 }
+
+/// Exercise the shipped shim itself. The fixture never connects to Steam;
+/// only namespace enumeration and feature detection are under test.
+@MainActor
+struct SteamClientShapeTests {
+    @Test
+    func aClientProvidedBrowserViewRemainsOneEnumerableNamespace() async throws {
+        let web = try await load(shape: #"{"BrowserView":{"Create":1},"Apps":{"RunGame":1},"WebChat":{"RegisterOverlayChatBrowserInfoChanged":1}}"#)
+        #expect(try await web.evaluateJavaScript("Object.keys(SteamClient)") as? [String] == ["BrowserView", "Apps", "WebChat"])
+        #expect(try await web.evaluateJavaScript("Reflect.ownKeys(SteamClient)") as? [String] == ["BrowserView", "Apps", "WebChat"])
+        #expect(try await web.evaluateJavaScript("typeof SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") as? String == "function")
+    }
+
+    @Test
+    func aHostBrowserViewIsAddedOnceWithoutInventingClientFeatures() async throws {
+        let web = try await load(shape: #"{"Apps":{"RunGame":1},"System":{"OpenInSystemBrowser":1}}"#)
+        #expect(try await web.evaluateJavaScript("Object.keys(SteamClient)") as? [String] == ["Apps", "System", "BrowserView"])
+        #expect(try await web.evaluateJavaScript("typeof SteamClient.Apps.RunGame") as? String == "function")
+        #expect(try await web.evaluateJavaScript("typeof SteamClient.WebChat") as? String == "undefined")
+        #expect(try await web.evaluateJavaScript("typeof SteamClient.System.Audio") as? String == "undefined")
+    }
+
+    private func load(shape: String) async throws -> WKWebView {
+        let url = try #require(Bundle.main.url(forResource: "steamclient_shim", withExtension: "js"))
+        let shim = try String(contentsOf: url, encoding: .utf8)
+            .replacingOccurrences(of: "%PAGE_PORT%", with: "8761")
+            .replacingOccurrences(of: "%STEAM_HOSTS%", with: "[]")
+        let web = WKWebView()
+        web.loadHTMLString("""
+        <script>
+        window.__sevoShape=\(shape);
+        window.SteamUIStore={WindowStore:{MainWindowInstance:{}}};
+        window.collectionStore={allAppsCollection:{}};
+        window.WebSocket=class {
+          constructor(){this.readyState=0;this.bufferedAmount=0;}
+          send(){} close(){this.readyState=3;} addEventListener(){} removeEventListener(){}
+        };
+        WebSocket.CONNECTING=0;WebSocket.OPEN=1;WebSocket.CLOSING=2;WebSocket.CLOSED=3;
+        \(shim)
+        window.fixtureReady=true;
+        </script>
+        """, baseURL: nil)
+        for _ in 0..<80 {
+            if (try? await web.evaluateJavaScript("window.fixtureReady===true")) as? Bool == true { return web }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        _ = try #require((try? await web.evaluateJavaScript("window.fixtureReady===true")) as? Bool == true)
+        return web
+    }
+}

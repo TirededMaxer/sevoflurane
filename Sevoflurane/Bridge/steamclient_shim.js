@@ -563,7 +563,9 @@
     },
     has: function (t, prop) { return prop === "BrowserView" || prop in forwarded; },
     ownKeys: function () {
-      return Object.keys(window.__sevoShape || {}).concat(["BrowserView"]);
+      // Newer clients expose BrowserView themselves. A Proxy ownKeys list
+      // must stay unique even when a host-owned namespace is in that shape.
+      return Array.from(new Set(Object.keys(window.__sevoShape || {}).concat(["BrowserView"])));
     },
     getOwnPropertyDescriptor: function () {
       return { enumerable: true, configurable: true };
