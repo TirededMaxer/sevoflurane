@@ -8,8 +8,8 @@ out="$RUNNER_TEMP/sevo-output"
 mkdir -p "$work" "$out"
 export SEVO_EMBED_ENGINE=0
 # Compile the small Win32 UI bridge from source on this fresh runner.
-if ! brew --prefix llvm >/dev/null 2>&1; then brew install llvm; fi
-if ! brew --prefix lld >/dev/null 2>&1; then brew install lld; fi
+if [[ ! -x "$(brew --prefix llvm)/bin/llvm-dlltool" ]]; then brew install llvm; fi
+if [[ ! -x "$(brew --prefix lld)/bin/lld-link" ]]; then brew install lld; fi
 bash Tools/steam-ui/build-cloud.sh
 xcodebuild -version | tee "$out/toolchain.txt"
 sw_vers >> "$out/toolchain.txt"
