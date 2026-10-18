@@ -65,7 +65,7 @@ extension SteamWindow {
     /// Steam renders the content and animation; AppKit supplies screen coordinates.
     func placeToast(_ window: NSWindow) {
         let screen = host?.desktop?.nsWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
-        guard let visible = screen?.visibleFrame else { return }
+        guard let visible = host?.toastViewport ?? screen?.visibleFrame else { return }
         window.setFrameOrigin(Self.toastOrigin(size: window.frame.size, visibleFrame: visible))
     }
 
@@ -163,7 +163,11 @@ extension SteamWindow {
     /// attached has no screen at all, and Steam is answered with a nominal
     /// 1920×1080 one.
     private var measuredScreen: (frame: NSRect, visible: NSRect, scale: CGFloat) {
-        if let screen = window?.screen ?? NSScreen.main ?? NSScreen.screens.first {
+        let viewport = (role == .context || role == .toast) ? host?.toastViewport : nil
+        let gameScreen = viewport.flatMap { viewport in
+            NSScreen.screens.first { $0.frame.contains(CGPoint(x: viewport.midX, y: viewport.midY)) }
+        }
+        if let screen = gameScreen ?? window?.screen ?? NSScreen.main ?? NSScreen.screens.first {
             return (screen.frame, screen.visibleFrame, screen.backingScaleFactor)
         }
         let nominal = NSRect(x: 0, y: 0, width: 1920, height: 1080)
@@ -203,6 +207,7 @@ extension SteamWindow {
         return Self.monitorDimensions(
             frame: screen.frame, visibleFrame: screen.visible,
             scale: screen.scale, flipLine: SteamScreenSpace.flipLine,
+            presentationViewport: (role == .context || role == .toast) ? host?.toastViewport : nil,
         ).mapValues { $0 as Any }
     }
 
@@ -211,8 +216,11 @@ extension SteamWindow {
     /// MoveTo then receives logical coordinates, matching AppKit points.
     nonisolated static func monitorDimensions(
         frame: CGRect, visibleFrame: CGRect, scale: CGFloat, flipLine: CGFloat,
+        presentationViewport: CGRect? = nil,
     ) -> [String: CGFloat] {
-        [
+        let frame = presentationViewport ?? frame
+        let visibleFrame = presentationViewport ?? visibleFrame
+        return [
             "flHorizontalScale": scale,
             "flVerticalScale": scale,
             "nFullLeft": frame.minX * scale,

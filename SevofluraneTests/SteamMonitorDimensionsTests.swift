@@ -80,6 +80,45 @@ struct SteamMonitorDimensionsTests {
         try expect(context, ["hidden": 2, "sounds": 2, "toasts[0].m_eState": 4, "toasts[1].m_eState": 4])
     }
 
+    @Test(arguments: [1.0, 2.0])
+    func gameToastUsesTheWholeCanvasWithoutReservingTheDock(_ scale: Double) throws {
+        let game = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let raw = SteamWindow.monitorDimensions(
+            frame: game, visibleFrame: CGRect(x: 0, y: 68, width: 1512, height: 889),
+            scale: CGFloat(scale), flipLine: 982, presentationViewport: game,
+        )
+        let context = try page(raw)
+        context.evaluateScript(Self.animationEnvironment + "\n" + Self.originalToastAnimation)
+        context.evaluateScript("var toasts=[makeToast()];tick(0,{position:3,horizontalInset:0,verticalInset:0});tick(300,{position:3,horizontalInset:0,verticalInset:0})")
+        try expect(context, [
+            "monitor.m_usable.m_nTop": 0, "monitor.m_usable.m_nHeight": 982,
+            "toasts[0].m_nLastX": 1229, "toasts[0].m_nLastY": 902,
+            "shown": 1, "sounds": 1,
+        ])
+        // The unmodified animation lands the 80-point toast exactly on the
+        // game edge, rather than 68 points above it to reserve the Dock.
+        let y = try #require(context.evaluateScript("toasts[0].m_nLastY")).toDouble()
+        #expect(982 - y - 80 == 0)
+    }
+
+    @Test(arguments: [1.0, 2.0])
+    func windowedGameToastFollowsItsCanvasOnAnotherDisplay(_ scale: Double) throws {
+        let game = CGRect(x: -1200, y: 100, width: 900, height: 650)
+        let raw = SteamWindow.monitorDimensions(
+            frame: CGRect(x: -1440, y: 0, width: 1440, height: 1080),
+            visibleFrame: CGRect(x: -1440, y: 68, width: 1440, height: 987),
+            scale: CGFloat(scale), flipLine: 1080, presentationViewport: game,
+        )
+        let context = try page(raw)
+        context.evaluateScript(Self.animationEnvironment + "\n" + Self.originalToastAnimation)
+        context.evaluateScript("var toasts=[makeToast()];tick(0,{position:3,horizontalInset:0,verticalInset:0});tick(300,{position:3,horizontalInset:0,verticalInset:0})")
+        try expect(context, [
+            "monitor.m_usable.m_nLeft": -1200, "monitor.m_usable.m_nTop": 330,
+            "monitor.m_usable.m_nWidth": 900, "monitor.m_usable.m_nHeight": 650,
+            "toasts[0].m_nLastX": -583, "toasts[0].m_nLastY": 900,
+        ])
+    }
+
     private func page(_ raw: [String: CGFloat]) throws -> JSContext {
         let context = try #require(JSContext())
         context.setObject(raw.mapValues { Double($0) }, forKeyedSubscript: "nativeMonitor" as NSString)
@@ -114,7 +153,7 @@ struct SteamMonitorDimensionsTests {
       m_popup:{SteamClient:{Window:{MoveTo:function(x,y,s){moves.push([x,y,s]);},
         ShowWindow:function(){shown++;},HideWindow:function(){hidden++;}}}}
     };}
-    function tick(t){now=t;$(toasts,monitor,{position:3,horizontalInset:12,verticalInset:18});}
+    function tick(t,position){now=t;$(toasts,monitor,position||{position:3,horizontalInset:12,verticalInset:18});}
     """#
 
     private static let originalToastAnimation = #"""

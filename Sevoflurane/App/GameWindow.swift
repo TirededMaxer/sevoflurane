@@ -19,7 +19,7 @@ enum GameWindow {
     /// The largest on-screen, normal-level window owned by a game process — the
     /// same test `GameLaunchWatch` uses to decide "a game is up", plus the
     /// geometry. `nil` when no game window is on screen.
-    static func current() -> [String: Any]? {
+    static func current(ownedBy ownerPID: pid_t? = nil) -> [String: Any]? {
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]]
         else { return nil }
@@ -27,9 +27,13 @@ enum GameWindow {
         let sorted = list.sorted { area(of: $0) > area(of: $1) }
         let sessions = NativeSessions.live()
         for entry in sorted {
-            guard entry[kCGWindowLayer as String] as? Int == 0,
+            // Wine raises a fullscreen game above the menu bar (layer 26).
+            // A foreground-PID query must include it; the generic launch
+            // inventory keeps its existing normal-window filter.
+            guard ownerPID != nil || entry[kCGWindowLayer as String] as? Int == 0,
                   let ownerName = entry[kCGWindowOwnerName as String] as? String,
                   let pid = entry[kCGWindowOwnerPID as String] as? pid_t,
+                  ownerPID == nil || pid == ownerPID,
                   let id = entry[kCGWindowNumber as String] as? Int,
                   let boundsDict = entry[kCGWindowBounds as String] as? [String: Any],
                   let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary)
@@ -57,6 +61,19 @@ enum GameWindow {
             ]
         }
         return nil
+    }
+
+    /// Notification geometry follows the game actually in front, never a
+    /// larger game left running behind another application. CGWindow bounds
+    /// use Steam's top-left screen convention.
+    @MainActor
+    static func frontmostGameFrame() -> CGRect? {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              let game = current(ownedBy: pid),
+              let frame = game["frame_points"] as? [String: CGFloat],
+              let x = frame["x"], let y = frame["y"],
+              let width = frame["w"], let height = frame["h"] else { return nil }
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 
     private static func rect(_ r: CGRect) -> [String: CGFloat] {

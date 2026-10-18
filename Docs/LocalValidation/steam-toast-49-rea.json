@@ -1,0 +1,85 @@
+{
+  "recordedUTC": "2026-10-18T14:57:32.161037+00:00",
+  "tool": "REA CLI rea-agents@6.5.0",
+  "staticEvidence": [
+    {
+      "id": "ev_52a027d0fd8e071367f1b5988054f048912bffe95877854323043762023795ad",
+      "sourcePaths": [
+        "module-15148.js",
+        "module-71391.js"
+      ]
+    },
+    {
+      "id": "ev_29f8af957601ac295d8b9ab1f8d5124aebfff46b4cc92895b891bde22d0a7580",
+      "sourcePaths": [
+        "module-25625.js"
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "/Users/mac/Library/Application Support/CrossOver/Bottles/Steam/drive_c/Program Files (x86)/Steam/steamui/sp.js",
+    "sourceSHA256": "5a28c25041d07e69cf591a414519e0cf970b6884c1a0106659dcd9f1fb9586f9",
+    "method": "inert Babel AST exact original function byte-range extraction; no target code executed",
+    "modules": [
+      {
+        "module": 71391,
+        "startByte": 12017394,
+        "endByte": 12020436,
+        "sha256": "ec936e07bf8b2a3610f53a909131018819fd98b51e37facfe124a66588731a8a",
+        "file": "module-71391.js"
+      },
+      {
+        "module": 7474,
+        "startByte": 12254591,
+        "endByte": 12304639,
+        "sha256": "2d0c8acd688f43f00e33b8ae408bf6ff5de76420564fd06e2de8db4598029ea4",
+        "file": "module-7474.js"
+      },
+      {
+        "module": 15148,
+        "startByte": 14273012,
+        "endByte": 14290003,
+        "sha256": "ba0c4969f01f8c4431fece4c9c0d52968c22d800b598e6b83dd31629cf058831",
+        "file": "module-15148.js"
+      },
+      {
+        "module": 25625,
+        "functionSHA256": "b70d8c9aea4c15b011b83919ff6f47b42d2ad4ac7b14470c9990dee5780808b8",
+        "purpose": "original desktop work-area versus complete game-canvas selection"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "module": 25625,
+      "export": "hi",
+      "observed": "The original desktop path uses OSWindows.GetDefaultMonitorDimensions(); the original overlay path sets both m_usable and m_full to the game canvas nScreenWidth/nScreenHeight with flDisplayScale."
+    },
+    {
+      "module": 15148,
+      "function": "$",
+      "observed": "The original toast animation computes each stack position from m_usable and NotificationPosition; default original horizontal/vertical insets are zero."
+    },
+    {
+      "module": 71391,
+      "observed": "Default monitor metadata divides nFull/nUsable physical coordinates by flHorizontalScale/flVerticalScale; display_changed re-queries the binding."
+    }
+  ],
+  "userFeedback": {
+    "build": 48,
+    "singleToastNoDuplicate": true,
+    "foregroundCS2ToastGap": "reserved Dock-height gap above game bottom"
+  },
+  "change": "Present the actual frontmost game canvas through the host monitor binding; retain original toast document, queue, animation and sound. Ordinary desktop work area remains unchanged.",
+  "limits": [
+    "Static REA source analysis does not prove execution. Source selection is limited to the named modules; native CEF/WebKit rendering is outside this AST analysis.",
+    "Build 49 runtime and visual acceptance pending.",
+    "Windowed-game client-area chrome may require further measurement; current target is the reported fullscreen CS2 gap."
+  ],
+  "overlayFeasibility": {
+    "status": "not disproven; native-painter/consumer resource handoff remains unimplemented",
+    "build30": "snapshot producer median cadence about 85.5 ms, unsuitable for smooth original behavior",
+    "build47": "hook loaded but no actual game CPU/GPU paint delivery; native browser-info callback ownership caused invisibility in control as well",
+    "nextBoundedExperiment": "Observe real nonzero original overlay painter callbacks without changing callback ownership; only then test original shared-resource consumer handoff. No new overlay experiment enabled."
+  }
+}

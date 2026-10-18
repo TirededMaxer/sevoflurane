@@ -121,6 +121,7 @@ final class SteamWindow: NSObject {
     func realize() {
         guard window == nil, role != .context, !usesOriginalGameOverlay else { return }
 
+        if role == .toast { host?.refreshToastViewport() }
         let content = NSRect(origin: .zero, size: requestedSize)
         let window = makeWindow(content: content)
         window.delegate = self

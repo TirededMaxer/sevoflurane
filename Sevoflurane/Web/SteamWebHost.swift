@@ -117,8 +117,6 @@ final class SteamWebHost {
     /// The menu-bar mirror, refreshed when the desktop window comes up.
     @ObservationIgnored weak var menuMirror: SteamMenuMirror?
 
-    /// Where Steam's notifications are re-posted as the Mac's.
-
     /// How many conversations are waiting, as Steam itself counts them.
     ///
     /// Steam's friends UI computes this and posts it to the client on every
@@ -345,6 +343,7 @@ final class SteamWebHost {
     @ObservationIgnored var energyUpdate: Task<Void, Never>?
     /// The game's first window is up (``GameLaunchWatch``) — story over.
     func gameWindowDidAppear() {
+        refreshToastViewport()
         guard activeLaunch != nil else { return }
         launchClear?.cancel()
         activeLaunch = nil
@@ -400,6 +399,9 @@ final class SteamWebHost {
     @ObservationIgnored var context: SteamWindow?
     @ObservationIgnored var contextWindow: NSWindow?
     @ObservationIgnored var popups: [ObjectIdentifier: SteamWindow] = [:]
+    /// The foreground game canvas in AppKit points; nil means the desktop.
+    @ObservationIgnored var toastViewport: CGRect?
+    @ObservationIgnored var toastPlacementObserversInstalled = false
     @ObservationIgnored var nativeDialogModal = false
     @ObservationIgnored var nativeDialogMouseStates = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
     @ObservationIgnored var coordinator: SteamWebCoordinator?
@@ -417,6 +419,7 @@ final class SteamWebHost {
         guard context == nil else { return }
         installMenuDismissalGuard()
         installEnergyPreferenceMirror()
+        installToastPlacementObservers()
         applyUserStyles()
         createContextPage()
     }
