@@ -442,6 +442,8 @@ final class SteamWebHost {
         createContextPage()
     }
 
+    @ObservationIgnored private var contextBootTask: Task<Void, Never>?
+
     private func createContextPage() {
         let coordinator = SteamWebCoordinator(host: self)
         self.coordinator = coordinator
@@ -498,7 +500,28 @@ final class SteamWebHost {
         PerfProbe.poi.emitEvent("PageBoot")
         EventLog.shared.log(.page, "booting the Steam UI from \(Self.uiURL.absoluteString)")
         loggedRefusals = []
-        webView.load(URLRequest(url: Self.uiURL))
+        loadContextPage(webView)
+    }
+
+    /// Establish the sole general-toast owner before a second Steam root
+    /// exists. A toast already active in CEF finishes through its original
+    /// dismissal path; the policy reports draining until React releases it.
+    private func loadContextPage(_ webView: WKWebView) {
+        contextBootTask?.cancel()
+        contextBootTask = Task(name: "Hand off original Steam notifications") { [weak self, weak webView] in
+            let result = await ClientLifecycle.installInClientUI(
+                SteamPresentation.originalGameToastOwnershipScript,
+                settledAt: ["installed", "already installed"], attempts: 30,
+            )
+            guard !Task.isCancelled, let self, let webView, self.context?.webView === webView else { return }
+            self.contextBootTask = nil
+            EventLog.shared.log(.client, "notification handoff before page boot: \(result)")
+            guard result == "installed" || result == "already installed" else {
+                self.status = "Steam notification handoff failed"
+                return
+            }
+            webView.load(URLRequest(url: Self.uiURL))
+        }
     }
 
     func reload() {
@@ -511,7 +534,7 @@ final class SteamWebHost {
         desktopShowIsPending = wasShowingDesktop
         status = "reloading"
         loggedRefusals = []
-        context?.webView.load(URLRequest(url: Self.uiURL))
+        if let webView = context?.webView { loadContextPage(webView) }
     }
 
     /// Brings every Steam window in line with a changed ``StreamerMode``.

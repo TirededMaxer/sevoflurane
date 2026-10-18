@@ -8,13 +8,19 @@ import Testing
 @MainActor
 struct ModalAlertsTests {
     /// A window nobody sees, run modal for a moment in place of an alert.
-    private static func runBriefModal() {
+    private static func runBriefModal(until workRan: @escaping @MainActor () -> Bool) {
         let window = NSWindow(
             contentRect: NSRect(x: -10000, y: -10000, width: 10, height: 10),
             styleMask: [.borderless], backing: .buffered, defer: false,
         )
-        let timer = Timer(timeInterval: 0.3, repeats: false) { _ in
-            MainActor.assumeIsolated { NSApp.abortModal() }
+        let deadline = ContinuousClock.now + .seconds(3)
+        let timer = Timer(timeInterval: 0.01, repeats: true) { timer in
+            MainActor.assumeIsolated {
+                if workRan() || ContinuousClock.now >= deadline {
+                    timer.invalidate()
+                    NSApp.abortModal()
+                }
+            }
         }
         RunLoop.main.add(timer, forMode: .modalPanel)
         NSApp.runModal(for: window)
@@ -28,7 +34,7 @@ struct ModalAlertsTests {
                 var actor = false
                 DispatchQueue.main.async { queue = true }
                 Task { @MainActor in actor = true }
-                Self.runBriefModal()
+                Self.runBriefModal { queue && actor }
                 continuation.resume(returning: (queue, actor))
             }
         }

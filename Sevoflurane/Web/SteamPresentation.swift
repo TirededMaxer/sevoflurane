@@ -78,10 +78,12 @@ nonisolated enum SteamPresentation {
     /// own clear operation; keep its tray, callbacks, settings and modal logic.
     static let originalGameToastOwnershipScript = """
     (function () {
-      if (window.__sevoGameToastOwnership) return "already installed";
       var store = window.NotificationStore;
+      if (window.__sevoGameToastOwnership)
+        return store.BAnyContextRenderingToasts() ? "draining" : "already installed";
       if (!store || !Array.isArray(store.m_rgNotificationToasts)
           || !store.m_mapAppOverlayToasts
+          || typeof store.BAnyContextRenderingToasts !== "function"
           || typeof store.ClearAllToastNotifications !== "function"
           || typeof store.DispatchNextToast !== "function"
           || typeof store.PopNextToastNotification !== "function"
@@ -119,7 +121,9 @@ nonisolated enum SteamPresentation {
       }
       window.__sevoGameToastOwnership = true;
       store.ClearAllToastNotifications();
-      return "installed";
+      // Clear does not dismiss an item already popped into React's active
+      // list. Let that original animation finish before WebKit starts.
+      return store.BAnyContextRenderingToasts() ? "draining" : "installed";
     })()
     """
 

@@ -92,7 +92,7 @@ struct SteamPresentationTests {
           SetNotificationPosition:function(p,x,y){this.NotificationPosition={position:p,horizontalInset:x,verticalInset:y};}};
         window.SteamUIStore={WindowStore:{m_mapOverlayPopupByPID:new Map([[1,first]])}};
         window.SteamClient={Overlay:{RegisterForNotificationPositionChanged:function(){nativeRegistrations++;}}};
-        window.fixtureReady=true;
+        window.ready=true;
         </script>
         """, baseURL: nil)
         try await ready(web)
@@ -290,16 +290,14 @@ struct SteamClientShapeTests {
     func gameBrowserSubscriptionsStayWithOriginalSteam() async throws {
         let messages = BrowserViewReports()
         let web = try await load(shape: #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1}}"#, messages: messages)
-        let result = try await web.evaluateJavaScript("""
-        (async function(){
+        let result = try await web.callAsyncJavaScript("""
           var a=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(function(){throw Error('wrong renderer')});
           var b=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(function(){throw Error('wrong renderer')});
           a.unregister();b.unregister();
           var info=await SteamClient.Overlay.GetOverlayBrowserInfo();
           var chats=await SteamClient.WebChat.GetOverlayChatBrowserInfo();
           return JSON.stringify({info:info,chats:chats,forwarded:window.sentCommands});
-        })()
-        """) as? String
+        """, arguments: [:], in: nil, contentWorld: .page) as? String
         #expect(result == #"{"info":[],"chats":[],"forwarded":[]}"#)
     }
 
@@ -307,15 +305,13 @@ struct SteamClientShapeTests {
     func desktopToastContextNeverRegistersForNativeGameFocus() async throws {
         let messages = BrowserViewReports()
         let web = try await load(shape: #"{"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#, messages: messages)
-        let result = try await web.evaluateJavaScript("""
-        (async function(){
+        let result = try await web.callAsyncJavaScript("""
           var focus=[];
           var a=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(app,pid){focus.push([app,pid]);});
           var b=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(){throw Error('unregistered callback')});
           b.unregister();await Promise.resolve();a.unregister();
           return JSON.stringify({focus:focus,forwarded:window.sentCommands});
-        })()
-        """) as? String
+        """, arguments: [:], in: nil, contentWorld: .page) as? String
         #expect(result == #"{"focus":[[0,0]],"forwarded":[]}"#)
     }
 

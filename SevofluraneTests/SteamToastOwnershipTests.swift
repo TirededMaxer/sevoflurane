@@ -59,12 +59,26 @@ struct SteamToastOwnershipTests {
         try check(context, "JSON.stringify(shown)==='[1,2,3,4,5,6]' && desktop.sounds.length===6 && NotificationStore.m_rgNotificationToasts.length===0")
     }
 
+    @Test
+    func activeOriginalToastMustFinishBeforeWebKitCanBoot() throws {
+        let context = try fixture()
+        context.evaluateScript("NotificationStore.active=true;NotificationStore.m_rgNotificationToasts.push({notificationID:8})")
+        #expect(context.evaluateScript(SteamPresentation.originalGameToastOwnershipScript)?.toString() == "draining")
+        try check(context, "NotificationStore.active && NotificationStore.m_rgNotificationToasts.length===0")
+        // Clearing the pending queue cannot pretend that React's local toast
+        // state has closed. Repeated handoff checks wait for original dismiss.
+        #expect(context.evaluateScript(SteamPresentation.originalGameToastOwnershipScript)?.toString() == "draining")
+        context.evaluateScript("NotificationStore.active=false")
+        #expect(context.evaluateScript(SteamPresentation.originalGameToastOwnershipScript)?.toString() == "already installed")
+    }
+
     private func fixture() throws -> JSContext {
         let context = try #require(JSContext())
         context.evaluateScript("""
         var window=this;
         function makeStore(){return {
-          m_rgNotificationToasts:[],m_mapAppOverlayToasts:new Map(),tray:[],sounds:[],current:null,
+          m_rgNotificationToasts:[],m_mapAppOverlayToasts:new Map(),tray:[],sounds:[],current:null,active:false,
+          BAnyContextRenderingToasts:function(){return this.active},
           // Queue behavior from Steam sp.js module 7474. The presentation
           // adapter must preserve its per-app priority and general FIFO.
           PopNextToastNotification:function(oe){if(oe){let Te=this.m_mapAppOverlayToasts.get(oe);if(Te&&Te.length>0)return Te.shift()}if(this.m_rgNotificationToasts.length===0)return;let Te=this.m_rgNotificationToasts.shift();return this.DispatchNextToast(),Te},
