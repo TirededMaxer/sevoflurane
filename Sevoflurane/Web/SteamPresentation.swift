@@ -73,14 +73,15 @@ nonisolated enum SteamPresentation {
         return """
         (function () {
           if (window.__sevoOriginalAppearance) return "already installed";
-          function style(win) {
+          function style(win, name) {
             try {
               if (!win || win === window || win.closed) return;
+              var kind = String(name || win.name || "").indexOf("notificationtoasts") === 0 ? "toast" : "game";
               var doc = win.document;
               function apply() {
                 if (!doc.documentElement) return;
-                if (doc.documentElement.getAttribute("data-sevo-macos-ui") !== "game")
-                  doc.documentElement.setAttribute("data-sevo-macos-ui", "game");
+                if (doc.documentElement.getAttribute("data-sevo-macos-ui") !== kind)
+                  doc.documentElement.setAttribute("data-sevo-macos-ui", kind);
                 if (doc.head && !doc.getElementById("sevo-macos-presentation")) {
                   var node = doc.createElement("style");
                   node.id = "sevo-macos-presentation";
@@ -100,12 +101,12 @@ nonisolated enum SteamPresentation {
           }
           function scan() {
             var map = window.g_PopupManager && g_PopupManager.m_mapPopups;
-            if (map) map.forEach(function (record) { style(record && record.m_popup); });
+            if (map) map.forEach(function (record) { style(record && record.m_popup, record && record.m_strName); });
           }
           var open = window.open;
           window.open = function () {
             var result = open.apply(this, arguments);
-            style(result);
+            style(result, arguments[1]);
             return result;
           };
           window.__sevoOriginalAppearance = true;

@@ -120,7 +120,9 @@ nonisolated enum SteamWindowRole {
     /// the desktop, however ordinary its name looks.
     static func instanceUID(ofPopupNamed popupName: String) -> Int {
         guard let range = popupName.range(of: "_uid", options: .backwards) else { return 0 }
-        return Int(popupName[range.upperBound...]) ?? 0
+        // Steam toasts append the notification id after the game id:
+        // notificationtoasts_uid730-123. Match the numeric instance prefix.
+        return Int(popupName[range.upperBound...].prefix(while: { $0.isNumber })) ?? 0
     }
 
     /// Steam renders these pages inside the game. They must never acquire a

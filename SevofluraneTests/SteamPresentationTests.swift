@@ -10,7 +10,7 @@ struct SteamPresentationTests {
         let host = SteamWebHost()
         for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730", "friendslist_uid730",
                      "chat_ChatWindow_1_uid730", "contextmenu_4_uid730", "PopupWindow_warning_uid730",
-                     "new_steam_game_panel_uid730", "notificationtoasts_1_gameoverlay"] {
+                     "new_steam_game_panel_uid730", "notificationtoasts_1_gameoverlay", "notificationtoasts_uid730-123"] {
             let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
                                     name: name, size: CGSize(width: 400, height: 300), origin: nil, host: host)
             host.windowDidAdopt(popup)
@@ -90,6 +90,22 @@ struct SteamPresentationTests {
         #expect(try await web.evaluateJavaScript("JSON.stringify(forwarded)") as? String == #"[{"receiver":true,"args":["about:blank","friendslist_uid730","width=400"]}]"#)
         #expect(try await web.evaluateJavaScript("handle.document.documentElement.getAttribute('data-sevo-macos-ui')") as? String == "game")
         #expect(try await web.evaluateJavaScript(SteamPresentation.originalClientScript) as? String == "already installed")
+    }
+
+    @Test
+    func toastWindowFollowsOriginalAnimationCoordinates() throws {
+        let popup = SteamWindow(webView: WKWebView(), role: .toast, name: "notificationtoasts_1_desktop",
+                                size: CGSize(width: 360, height: 90), origin: nil, host: nil)
+        popup.realize()
+        defer { popup.detach(reason: .pageTeardown) }
+        let window = try #require(popup.nsWindow)
+        _ = popup.perform("MoveTo", [100, 200, 1])
+        let first = window.frame.origin
+        #expect(first == SteamScreenSpace.appKitOrigin(steamX: 100, steamY: 200, size: window.frame.size))
+        _ = popup.perform("MoveTo", [100, 230, 1])
+        #expect(window.frame.origin.y == first.y - 30)
+        popup.show(activating: false)
+        #expect(window.frame.origin.y == first.y - 30)
     }
 
     @Test

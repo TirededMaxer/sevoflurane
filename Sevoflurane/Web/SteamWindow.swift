@@ -546,7 +546,7 @@ final class SteamWindow: NSObject {
         guard role.isShowable else { return }
         guard let window else { return }
         if role == .toast {
-            placeToast(window)
+            if requestedOrigin == nil { placeToast(window) }
             window.orderFrontRegardless()
             return
         }

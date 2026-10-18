@@ -74,9 +74,9 @@ extension SteamWindow {
         NSPoint(x: visibleFrame.maxX - size.width - 12, y: visibleFrame.minY + 12)
     }
 
-    /// Steam’s toast animation computes against an unavailable CEF screen
-    /// edge. Keep its panel at the app’s bottom-right anchor instead.
-    var ownsScreenPlacement: Bool { role == .toast }
+    /// Steam owns toast placement and each animation step. Coordinates are
+    /// translated by moveTo; the bottom-right anchor is only an initial fallback.
+    var ownsScreenPlacement: Bool { false }
 
     /// The largest side AppKit gives a window; a larger request gets this.
     nonisolated static let maximumSide: CGFloat = 10000
@@ -120,7 +120,7 @@ extension SteamWindow {
         window.setContentSize(requestedSize)
         window.setFrameTopLeftPoint(topLeft)
         if role.needsAReachableFrame, !hasBeenShown { restoreForOpening(window) }
-        if role == .toast { placeToast(window) }
+        if role == .toast, requestedOrigin == nil { placeToast(window) }
     }
 
     /// Places a menu against the window that opened it.
