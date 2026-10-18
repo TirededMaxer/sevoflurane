@@ -29,3 +29,7 @@
 候选通过云构建后临时下载，核验 SHA-256、签名及版本，正常退出后替换本地应用；不替换容器和引擎。真实组件验收通过后，工作流创建草稿、核验远端资产及回下载哈希，再发布并删除旧 Release。仅保留一个最新 Release；保留 Git 标签和提交历史。临时包安装后删除。
 
 正式包使用逐层 ad-hoc 签名及 hardened runtime，保留麦克风 capability，不含测试包和商业引擎。云端测试宿主仅为加载测试包而关闭 hardened runtime。此 fork 不修改 macOS TCC。
+
+## 原版 painter 实验（构建 43）
+
+`Tools/overlay-painter` 提供显式安装/恢复的 CEF 实验工具，默认不启用。固定本机 CEF 的 SHA、222 项导出及 API 哈希；透传定制十参数 CPU 绘制回调，保留滚动位置和页面缩放。可观测原 CPU/GPU 路径，显式请求时将一张 WebKit 测试卡交给原 CPU painter。原合成、快捷键、焦点和输入不重建。单帧 snapshot 只用于验证消费者边界，未实现持续 WebKit 输出、GPU 资源互操作或完整输入接入，不等于完整游戏内 WebKit 方案。此候选须实机验证，不发布正式 Release。

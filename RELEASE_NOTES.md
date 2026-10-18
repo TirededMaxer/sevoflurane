@@ -1,4 +1,6 @@
-本机验证候选：1.7.0-fork.5（构建 42）。完成真实组件验收前不发布公开 Release。
+本机验证候选：1.7.0-fork.5（构建 43）。完成真实组件验收前不发布公开 Release。
+
+增加默认关闭的原版 CEF painter 可恢复实验工具：匹配本机 Steam 的 222 项导出及定制十参数绘制 ABI，透明记录 CPU/GPU 绘制；显式启用后可将一张 WebKit 测试卡交给原版 CPU painter，再由后续原始重绘恢复。Steam 的叠加层合成、开关和输入继续走原路径。云端验证原生 WebKit 单帧及代理导出；真实 Steam 接入、持续 WebKit 渲染和交互尚未验收。此候选包含实验工具，不发布公开 Release。
 
 移除 macOS 顶部重复的 Steam、View、Friends、Games、Edit、Window、Help 菜单，只保留 Sevoflurane 应用菜单；复制、粘贴、剪切、全选、撤销、重做、关闭和最小化快捷键继续经过 AppKit 响应链处理。Steam 原始窗口内的菜单和标题按钮保持原样。
 

@@ -1,0 +1,894 @@
+{
+  "original_sha256": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+  "original_bytes": 219859608,
+  "exports": [
+    {
+      "ordinal": 1,
+      "name": "CrashForExceptionInNonABICompliantCodeRange"
+    },
+    {
+      "ordinal": 2,
+      "name": "GetHandleVerifier"
+    },
+    {
+      "ordinal": 3,
+      "name": "IsCrashReportingEnabledImpl"
+    },
+    {
+      "ordinal": 4,
+      "name": "IsSandboxedProcess"
+    },
+    {
+      "ordinal": 5,
+      "name": "RelaunchChromeBrowserWithNewCommandLineIfNeeded"
+    },
+    {
+      "ordinal": 6,
+      "name": "SetCrashKeyValueImpl"
+    },
+    {
+      "ordinal": 7,
+      "name": "cef_add_cross_origin_whitelist_entry"
+    },
+    {
+      "ordinal": 8,
+      "name": "cef_api_hash"
+    },
+    {
+      "ordinal": 9,
+      "name": "cef_base64decode"
+    },
+    {
+      "ordinal": 10,
+      "name": "cef_base64encode"
+    },
+    {
+      "ordinal": 11,
+      "name": "cef_basetime_now"
+    },
+    {
+      "ordinal": 12,
+      "name": "cef_begin_tracing"
+    },
+    {
+      "ordinal": 13,
+      "name": "cef_binary_value_create"
+    },
+    {
+      "ordinal": 14,
+      "name": "cef_browser_host_create_browser"
+    },
+    {
+      "ordinal": 15,
+      "name": "cef_browser_host_create_browser_sync"
+    },
+    {
+      "ordinal": 16,
+      "name": "cef_browser_view_create"
+    },
+    {
+      "ordinal": 17,
+      "name": "cef_browser_view_get_for_browser"
+    },
+    {
+      "ordinal": 18,
+      "name": "cef_clear_cross_origin_whitelist"
+    },
+    {
+      "ordinal": 19,
+      "name": "cef_clear_scheme_handler_factories"
+    },
+    {
+      "ordinal": 20,
+      "name": "cef_command_line_create"
+    },
+    {
+      "ordinal": 21,
+      "name": "cef_command_line_get_global"
+    },
+    {
+      "ordinal": 22,
+      "name": "cef_cookie_manager_get_global_manager"
+    },
+    {
+      "ordinal": 23,
+      "name": "cef_crash_reporting_enabled"
+    },
+    {
+      "ordinal": 24,
+      "name": "cef_create_context_shared"
+    },
+    {
+      "ordinal": 25,
+      "name": "cef_create_directory"
+    },
+    {
+      "ordinal": 26,
+      "name": "cef_create_new_temp_directory"
+    },
+    {
+      "ordinal": 27,
+      "name": "cef_create_temp_directory_in_directory"
+    },
+    {
+      "ordinal": 28,
+      "name": "cef_create_url"
+    },
+    {
+      "ordinal": 29,
+      "name": "cef_currently_on"
+    },
+    {
+      "ordinal": 30,
+      "name": "cef_delete_file"
+    },
+    {
+      "ordinal": 31,
+      "name": "cef_dictionary_value_create"
+    },
+    {
+      "ordinal": 32,
+      "name": "cef_directory_exists"
+    },
+    {
+      "ordinal": 33,
+      "name": "cef_disable_hardware_acceleration"
+    },
+    {
+      "ordinal": 34,
+      "name": "cef_display_convert_screen_point_from_pixels"
+    },
+    {
+      "ordinal": 35,
+      "name": "cef_display_convert_screen_point_to_pixels"
+    },
+    {
+      "ordinal": 36,
+      "name": "cef_display_convert_screen_rect_from_pixels"
+    },
+    {
+      "ordinal": 37,
+      "name": "cef_display_convert_screen_rect_to_pixels"
+    },
+    {
+      "ordinal": 38,
+      "name": "cef_display_get_alls"
+    },
+    {
+      "ordinal": 39,
+      "name": "cef_display_get_count"
+    },
+    {
+      "ordinal": 40,
+      "name": "cef_display_get_matching_bounds"
+    },
+    {
+      "ordinal": 41,
+      "name": "cef_display_get_nearest_point"
+    },
+    {
+      "ordinal": 42,
+      "name": "cef_display_get_primary"
+    },
+    {
+      "ordinal": 43,
+      "name": "cef_do_message_loop_work"
+    },
+    {
+      "ordinal": 44,
+      "name": "cef_drag_data_create"
+    },
+    {
+      "ordinal": 45,
+      "name": "cef_end_tracing"
+    },
+    {
+      "ordinal": 46,
+      "name": "cef_execute_java_script_with_user_gesture_for_tests"
+    },
+    {
+      "ordinal": 47,
+      "name": "cef_execute_process"
+    },
+    {
+      "ordinal": 48,
+      "name": "cef_format_url_for_security_display"
+    },
+    {
+      "ordinal": 49,
+      "name": "cef_generate_gpu_report"
+    },
+    {
+      "ordinal": 50,
+      "name": "cef_get_current_platform_thread_handle"
+    },
+    {
+      "ordinal": 51,
+      "name": "cef_get_current_platform_thread_id"
+    },
+    {
+      "ordinal": 52,
+      "name": "cef_get_device_scale_factor_for_screen_rect"
+    },
+    {
+      "ordinal": 53,
+      "name": "cef_get_exit_code"
+    },
+    {
+      "ordinal": 54,
+      "name": "cef_get_extensions_for_mime_type"
+    },
+    {
+      "ordinal": 55,
+      "name": "cef_get_forced_device_scale_factor"
+    },
+    {
+      "ordinal": 56,
+      "name": "cef_get_mime_type"
+    },
+    {
+      "ordinal": 57,
+      "name": "cef_get_min_log_level"
+    },
+    {
+      "ordinal": 58,
+      "name": "cef_get_path"
+    },
+    {
+      "ordinal": 59,
+      "name": "cef_get_temp_directory"
+    },
+    {
+      "ordinal": 60,
+      "name": "cef_get_vlog_level"
+    },
+    {
+      "ordinal": 61,
+      "name": "cef_image_create"
+    },
+    {
+      "ordinal": 62,
+      "name": "cef_initialize"
+    },
+    {
+      "ordinal": 63,
+      "name": "cef_is_cert_status_error"
+    },
+    {
+      "ordinal": 64,
+      "name": "cef_is_feature_enabled_for_tests"
+    },
+    {
+      "ordinal": 65,
+      "name": "cef_is_gpu_compositing_disabled"
+    },
+    {
+      "ordinal": 66,
+      "name": "cef_is_hardware_acceleration_enabled"
+    },
+    {
+      "ordinal": 67,
+      "name": "cef_is_rtl"
+    },
+    {
+      "ordinal": 68,
+      "name": "cef_label_button_create"
+    },
+    {
+      "ordinal": 69,
+      "name": "cef_launch_process"
+    },
+    {
+      "ordinal": 70,
+      "name": "cef_list_value_create"
+    },
+    {
+      "ordinal": 71,
+      "name": "cef_load_crlsets_file"
+    },
+    {
+      "ordinal": 72,
+      "name": "cef_log"
+    },
+    {
+      "ordinal": 73,
+      "name": "cef_media_router_get_global"
+    },
+    {
+      "ordinal": 74,
+      "name": "cef_menu_button_create"
+    },
+    {
+      "ordinal": 75,
+      "name": "cef_menu_model_create"
+    },
+    {
+      "ordinal": 76,
+      "name": "cef_now_from_system_trace_time"
+    },
+    {
+      "ordinal": 77,
+      "name": "cef_panel_create"
+    },
+    {
+      "ordinal": 78,
+      "name": "cef_parse_json"
+    },
+    {
+      "ordinal": 79,
+      "name": "cef_parse_json_buffer"
+    },
+    {
+      "ordinal": 80,
+      "name": "cef_parse_jsonand_return_error"
+    },
+    {
+      "ordinal": 81,
+      "name": "cef_parse_url"
+    },
+    {
+      "ordinal": 82,
+      "name": "cef_post_data_create"
+    },
+    {
+      "ordinal": 83,
+      "name": "cef_post_data_element_create"
+    },
+    {
+      "ordinal": 84,
+      "name": "cef_post_delayed_task"
+    },
+    {
+      "ordinal": 85,
+      "name": "cef_post_task"
+    },
+    {
+      "ordinal": 86,
+      "name": "cef_preference_manager_get_global"
+    },
+    {
+      "ordinal": 87,
+      "name": "cef_print_settings_create"
+    },
+    {
+      "ordinal": 88,
+      "name": "cef_process_message_create"
+    },
+    {
+      "ordinal": 89,
+      "name": "cef_quit_message_loop"
+    },
+    {
+      "ordinal": 90,
+      "name": "cef_register_extension"
+    },
+    {
+      "ordinal": 91,
+      "name": "cef_register_scheme_handler_factory"
+    },
+    {
+      "ordinal": 92,
+      "name": "cef_remove_cross_origin_whitelist_entry"
+    },
+    {
+      "ordinal": 93,
+      "name": "cef_request_context_create_context"
+    },
+    {
+      "ordinal": 94,
+      "name": "cef_request_context_get_global_context"
+    },
+    {
+      "ordinal": 95,
+      "name": "cef_request_create"
+    },
+    {
+      "ordinal": 96,
+      "name": "cef_resolve_url"
+    },
+    {
+      "ordinal": 97,
+      "name": "cef_resource_bundle_get_global"
+    },
+    {
+      "ordinal": 98,
+      "name": "cef_response_create"
+    },
+    {
+      "ordinal": 99,
+      "name": "cef_run_message_loop"
+    },
+    {
+      "ordinal": 100,
+      "name": "cef_scroll_view_create"
+    },
+    {
+      "ordinal": 101,
+      "name": "cef_server_create"
+    },
+    {
+      "ordinal": 102,
+      "name": "cef_set_crash_key_value"
+    },
+    {
+      "ordinal": 103,
+      "name": "cef_set_data_directory_for_tests"
+    },
+    {
+      "ordinal": 104,
+      "name": "cef_set_force_device_scale_factor"
+    },
+    {
+      "ordinal": 105,
+      "name": "cef_set_minimum_font_size"
+    },
+    {
+      "ordinal": 106,
+      "name": "cef_set_osmodal_loop"
+    },
+    {
+      "ordinal": 107,
+      "name": "cef_set_preferred_contrast"
+    },
+    {
+      "ordinal": 108,
+      "name": "cef_set_reduced_motion_enabled"
+    },
+    {
+      "ordinal": 109,
+      "name": "cef_shared_process_message_builder_create"
+    },
+    {
+      "ordinal": 110,
+      "name": "cef_shutdown"
+    },
+    {
+      "ordinal": 111,
+      "name": "cef_stream_reader_create_for_data"
+    },
+    {
+      "ordinal": 112,
+      "name": "cef_stream_reader_create_for_file"
+    },
+    {
+      "ordinal": 113,
+      "name": "cef_stream_reader_create_for_handler"
+    },
+    {
+      "ordinal": 114,
+      "name": "cef_stream_writer_create_for_file"
+    },
+    {
+      "ordinal": 115,
+      "name": "cef_stream_writer_create_for_handler"
+    },
+    {
+      "ordinal": 116,
+      "name": "cef_string_ascii_to_utf16"
+    },
+    {
+      "ordinal": 117,
+      "name": "cef_string_ascii_to_wide"
+    },
+    {
+      "ordinal": 118,
+      "name": "cef_string_list_alloc"
+    },
+    {
+      "ordinal": 119,
+      "name": "cef_string_list_append"
+    },
+    {
+      "ordinal": 120,
+      "name": "cef_string_list_clear"
+    },
+    {
+      "ordinal": 121,
+      "name": "cef_string_list_copy"
+    },
+    {
+      "ordinal": 122,
+      "name": "cef_string_list_free"
+    },
+    {
+      "ordinal": 123,
+      "name": "cef_string_list_size"
+    },
+    {
+      "ordinal": 124,
+      "name": "cef_string_list_value"
+    },
+    {
+      "ordinal": 125,
+      "name": "cef_string_map_alloc"
+    },
+    {
+      "ordinal": 126,
+      "name": "cef_string_map_append"
+    },
+    {
+      "ordinal": 127,
+      "name": "cef_string_map_clear"
+    },
+    {
+      "ordinal": 128,
+      "name": "cef_string_map_find"
+    },
+    {
+      "ordinal": 129,
+      "name": "cef_string_map_free"
+    },
+    {
+      "ordinal": 130,
+      "name": "cef_string_map_key"
+    },
+    {
+      "ordinal": 131,
+      "name": "cef_string_map_size"
+    },
+    {
+      "ordinal": 132,
+      "name": "cef_string_map_value"
+    },
+    {
+      "ordinal": 133,
+      "name": "cef_string_multimap_alloc"
+    },
+    {
+      "ordinal": 134,
+      "name": "cef_string_multimap_append"
+    },
+    {
+      "ordinal": 135,
+      "name": "cef_string_multimap_clear"
+    },
+    {
+      "ordinal": 136,
+      "name": "cef_string_multimap_enumerate"
+    },
+    {
+      "ordinal": 137,
+      "name": "cef_string_multimap_find_count"
+    },
+    {
+      "ordinal": 138,
+      "name": "cef_string_multimap_free"
+    },
+    {
+      "ordinal": 139,
+      "name": "cef_string_multimap_key"
+    },
+    {
+      "ordinal": 140,
+      "name": "cef_string_multimap_size"
+    },
+    {
+      "ordinal": 141,
+      "name": "cef_string_multimap_value"
+    },
+    {
+      "ordinal": 142,
+      "name": "cef_string_userfree_utf16_alloc"
+    },
+    {
+      "ordinal": 143,
+      "name": "cef_string_userfree_utf16_free"
+    },
+    {
+      "ordinal": 144,
+      "name": "cef_string_userfree_utf8_alloc"
+    },
+    {
+      "ordinal": 145,
+      "name": "cef_string_userfree_utf8_free"
+    },
+    {
+      "ordinal": 146,
+      "name": "cef_string_userfree_wide_alloc"
+    },
+    {
+      "ordinal": 147,
+      "name": "cef_string_userfree_wide_free"
+    },
+    {
+      "ordinal": 148,
+      "name": "cef_string_utf16_clear"
+    },
+    {
+      "ordinal": 149,
+      "name": "cef_string_utf16_cmp"
+    },
+    {
+      "ordinal": 150,
+      "name": "cef_string_utf16_set"
+    },
+    {
+      "ordinal": 151,
+      "name": "cef_string_utf16_to_lower"
+    },
+    {
+      "ordinal": 152,
+      "name": "cef_string_utf16_to_upper"
+    },
+    {
+      "ordinal": 153,
+      "name": "cef_string_utf16_to_utf8"
+    },
+    {
+      "ordinal": 154,
+      "name": "cef_string_utf16_to_wide"
+    },
+    {
+      "ordinal": 155,
+      "name": "cef_string_utf8_clear"
+    },
+    {
+      "ordinal": 156,
+      "name": "cef_string_utf8_cmp"
+    },
+    {
+      "ordinal": 157,
+      "name": "cef_string_utf8_set"
+    },
+    {
+      "ordinal": 158,
+      "name": "cef_string_utf8_to_utf16"
+    },
+    {
+      "ordinal": 159,
+      "name": "cef_string_utf8_to_wide"
+    },
+    {
+      "ordinal": 160,
+      "name": "cef_string_wide_clear"
+    },
+    {
+      "ordinal": 161,
+      "name": "cef_string_wide_cmp"
+    },
+    {
+      "ordinal": 162,
+      "name": "cef_string_wide_set"
+    },
+    {
+      "ordinal": 163,
+      "name": "cef_string_wide_to_utf16"
+    },
+    {
+      "ordinal": 164,
+      "name": "cef_string_wide_to_utf8"
+    },
+    {
+      "ordinal": 165,
+      "name": "cef_task_runner_get_for_current_thread"
+    },
+    {
+      "ordinal": 166,
+      "name": "cef_task_runner_get_for_thread"
+    },
+    {
+      "ordinal": 167,
+      "name": "cef_test_server_create_and_start"
+    },
+    {
+      "ordinal": 168,
+      "name": "cef_textfield_create"
+    },
+    {
+      "ordinal": 169,
+      "name": "cef_thread_create"
+    },
+    {
+      "ordinal": 170,
+      "name": "cef_time_delta"
+    },
+    {
+      "ordinal": 171,
+      "name": "cef_time_from_basetime"
+    },
+    {
+      "ordinal": 172,
+      "name": "cef_time_from_doublet"
+    },
+    {
+      "ordinal": 173,
+      "name": "cef_time_from_timet"
+    },
+    {
+      "ordinal": 174,
+      "name": "cef_time_now"
+    },
+    {
+      "ordinal": 175,
+      "name": "cef_time_to_basetime"
+    },
+    {
+      "ordinal": 176,
+      "name": "cef_time_to_doublet"
+    },
+    {
+      "ordinal": 177,
+      "name": "cef_time_to_timet"
+    },
+    {
+      "ordinal": 178,
+      "name": "cef_trace_counter"
+    },
+    {
+      "ordinal": 179,
+      "name": "cef_trace_counter_id"
+    },
+    {
+      "ordinal": 180,
+      "name": "cef_trace_event_async_begin"
+    },
+    {
+      "ordinal": 181,
+      "name": "cef_trace_event_async_end"
+    },
+    {
+      "ordinal": 182,
+      "name": "cef_trace_event_async_step_into"
+    },
+    {
+      "ordinal": 183,
+      "name": "cef_trace_event_async_step_past"
+    },
+    {
+      "ordinal": 184,
+      "name": "cef_trace_event_begin"
+    },
+    {
+      "ordinal": 185,
+      "name": "cef_trace_event_end"
+    },
+    {
+      "ordinal": 186,
+      "name": "cef_trace_event_instant"
+    },
+    {
+      "ordinal": 187,
+      "name": "cef_translator_test_create"
+    },
+    {
+      "ordinal": 188,
+      "name": "cef_translator_test_ref_ptr_library_child_child_create"
+    },
+    {
+      "ordinal": 189,
+      "name": "cef_translator_test_ref_ptr_library_child_create"
+    },
+    {
+      "ordinal": 190,
+      "name": "cef_translator_test_ref_ptr_library_create"
+    },
+    {
+      "ordinal": 191,
+      "name": "cef_translator_test_scoped_library_child_child_create"
+    },
+    {
+      "ordinal": 192,
+      "name": "cef_translator_test_scoped_library_child_create"
+    },
+    {
+      "ordinal": 193,
+      "name": "cef_translator_test_scoped_library_create"
+    },
+    {
+      "ordinal": 194,
+      "name": "cef_uridecode"
+    },
+    {
+      "ordinal": 195,
+      "name": "cef_uriencode"
+    },
+    {
+      "ordinal": 196,
+      "name": "cef_urlrequest_create"
+    },
+    {
+      "ordinal": 197,
+      "name": "cef_v8context_get_current_context"
+    },
+    {
+      "ordinal": 198,
+      "name": "cef_v8context_get_entered_context"
+    },
+    {
+      "ordinal": 199,
+      "name": "cef_v8context_in_context"
+    },
+    {
+      "ordinal": 200,
+      "name": "cef_v8stack_trace_get_current"
+    },
+    {
+      "ordinal": 201,
+      "name": "cef_v8value_create_array"
+    },
+    {
+      "ordinal": 202,
+      "name": "cef_v8value_create_array_buffer"
+    },
+    {
+      "ordinal": 203,
+      "name": "cef_v8value_create_bool"
+    },
+    {
+      "ordinal": 204,
+      "name": "cef_v8value_create_date"
+    },
+    {
+      "ordinal": 205,
+      "name": "cef_v8value_create_double"
+    },
+    {
+      "ordinal": 206,
+      "name": "cef_v8value_create_function"
+    },
+    {
+      "ordinal": 207,
+      "name": "cef_v8value_create_int"
+    },
+    {
+      "ordinal": 208,
+      "name": "cef_v8value_create_null"
+    },
+    {
+      "ordinal": 209,
+      "name": "cef_v8value_create_object"
+    },
+    {
+      "ordinal": 210,
+      "name": "cef_v8value_create_promise"
+    },
+    {
+      "ordinal": 211,
+      "name": "cef_v8value_create_string"
+    },
+    {
+      "ordinal": 212,
+      "name": "cef_v8value_create_uint"
+    },
+    {
+      "ordinal": 213,
+      "name": "cef_v8value_create_undefined"
+    },
+    {
+      "ordinal": 214,
+      "name": "cef_value_create"
+    },
+    {
+      "ordinal": 215,
+      "name": "cef_version_info"
+    },
+    {
+      "ordinal": 216,
+      "name": "cef_waitable_event_create"
+    },
+    {
+      "ordinal": 217,
+      "name": "cef_window_create_top_level"
+    },
+    {
+      "ordinal": 218,
+      "name": "cef_write_json"
+    },
+    {
+      "ordinal": 219,
+      "name": "cef_xml_reader_create"
+    },
+    {
+      "ordinal": 220,
+      "name": "cef_zip_directory"
+    },
+    {
+      "ordinal": 221,
+      "name": "cef_zip_reader_create"
+    },
+    {
+      "ordinal": 222,
+      "name": "sqlite3_dbdata_init"
+    }
+  ]
+}

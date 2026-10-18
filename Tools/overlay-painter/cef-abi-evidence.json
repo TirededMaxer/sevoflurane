@@ -1,0 +1,525 @@
+{
+  "scope": "Execution-free static CEF ABI calibration for the exact installed Windows Steam binaries; no compilation, engine installation, target execution, injection or target writes.",
+  "evidence_kind": "Ordinary PE resource/export/import parser plus llvm-objdump and original instruction bytes. No new REA engine/native decompilation was available in this step. Prior REA resource evidence remains archived separately.",
+  "artifacts": [
+    {
+      "path": "bin/cef/cef.win64/libcef.dll",
+      "size": 219859608,
+      "sha256": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+      "image_base": "0x180000000",
+      "exports": [
+        {
+          "name": "cef_api_hash",
+          "ordinal": 8,
+          "rva": "0x278f90",
+          "file_offset": 2590096
+        },
+        {
+          "name": "cef_browser_host_create_browser",
+          "ordinal": 14,
+          "rva": "0x27dba0",
+          "file_offset": 2609568
+        },
+        {
+          "name": "cef_browser_host_create_browser_sync",
+          "ordinal": 15,
+          "rva": "0x27df30",
+          "file_offset": 2610480
+        },
+        {
+          "name": "cef_execute_process",
+          "ordinal": 47,
+          "rva": "0x276300",
+          "file_offset": 2578688
+        },
+        {
+          "name": "cef_get_min_log_level",
+          "ordinal": 57,
+          "rva": "0x3c9520",
+          "file_offset": 3967776
+        },
+        {
+          "name": "cef_initialize",
+          "ordinal": 62,
+          "rva": "0x2763d0",
+          "file_offset": 2578896
+        },
+        {
+          "name": "cef_version_info",
+          "ordinal": 215,
+          "rva": "0x278f50",
+          "file_offset": 2590032
+        }
+      ],
+      "version_resources": [
+        {
+          "resource_path": [
+            16,
+            1,
+            1033
+          ],
+          "file_offset": 218125720,
+          "bytes": 1060,
+          "sha256": "3f7ba350550594983d6cee5bae9b85158d6365123930b6c79c3ffc1cb37c0142",
+          "fixed": {
+            "file_version": [
+              126,
+              0,
+              0,
+              0
+            ],
+            "product_version": [
+              126,
+              0,
+              0,
+              0
+            ],
+            "file_flags_mask": 23,
+            "file_flags": 0
+          },
+          "strings": {
+            "FileVersion": "126.0.0-HEAD.3171+gbbb7596+chromium-126.0.6478.183",
+            "ProductVersion": "126.0.0-HEAD.3171+gbbb7596+chromium-126.0.6478.183",
+            "ProductName": "Chromium Embedded Framework (CEF) Dynamic Link Library",
+            "OriginalFilename": "libcef.dll",
+            "FileDescription": "Chromium Embedded Framework (CEF) Dynamic Link Library"
+          }
+        }
+      ],
+      "sha256_after": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+      "unchanged": true
+    },
+    {
+      "path": "bin/cef/cef.win64/steamwebhelper.exe",
+      "size": 7501976,
+      "sha256": "5ee6df1a5a2237dd3efb7d7042b02ba20f2238ba15d961b1a10ef6d575c59362",
+      "image_base": "0x140000000",
+      "exports": [],
+      "version_resources": [
+        {
+          "resource_path": [
+            16,
+            1,
+            0
+          ],
+          "file_offset": 7426656,
+          "bytes": 1072,
+          "sha256": "b567aba4056f7af60e85a8c0fb28bb7af5f7265d31c343a7d4207db49900186f",
+          "fixed": {
+            "file_version": [
+              11,
+              12,
+              30,
+              7
+            ],
+            "product_version": [
+              1,
+              0,
+              0,
+              1
+            ],
+            "file_flags_mask": 23,
+            "file_flags": 0
+          },
+          "strings": {
+            "FileVersion": "11.12.30.07",
+            "ProductVersion": "01.00.00.01",
+            "CompanyName": "Valve Corporation",
+            "ProductName": "Steam Client WebHelper",
+            "OriginalFilename": "steamwebhelper.exe",
+            "FileDescription": "Steam Client WebHelper"
+          }
+        },
+        {
+          "resource_path": [
+            16,
+            1,
+            1033
+          ],
+          "file_offset": 7427728,
+          "bytes": 828,
+          "sha256": "6cc7f8297f669b3f7485c6d9d5ddaeae93e98f85a752c539c7e58932c26aa8d8",
+          "fixed": {
+            "file_version": [
+              1,
+              0,
+              0,
+              1
+            ],
+            "product_version": [
+              1,
+              0,
+              0,
+              1
+            ],
+            "file_flags_mask": 23,
+            "file_flags": 0
+          },
+          "strings": {
+            "FileVersion": "1, 0, 0, 1",
+            "ProductVersion": "1, 0, 0, 1",
+            "CompanyName": "Valve Corporation",
+            "ProductName": "Steam Client WebHelper",
+            "OriginalFilename": "steamwebhelper.exe",
+            "FileDescription": "Steam Client WebHelper"
+          }
+        }
+      ],
+      "sha256_after": "5ee6df1a5a2237dd3efb7d7042b02ba20f2238ba15d961b1a10ef6d575c59362",
+      "unchanged": true
+    }
+  ],
+  "cef_api_hash_static_returns": [
+    {
+      "index": 0,
+      "meaning": "platform",
+      "rva": "0xb4f9a71",
+      "file_offset": 189763697,
+      "value": "97314fe45c14007fca596262a64cad69467df21f"
+    },
+    {
+      "index": 1,
+      "meaning": "universal",
+      "rva": "0xb4f9a9a",
+      "file_offset": 189763738,
+      "value": "908f7378d71977393cee4bc349055b7365c3673c"
+    },
+    {
+      "index": 2,
+      "meaning": "commit",
+      "rva": "0xb4f9ac3",
+      "file_offset": 189763779,
+      "value": "bbb75964a9f4095daf2926163a63cbf11af56565"
+    }
+  ],
+  "cef_version_info_static_returns": [
+    {
+      "index": 0,
+      "target_rva": "0x278f6a",
+      "instruction_file_offset": 2590058,
+      "instruction_bytes": "b87e000000c3",
+      "constant_return": 126
+    },
+    {
+      "index": 1,
+      "target_rva": "0x278f67",
+      "instruction_file_offset": 2590055,
+      "instruction_bytes": "31c0c3b87e00",
+      "constant_return": 0
+    },
+    {
+      "index": 2,
+      "target_rva": "0x278f67",
+      "instruction_file_offset": 2590055,
+      "instruction_bytes": "31c0c3b87e00",
+      "constant_return": 0
+    },
+    {
+      "index": 3,
+      "target_rva": "0x278f76",
+      "instruction_file_offset": 2590070,
+      "instruction_bytes": "b8630c0000c3",
+      "constant_return": 3171
+    },
+    {
+      "index": 4,
+      "target_rva": "0x278f6a",
+      "instruction_file_offset": 2590058,
+      "instruction_bytes": "b87e000000c3",
+      "constant_return": 126
+    },
+    {
+      "index": 5,
+      "target_rva": "0x278f67",
+      "instruction_file_offset": 2590055,
+      "instruction_bytes": "31c0c3b87e00",
+      "constant_return": 0
+    },
+    {
+      "index": 6,
+      "target_rva": "0x278f7c",
+      "instruction_file_offset": 2590076,
+      "instruction_bytes": "b84e190000c3",
+      "constant_return": 6478
+    },
+    {
+      "index": 7,
+      "target_rva": "0x278f70",
+      "instruction_file_offset": 2590064,
+      "instruction_bytes": "b8b7000000c3",
+      "constant_return": 183
+    }
+  ],
+  "identity": "CEF126.0.0 HEAD3171 commit bbb75964a9f4095daf2926163a63cbf11af56565; Chromium126.0.6478.183. The resource identifies a customized build, the API hash differs from official 6478 and on_paint has two extra parameters.",
+  "export_table_file": "/private/tmp/sevo-overlay-cef-exports.json",
+  "export_table_sha256": "803e3e8a67e948f8896435e244a4215a7e335056c45acfb135c88b50489c998c",
+  "confirmed_slots": [
+    {
+      "structure": "cef_client_t",
+      "field": "get_render_handler",
+      "offset": "0xa8",
+      "minimum_base_size": "0xb0",
+      "source_wrapper_rva": "0x289d10",
+      "prototype": "cef_render_handler_t* (WINAPI*)(cef_client_t* self)"
+    },
+    {
+      "structure": "cef_client_t",
+      "field": "get_display_handler",
+      "offset": "0x48",
+      "minimum_base_size": "0x50",
+      "source_wrapper_rva": "0x289480",
+      "prototype": "cef_display_handler_t* (WINAPI*)(cef_client_t* self)"
+    },
+    {
+      "structure": "cef_render_handler_t",
+      "field": "on_paint",
+      "offset": "0x60",
+      "minimum_base_size": "0x68",
+      "source_wrapper_rva": "0x2b4560",
+      "prototype": "void (WINAPI*)(cef_render_handler_t* self, cef_browser_t* browser, int type, size_t dirty_rect_count, const cef_rect_t* dirty_rects, const void* buffer, int width, int height, const two_int32_t* scroll_offset, float page_scale)",
+      "custom_extension": "last two parameters absent from official6478. Preserve all10."
+    },
+    {
+      "structure": "cef_render_handler_t",
+      "field": "on_accelerated_paint",
+      "offset": "0x68",
+      "minimum_base_size": "0x70",
+      "source_wrapper_rva": "0x2b4750",
+      "prototype": "void (WINAPI*)(cef_render_handler_t* self, cef_browser_t* browser, int type, size_t dirty_rect_count, const cef_rect_t* dirty_rects, const void* accelerated_info)",
+      "limitation": "Pointer forwarded unchanged. Do not interpret/copy a guessed upstream accelerated_info layout."
+    },
+    {
+      "structure": "cef_display_handler_t",
+      "field": "on_title_change",
+      "offset": "0x30",
+      "minimum_base_size": "0x38",
+      "source_wrapper_rva": "0x2968b0",
+      "prototype": "void (WINAPI*)(cef_display_handler_t* self, cef_browser_t* browser, const opaque_cef_string_t* title)"
+    },
+    {
+      "structure": "cef_browser_t",
+      "field": "get_identifier",
+      "offset": "0x78",
+      "minimum_base_size": "0x80",
+      "source_wrapper_rva": "0x27ccf0",
+      "slot_initializer_rva": "0x27c66f",
+      "prototype": "int (WINAPI*)(cef_browser_t* self)",
+      "actual_browser_base_size": "0xe8",
+      "upstream6478_browser_base_size": "0xd0"
+    }
+  ],
+  "confirmed_custom_paint_metadata": {
+    "parameter9": {
+      "abi": "pointer to at least two 32-bit integers",
+      "interpretation": "scroll_offset.x/y",
+      "proof": [
+        "Helper CChromePainterSharedBuffer::OnPaint RVA0x11a0fc loads argument9 and dereferences+0/+4 to painter members0xfc/0x100.",
+        "Shared painter routine0x11a640 forwards original pointer to CMsgNeedsPaint data members0x1c/0x20 at0x11b50b..0x11b523.",
+        "Message vtable RVA0x4b3c48 RTTI resolves to .?AVCMsgNeedsPaint@@. Serializer RVA0x191930 writes member0x1c as protobuf field10 and0x20 as field11; embedded descriptor names them scrollx/scrolly."
+      ],
+      "not_a": "shared HANDLE or frame ID"
+    },
+    "parameter10": {
+      "abi": "32bit float in10th Win64 argument slot",
+      "interpretation": "page_scale",
+      "proof": [
+        "CChromePainterSharedBuffer::OnPaint RVA0x11a115 loads extra float to painter member0x104.",
+        "Shared painter0x11b52e..0x11b536 writes the forwarded float to CMsgNeedsPaint member0x24.",
+        "Serializer0x1919d9..0x1919e6 writes member0x24 as protobuf field12; descriptor names it pagescale."
+      ]
+    },
+    "cpu_buffer_used": {
+      "observation": "Original CPU frame buffer is used as a copy source; not just ignored metadata.",
+      "source": "Helper0x11aac7 loads original buffer argument into RDX, destination into RCX, byte count into R8 then calls IAT0x49cf48 = vstdlib_s64.dll!V_memcpy_nocache. Similar full/dirty frame copies occur at0x11ad13 and0x11abbd. Popup path0x11a269 also copies original buffer.",
+      "boundary": "Establishes existence of a CPU consumer path only; active path and overlay role are runtime unknown."
+    }
+  },
+  "window_info_calibration": {
+    "windowless_rendering_enabled": "0x48",
+    "shared_texture_enabled": "0x4c",
+    "external_begin_frame_enabled": "0x50",
+    "window_handle": "0x58",
+    "runtime_style": "0x60",
+    "proof": "cef_browser_host_create_browser reads these fields at0x27dc94..0x27dcb8. Wrapper requires browser_settings.size==0x110 at0x27dbe8.",
+    "create_browser_parameters": "Win64 RCX window_info*, RDX cef_client_t*, R8 cef_string_t* url, R9 cef_browser_settings*, stack+0x28 extra_info*, stack+0x30 request_context*. Both async/sync exports should be forwarded with original exact parameters.",
+    "upstream_candidate_size_x64": "0x68",
+    "minimum_actual_read_bytes": "0x64",
+    "complete_actual_struct_size": "not established; observed fields match upstream prefix only"
+  },
+  "string_boundary": {
+    "observed": "Steam build imports cef_string_userfree_utf8_free and UTF8 string operations. libcef create_browser copies input window_name/url with cef_string_utf8_set.",
+    "inference": "cef_string_t is customized toUTF8 rather than official defaultUTF16. Preserve original string pointer and destructor unchanged. For first probe only inspect bounded ASCII overlay marker, compatible with UTF8/UTF16 prefixes; no general user titles recorded.",
+    "layout": "Observed original window name load uses pointer at+0, length at+8; dtor occupies third8byte slot by upstream layout. Do not create or free target strings using guessed encoding."
+  },
+  "minimal_hook_boundary": [
+    "Guard original DLL SHA256 and all three static runtime cef_api_hash strings before touching callbacks; preserve222 original name/ordinal exports.",
+    "At cef_browser_host_create_browser and sync, observe windowless flags and the original client. Preserve all6 arguments and result; do not force CPU/GPU flags or change browser creation.",
+    "Capture original client.get_render_handler/get_display_handler via exact guarded offsets, then chain originals preserving original self, returns and all refcount/lifetime behavior. Avoid shallow-cloning target structs with original destructors expecting their own object allocation.",
+    "Classify per-browser identity using confirmed get_identifier+0x78 and bounded overlay title marker; do not infer browser role from every OSR browser or globally overwrite shared handler state.",
+    "Count original on_paint/on_accelerated_paint calls, dimensions/type and extended scroll/page-scale metadata for selected overlay; forward original buffer/info and every parameter unchanged once. No per-frame disk log or main-thread blocking.",
+    "Leave input methods completely untouched in this first stage. Their actual customized host layout is not calibrated here; upstream offsets are not sufficient.",
+    "A later one-frame CPU BGRA fixture may replace only on_paint buffer while preserving all metadata, but only after transparent probe proves actual target CPU path, correct dimensions/lifetime/dirty rects and original consumer success. GPU path needs a different actual shared-resource bridge."
+  ],
+  "unknowns": [
+    "Transparent hook lifetime/thread-safety with shared client/handlers requires implementation review and actual run.",
+    "Current installed overlay may never callCPU on_paint; only runtime counts determine path.",
+    "Custom accelerated_info fields and safe D3DMetal import/synchronization remain uncalibrated.",
+    "Exact browser_host input slots/custom event payloads intentionally not patched/calibrated in this probe.",
+    "Official6478 headers are a comparison source only and are not a verified ABI match to the binary."
+  ],
+  "source_instruction_fragments": [
+    {
+      "name": "cef_client.get_render_handler",
+      "rva": "0x289d10",
+      "end_rva_exclusive": "0x289d50",
+      "file_offset": 2659088,
+      "bytes": "5657534883ec204889d6488b49f8488139b0000000731248c706000000004889f04883c4205b5f5ec3488b81a80000004885c074e2ff15554f630c4885c074d7",
+      "sha256": "894896f90bba7a5929181c51e8f6a8917d98edc0f3a1038fcb2eb2005f60f533"
+    },
+    {
+      "name": "cef_client.get_display_handler",
+      "rva": "0x289480",
+      "end_rva_exclusive": "0x2894ba",
+      "file_offset": 2656896,
+      "bytes": "5657534883ec204889d6488b49f848833950731248c706000000004889f04883c4205b5f5ec3488b41484885c074e5ff15eb57630c4885c074da",
+      "sha256": "0828d40f27c201c00f880447fa7847bc546d9d7c4cb1666d5c393baf5cdf892b"
+    },
+    {
+      "name": "cef_render_handler.on_paint",
+      "rva": "0x2b45b6",
+      "end_rva_exclusive": "0x2b45d1",
+      "file_offset": 2833334,
+      "bytes": "488b5bf848833b680f82350100004c8b73604d85f60f8428010000",
+      "sha256": "913c51ebb0456a99f5d76fa3c845745734abaf6d0111dca3b7e9399d0f606f69"
+    },
+    {
+      "name": "on_paint.custom_parameters",
+      "rva": "0x2b46ad",
+      "end_rva_exclusive": "0x2b46ec",
+      "file_offset": 2833581,
+      "bytes": "f30f11742448488b4424684889442440897c2438448964243048896c2428488b7c245848897c24204889d94c89ea448b4424644d89f94c89f0ff15b4a5600c",
+      "sha256": "5c0c7cf47ffa2a0d633d22135ee25d22467ec5ccb7f24f1410482a47c8b1ddb5"
+    },
+    {
+      "name": "cef_render_handler.on_accelerated_paint",
+      "rva": "0x2b4779",
+      "end_rva_exclusive": "0x2b479f",
+      "file_offset": 2833785,
+      "bytes": "488b5bf848833b700f82020100004c8b73684d85f60f94c04885f60f94c108c10f85ea000000",
+      "sha256": "32edbd2a8aa1d37db2d7102e72393f0941ac7ba3417581c9ac4ac9e8eb762c93"
+    },
+    {
+      "name": "cef_display_handler.on_title_change",
+      "rva": "0x2968c9",
+      "end_rva_exclusive": "0x2968e7",
+      "file_offset": 2711241,
+      "bytes": "488b7ff848833f387214488b5f304885db0f94c04885f60f94c108c1743e",
+      "sha256": "dbc395f81a89f06bda6374f59b11e11688c8f9e6c1dfa824f23ad40c74b9e500"
+    },
+    {
+      "name": "cef_browser.get_identifier_slot_initialization",
+      "rva": "0x27c66f",
+      "end_rva_exclusive": "0x27c67d",
+      "file_offset": 2604143,
+      "bytes": "488d0d7a06000048898898000000",
+      "sha256": "d264bebb71a9c58d63571bc4684df79598218986f9f0907de4ebf349d7def07e"
+    },
+    {
+      "name": "cef_browser.base_size",
+      "rva": "0x27c5ba",
+      "end_rva_exclusive": "0x27c5c2",
+      "file_offset": 2603962,
+      "bytes": "48c74020e8000000",
+      "sha256": "b6ac0a4e71f36e9a94540e46fa0738f1f9ff671ec9390de9c0bc3d5eda73b222"
+    },
+    {
+      "name": "cef_browser.get_identifier_return",
+      "rva": "0x27cd28",
+      "end_rva_exclusive": "0x27cd3a",
+      "file_offset": 2605864,
+      "bytes": "488b06488b40504889f1ff15681f640c89c7",
+      "sha256": "e404a6e675c1bbbe8bf159e5eb050031d4f20bcc7c7fd83245f446eeced7d3d0"
+    },
+    {
+      "name": "cef_window_info_flags",
+      "rva": "0x27dc94",
+      "end_rva_exclusive": "0x27dcb8",
+      "file_offset": 2609812,
+      "bytes": "418b4548894640418b454c894644418b4550894648498b455848894650418b4560894658",
+      "sha256": "b92803a626820f507e33cd898f01919a4d6348de88aadee3857061ac0d0ab13a"
+    }
+  ],
+  "official_comparison_sources": [
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/capi/cef_base_capi.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_capi_cef_base_capi.h",
+      "sha256": "92ffc41b7f90ea1e17388eeb71101a917781cf4cd6955c527dbcdfef65883571",
+      "bytes": 3806
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/capi/cef_browser_capi.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_capi_cef_browser_capi.h",
+      "sha256": "bc5a2a00390ce93b48ccde2e67eeb7839fcd98d48dbbae796c5ed49197558870",
+      "bytes": 44265
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/capi/cef_client_capi.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_capi_cef_client_capi.h",
+      "sha256": "7567f462aa45bf87d3c7f297dd51036748ef59d32927f2ab58e94d47d3791c98",
+      "bytes": 7384
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/capi/cef_display_handler_capi.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_capi_cef_display_handler_capi.h",
+      "sha256": "95991bb5481922cc10c5b2cb9ce15c7d89e8c0c04fd2cf6b6fd706bcc0fb8923",
+      "bytes": 7466
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/capi/cef_render_handler_capi.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_capi_cef_render_handler_capi.h",
+      "sha256": "6c1a8ca5a0f417e2f044a0f36f24c785d0e72ecc3555f2c0f9a08f1053f49785",
+      "bytes": 11841
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/cef_api_hash.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_cef_api_hash.h",
+      "sha256": "874bea19afa3d678b1336b91e7f798a4c6ea5bf9febe0c999ca58ac17c8839b4",
+      "bytes": 3068
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/internal/cef_export.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_internal_cef_export.h",
+      "sha256": "7c062e6af103608430fb9d9e0a6531b31fcdea41a22c8beb742f0cbbc4b98305",
+      "bytes": 2205
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/internal/cef_types.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_internal_cef_types.h",
+      "sha256": "5197d5c6b4aa22851b54a530d0897c928f3cdb6b851d96120b2d27912ea81605",
+      "bytes": 111538
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromiumembedded/cef/6478/include/internal/cef_types_win.h",
+      "path": "/private/tmp/sevo-cef6478-headers/include_internal_cef_types_win.h",
+      "sha256": "1f24fda908961ea4f0b25bb13937353f2b972af17722177d151bf31c169208ad",
+      "bytes": 4970
+    }
+  ],
+  "upstream_comparison_hashes": {
+    "universal": "ed1dfa5ff8a041241f8fb72eb7454811f358f0d3",
+    "windows_platform": "0d99d1b9b85b2efab91a39d6fc325bb6d56fd524",
+    "matches_installed": false
+  },
+  "raw_disassembly_files": [
+    "/private/tmp/sevo-overlay-cef-browser-ctor-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-create-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-helper-painter-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-helper-shared-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-identifier-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-needs-paint-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-render-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-title-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-version-disassembly.txt",
+    "/private/tmp/sevo-overlay-cef-needs-paint-serializer.txt"
+  ]
+}

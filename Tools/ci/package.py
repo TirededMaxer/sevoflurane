@@ -19,6 +19,11 @@ stage = work / "dmg-root/Sevoflurane.app"
 shutil.copytree(source, stage, symlinks=True)
 assert not (stage / "Contents/Resources/EmbeddedOverlay").exists()
 assert not (stage / "Contents/Resources/SteamUI").exists()
+probe_source = work / "overlay-painter"
+probe_stage = stage / "Contents/Resources/OverlayPainterProbe"
+probe_stage.mkdir()
+for name in ["libcef.dll", "sevo-painter-frame", "install_probe.py", "README.md", "cef-exports.json", "cef-abi-evidence.json", "probe-manifest.json"]:
+    shutil.copy2(probe_source / name, probe_stage / name)
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]
 assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-fork\.[0-9]+", version), version
@@ -37,6 +42,11 @@ def sign(path, entitlements):
     run("codesign", "--force", "--sign", "-", "--options", "runtime", "--timestamp=none",
         "--entitlements", str(entitlements), str(path))
 
+sign(probe_stage / "sevo-painter-frame", empty)
+probe_manifest = json.loads((probe_stage / "probe-manifest.json").read_text())
+probe_manifest["native_fixture_sha256"] = hashlib.sha256((probe_stage / "sevo-painter-frame").read_bytes()).hexdigest()
+(probe_stage / "probe-manifest.json").write_text(json.dumps(probe_manifest, indent=2) + "\n")
+(out / "painter-manifest.json").write_text(json.dumps(probe_manifest, indent=2) + "\n")
 for helper in (stage / "Contents/Helpers").iterdir():
     if helper.is_file():
         sign(helper, empty)
@@ -82,5 +92,5 @@ notes += (f"\n\nCloud validation: {summary['passedTests']} passed, {summary['fai
           f"/actions/runs/{os.environ['GITHUB_RUN_ID']})\n")
 (out / "release-notes.md").write_text(notes)
 (out / "manifest.json").write_text(json.dumps({"version": version, "dmg": dmg.name,
-    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": False}, indent=2) + "\n")
+    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": True}, indent=2) + "\n")
 print(f"Verified {version}: {len(tools)} MCP tools, SHA-256 {digest}")
