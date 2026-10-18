@@ -44,9 +44,9 @@ final class SteamMenuMirror {
 
     @discardableResult
     func cancelTracking() -> [String] {
-        MenuTrackingWatchdog.cancelMenuBarTracking()
-        if MenuTrackingWatchdog.privateLeverEngages {
-            _ = MenuTrackingWatchdog.stopPrivateSession(candidateMenus: [NSApp.mainMenu].compactMap(\.self))
+        MenuTrackingRecovery.cancelMenuBarTracking()
+        if MenuTrackingRecovery.privateLeverEngages {
+            _ = MenuTrackingRecovery.stopPrivateSession(candidateMenus: [NSApp.mainMenu].compactMap(\.self))
         }
         return []
     }

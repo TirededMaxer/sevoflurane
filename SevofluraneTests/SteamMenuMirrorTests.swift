@@ -30,6 +30,9 @@ struct SevofluraneMainMenuTests {
             #expect(item.isHidden && item.allowsKeyEquivalentWhenHidden)
             item.target = recorder
             item.action = #selector(ShortcutRecorder.command(_:))
+            // The fixture replaces responder validation with its recorder.
+            // Cut may have been disabled before the action was rebound.
+            item.isEnabled = true
             menu.update()
             application.update()
             let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero,

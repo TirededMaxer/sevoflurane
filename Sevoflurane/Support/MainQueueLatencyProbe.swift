@@ -15,7 +15,7 @@ import Synchronization
 /// It runs only inside `runSmokeBenchmark`, and it measures queueing delay
 /// rather than responsiveness: a nested event loop that never ends still
 /// drains the main queue, so a frozen menu reads here as zero delay.
-/// ``MenuTrackingWatchdog`` is what watches for that.
+/// ``MenuTrackingRecovery`` exposes manual diagnostics and cancellation for that case.
 final nonisolated class MainQueueLatencyProbe: Sendable {
     static let pingInterval: Duration = .milliseconds(16)
     static let stallThreshold: Duration = .milliseconds(50)

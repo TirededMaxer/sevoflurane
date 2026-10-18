@@ -145,7 +145,7 @@ final class AppLinkServer {
             // is live, with the two flags the watchdog's levers turn on —
             // readable from outside while the main thread is stuck in it.
             guard let data = try? JSONSerialization.data(
-                withJSONObject: MenuTrackingWatchdog.diagnostics(), options: [.sortedKeys],
+                withJSONObject: MenuTrackingRecovery.diagnostics(), options: [.sortedKeys],
             ) else { return .error(500, "diagnostics failed") }
             return Self.json(String(decoding: data, as: UTF8.self))
         case ("GET", "/debug"), ("POST", "/debug/on"), ("POST", "/debug/off"):
