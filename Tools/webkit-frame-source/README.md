@@ -58,4 +58,4 @@ For render-server timing, `submission_ms` includes CPU clear, transaction synchr
 
 ## Single-frame export for the native Steam channel
 
-`WebKitFrameSource --export-frame /tmp/mac-frame.bgra` renders `frame-proof.html` using the existing CARenderer path, verifies all four colored corners, writes one top-down BGRA packet and exits. The header is24 little-endian  bytes: SEVOFRM1, uint32 width, height, target_handle(initially0), byte_count. The Windows proof accepts only a nonzero selected target and an exact payload/paint size. This gives a direct Mac-WebKit-to-original-Steam transport check before continuing the full-page producer work.
+`WebKitFrameSource --export-frame /tmp/mac-frame.bgra` renders `frame-proof.html` using the existing CARenderer path, verifies all four colored corners, writes one top-down BGRA packet and exits. The header is24 little-endian  bytes: SEVOFRM1, uint32 width, height, target_cef_id (initially 0), byte_count. The Windows proof accepts only a nonzero selected target and an exact payload/paint size. This gives a direct Mac-WebKit-to-original-Steam transport check before continuing the full-page producer work.

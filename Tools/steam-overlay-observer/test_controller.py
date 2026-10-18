@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from unittest import mock
 import observer
+import prove_frame
+import struct
 
 class ControllerTests(unittest.TestCase):
     @classmethod
@@ -90,6 +92,35 @@ class ControllerTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 observer.decode(bytes(s))
 
+    def test_frame_packet_uses_popup_cef_id_and_preserves_bgra_corners(self):
+        source=bytearray(128*128*4)
+        for x,y,color in [(0,0,b'\x01\x02\x03\xff'),(127,0,b'\x04\x05\x06\xff'),
+                          (0,127,b'\x07\x08\x09\xff'),(127,127,b'\x0a\x0b\x0c\xff')]:
+            source[(y*128+x)*4:(y*128+x)*4+4]=color
+        raw=struct.pack('<8sIIII',b'SEVOFRM1',128,128,0,len(source))+source
+        packet=prove_frame.prepare_packet(raw,{'width':256,'height':256,'scale':1,'browserID':4})
+        self.assertEqual(struct.unpack('<8sIIII',packet[:24]),(b'SEVOFRM1',256,256,4,256*256*4))
+        for x,y,sx,sy in [(0,0,0,0),(255,0,127,0),(0,255,0,127),(255,255,127,127)]:
+            self.assertEqual(packet[24+(y*256+x)*4:24+(y*256+x)*4+4],source[(sy*128+sx)*4:(sy*128+sx)*4+4])
+        title='SP Overlay: 1804/196610/0'
+        self.assertEqual(prove_frame.one_overlay([{'type':'page','title':'SharedJSContext'},
+                                                 {'type':'page','title':title}]),title)
+        for targets in ([],[{'type':'page','title':title}]*2):
+            with self.assertRaises(RuntimeError):
+                prove_frame.one_overlay(targets)
+
+    def test_status_cli_decodes_the_actual_cpp_fixture(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory=Path(temporary)
+            (directory/'cpp-observer-fixture.stats').write_bytes(self.cpp_data)
+            with mock.patch('sys.argv',['observer','status','--kind','cpp','--session',str(directory)]), \
+                 mock.patch.object(observer,'session_at',return_value=(directory,{'kind':'cpp','source':'fixture'})) as session, \
+                 mock.patch('builtins.print') as printed:
+                self.assertEqual(observer.main(),0)
+                session.assert_called_once_with(directory,'cpp')
+                payload=json.loads(printed.call_args.args[0])
+                self.assertEqual(payload['stats'][0]['counters']['cpu_entries'],4003)
+
     def test_cpp_session_can_be_prepared_and_attached_without_a_steam_restart(self):
         with tempfile.TemporaryDirectory(prefix='sevo-overlay-build-', dir='/private/tmp') as temporary:
             resources = Path(temporary)
@@ -109,10 +140,10 @@ class ControllerTests(unittest.TestCase):
                     return observer.HELPER_SHA
                 return real_digest(path)
             def run(command, **kwargs):
-                self.assertEqual(command[:3], [observer.CLI, 'run', '--wait'])
-                directory = Path(command[3]).parent
-                self.assertEqual(Path(command[3]).name, observer.ATTACHER)
-                self.assertEqual(command[5], observer.windows_path(directory / observer.KINDS['cpp']['dll']))
+                self.assertEqual(command[:2], [observer.CLI, 'run'])
+                directory = Path(command[2]).parent
+                self.assertEqual(Path(command[2]).name, observer.ATTACHER)
+                self.assertEqual(command[4], observer.windows_path(directory / observer.KINDS['cpp']['dll']))
                 self.assertFalse((directory / observer.KINDS['capi']['dll']).exists())
                 output = directory / 'attach-result.json'
                 output.write_text(json.dumps({'version': 1, 'matched': 1, 'loaded': 1,

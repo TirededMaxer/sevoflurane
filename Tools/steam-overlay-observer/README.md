@@ -76,6 +76,12 @@ The cloud build adds a same-source Microsoft x64 C++ fixture for nine-argument C
 
 ## Single Mac frame proof
 
-`observer.py attach --kind cpp --frame /tmp/target-frame.bgra` loads one immutable BGRA packet before installing the existing paint hooks. The packet names one IHTMLMessages browser_handle and its exact paint dimensions. Only that PET_VIEW receives the Mac pixels and one borrowed full-view dirty rectangle; original references, scroll, scale, shared buffers, paint messages and renderer remain owned by Steam. Matching paints use this frame for15 seconds after the first match, then restore original pixels with a full-view rectangle on the next paint. `frame-PID.stats` records substitutions and rejected dimensions. Default observation without --frame remains unchanged.
+`observer.py attach --kind cpp --frame /tmp/target-frame.bgra` loads one immutable BGRA packet before installing the existing paint hooks. The packet names one original CEF browser identifier and its exact paint dimensions. Only that PET_VIEW receives the Mac pixels and one borrowed full-view dirty rectangle; original references, scroll, scale, shared buffers, paint messages and renderer remain owned by Steam. Matching paints use this frame for15 seconds after the first match, then restore original pixels with a full-view rectangle on the next paint. `frame-PID.stats` records substitutions and rejected dimensions. Default observation without --frame remains unchanged.
 
 Create the source with the cloud-built WebKit diagnostic's `--export-frame /tmp/mac-frame.bgra`. It renders a static synthetic page, checks its four corner colors, writes top-down BGRA, and exits. This operation tests the single-frame transport; the earlier animation/video fixture remains separate. Before attachment, fill the packet's target handle and resize once to the observed original paint dimensions. Reuse the native overlay's own original browser identity and the same lifecycle's painter counters for selection.
+
+
+The frame selector reads the borrowed OnPaint browser's calibrated CefBrowser GetIdentifier virtual method (+0x50), matching original native SteamClient.Browser.GetBrowserID(). The independent IHTMLMessages browser_handle remains metadata; it is not used for frame selection. Attachment waits for the Windows attacher's result file rather than Wine's whole child-process lifecycle.
+
+
+Once the cloud artifacts and Mac frame are prepared, run `python3 -B prove_frame.py /tmp/mac-frame.bgra`. It identifies the single original overlay, reads that popup's CEF identifier and viewport, sizes the frame once, and attaches the prepared proof. This removes manual ID conversion and build steps from the live test.

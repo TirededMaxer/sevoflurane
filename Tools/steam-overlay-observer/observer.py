@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import struct
+import time
 import tempfile
 
 CEF_SHA = 'c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3'
@@ -207,12 +208,25 @@ def attach(resources, steam, session, kind=None, frame=None):
             (directory / 'frame.bgra').write_bytes(frame_data)
     output = directory / 'attach-result.json'
     output.unlink(missing_ok=True)
-    command = [CLI, 'run', '--wait', str(directory / ATTACHER),
+    command = [CLI, 'run', str(directory / ATTACHER),
                windows_path(cef / 'steamwebhelper.exe'), windows_path(directory / spec['dll']), windows_path(output)]
-    result = subprocess.run(command, capture_output=True, timeout=60)
-    report = json.loads(output.read_text()) if output.exists() else {'result_file': False, 'launcher_exit': result.returncode}
+    # --wait means Wine and ALL children; the attacher's own result is the completion boundary.
+    # Redirect inherited Wine output so a live Wine child cannot hold Python's capture pipe open.
+    with (directory / 'launcher.log').open('wb') as log:
+        result = subprocess.run(command, stdout=log, stderr=log, timeout=10)
+    if result.returncode:
+        raise RuntimeError('Attacher launcher failed; see ' + str(directory / 'launcher.log'))
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            report = json.loads(output.read_text())
+            break
+        except (FileNotFoundError, json.JSONDecodeError):
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Attacher result not ready; session retained: ' + str(directory))
+            time.sleep(.05)
     print(json.dumps({'kind': kind, 'session': str(directory), 'source': state['source'], 'attach': report}))
-    return result.returncode
+    return 0 if report.get('error', 0) == 0 and report.get('matched', 0) == report.get('loaded', 0) else 1
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -226,7 +240,7 @@ def main():
         return attach(Path(__file__).resolve().parent, args.steam, args.session, args.kind, args.frame)
     if not args.session:
         parser.error('status requires --session')
-    directory, state = session_at(args.session, args.kind, args.frame)
+    directory, state = session_at(args.session, args.kind)
     kind = state.get('kind', 'capi')
     print(json.dumps({'kind': kind, 'source': state['source'],
                       'stats': [read_stats(p, kind) for p in sorted(directory.glob(KINDS[kind]['stats']))]}, indent=2))

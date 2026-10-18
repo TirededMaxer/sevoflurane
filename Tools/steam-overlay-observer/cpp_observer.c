@@ -10,6 +10,7 @@
 static pthread_mutex_t cpp_mutex=PTHREAD_MUTEX_INITIALIZER;
 static _Thread_local unsigned long cpp_test_last_error;
 static int cpp_test_readable(const void *,size_t);
+static int cpp_test_executable(void *);
 static void cpp_lock(void) { pthread_mutex_lock(&cpp_mutex); }
 static void cpp_unlock(void) { pthread_mutex_unlock(&cpp_mutex); }
 static unsigned long cpp_error(void) { return cpp_test_last_error; }
@@ -39,6 +40,9 @@ static int cpp_readable(const void *p,size_t n) {
     return at>=start&&at-start<=m.RegionSize&&n<=m.RegionSize-(at-start);
 }
 static uint64_t cpp_tick(void) { return GetTickCount64(); }
+#endif
+#ifndef SEVO_OBSERVER_TEST
+static int cpp_executable(void *);
 #endif
 static cpp_stats *cpp_data;
 static cpp_cpu_fn cpp_cpu_original;
@@ -84,7 +88,27 @@ static int cpp_native_id(void *painter,uint32_t *id) {
     if(!owner||owner>UINTPTR_MAX-0x328-sizeof(*id)||!cpp_readable((const void *)(owner+0x328),sizeof(*id)))return 0;
     memcpy(id,(const void *)(owner+0x328),sizeof(*id));return 1;
 }
-static uint64_t cpp_note(void *painter,int type,int gpu,int width,int height) {
+/* Original helper Browser.GetBrowserID uses this same CefBrowser virtual +0x50.
+ * Browser refs remain borrowed; GetIdentifier neither adds nor releases a ref. */
+static int cpp_cef_id(void *browser_ref,uint32_t *id) {
+    uintptr_t browser=0,vtable=0,function=0;
+    if(!cpp_readable(browser_ref,sizeof(browser)))return 0;
+    memcpy(&browser,browser_ref,sizeof(browser));
+    if(!cpp_readable((void *)browser,sizeof(vtable)))return 0;
+    memcpy(&vtable,(void *)browser,sizeof(vtable));
+    if(vtable>UINTPTR_MAX-0x50-sizeof(function)||!cpp_readable((void *)(vtable+0x50),sizeof(function)))return 0;
+    memcpy(&function,(void *)(vtable+0x50),sizeof(function));
+#ifdef SEVO_OBSERVER_TEST
+    if(!cpp_test_executable((void *)function))return 0;
+#else
+    if(!cpp_executable((void *)function))return 0;
+#endif
+    typedef int (CPP_ABI *get_identifier_fn)(void *);
+    int value=((get_identifier_fn)function)((void *)browser);
+    if(value<=0)return 0;
+    *id=(uint32_t)value;return 1;
+}
+static void cpp_note(void *painter,int type,int gpu,int width,int height) {
     uint32_t id=0;int valid=cpp_native_id(painter,&id);
     if(!valid)cpp_count(CPP_NATIVE_ID_UNREADABLE);
     cpp_begin();cpp_painter *row=NULL;
@@ -103,14 +127,16 @@ static uint64_t cpp_note(void *painter,int type,int gpu,int width,int height) {
         if(type==0)row->view_entries++;else if(type==1)row->popup_entries++;else row->other_entries++;
         row->last_type=type;row->last_tick=cpp_tick();
     }
-    cpp_end();return ((uint64_t)valid<<32)|id;
+    cpp_end();
 }
 static void CPP_ABI cpp_on_cpu(void *self,void *browser_ref,int type,const void *dirty_vector,const void *pixels,
                                int width,int height,const void *scroll,float scale) {
     unsigned long error=cpp_error();cpp_count(CPP_CPU_ENTRIES);
     cpp_cpu_fn original=__atomic_load_n(&cpp_cpu_original,__ATOMIC_ACQUIRE);
     if(!original){cpp_count(CPP_MISSING_ORIGINAL);cpp_set_error(error);return;}
-    uint64_t identity=cpp_note(self,type,0,width,height);
+    cpp_note(self,type,0,width,height);
+    uint32_t cef_id=0;uint64_t identity=0;
+    if(cpp_frame_pixels&&cpp_cef_id(browser_ref,&cef_id))identity=((uint64_t)1<<32)|cef_id;
     int frame_choice=cpp_frame_use(identity,type,width,height);
     if(frame_choice){
         /* REA 11a640 reads a borrowed MSVC vector's begin/end, then its full-view rect.
