@@ -202,7 +202,7 @@ final class SteamWindow: NSObject {
             // adding an AppKit titlebar would cover or move source controls.
             SteamDocumentWindow(
                 contentRect: content,
-                styleMask: [.borderless, .miniaturizable, .resizable],
+                styleMask: [.borderless, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false,
             )

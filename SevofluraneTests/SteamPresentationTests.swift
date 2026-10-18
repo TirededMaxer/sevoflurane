@@ -142,6 +142,20 @@ struct SteamPresentationTests {
     }
 
     @Test
+    func borderlessDocumentStillSupportsTheSystemCloseCommand() {
+        let delegate = DocumentClose()
+        let window = SteamDocumentWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
+                                         styleMask: [.borderless, .closable, .miniaturizable, .resizable],
+                                         backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.delegate = delegate
+        defer { window.delegate = nil; window.close() }
+        window.performClose(nil)
+        #expect(delegate.calls == 1)
+        #expect(window.standardWindowButton(.closeButton) == nil)
+    }
+
+    @Test
     func toastWindowFollowsOriginalAnimationCoordinates() throws {
         let popup = SteamWindow(webView: WKWebView(), role: .toast, name: "notificationtoasts_1_desktop",
                                 size: CGSize(width: 360, height: 90), origin: nil, host: nil)
@@ -251,4 +265,10 @@ private final class DragReports: NSObject, WKScriptMessageHandler {
         let args = body?["args"] as? [Any]
         last = args?.first as? [[Double]]
     }
+}
+
+@MainActor
+private final class DocumentClose: NSObject, NSWindowDelegate {
+    var calls = 0
+    func windowShouldClose(_: NSWindow) -> Bool { calls += 1; return false }
 }
