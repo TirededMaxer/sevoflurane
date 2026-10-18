@@ -73,8 +73,9 @@
   "change": "Present the actual frontmost game canvas through the host monitor binding; retain original toast document, queue, animation and sound. Ordinary desktop work area remains unchanged.",
   "limits": [
     "Static REA source analysis does not prove execution. Source selection is limited to the named modules; native CEF/WebKit rendering is outside this AST analysis.",
-    "Build 49 runtime and visual acceptance pending.",
-    "Windowed-game client-area chrome may require further measurement; current target is the reported fullscreen CS2 gap."
+    "Build 49 fullscreen CS2 bottom-edge placement was accepted by the user; root monitor binding measured full 3024x1964 pixels and one hosted original queue pop versus zero native duplicate pops.",
+    "Windowed-game client-area chrome may require further measurement; current target is the reported fullscreen CS2 gap.",
+    "An already visible toast is refreshed on app/Space/display changes. Same-app game-window movement is refreshed when the next toast is created; there is no continuous geometry observer."
   ],
   "overlayFeasibility": {
     "status": "not disproven; native-painter/consumer resource handoff remains unimplemented",

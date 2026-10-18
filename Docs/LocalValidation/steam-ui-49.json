@@ -1,0 +1,48 @@
+{
+  "version": "1.7.0-fork.5",
+  "build": "49",
+  "source": "2fd256bc2da4ada59829db668b87c36c26065051",
+  "run": 39138722357,
+  "passedTests": 1205,
+  "failedTests": 0,
+  "exeSHA256": "a411ae17c0088b51c4857f062a61cc46b07935af13e4cce6331d11418339954d",
+  "dmgSHA256": "5d23d8c65007a5e6e89e8f0bb377ac510a5630c2aded396ab97ec219acb310d0",
+  "signatureVerified": true,
+  "clientWasStopped": true,
+  "recordedUTC": "2026-10-18T15:19:41.225603+00:00",
+  "cloudURL": "https://github.com/TirededMaxer/sevoflurane/actions/runs/39138722357",
+  "runtime": {
+    "bridgeConnected": true,
+    "hostedGameBrowsersBeforeGameLaunch": 0,
+    "userConfirmedSignedIn": true,
+    "nativeGameBrowsers": 1,
+    "hostedGameBrowsers": 0,
+    "monitorWhileCS2Foreground": {
+      "nFullTop": 0,
+      "flVerticalScale": 2,
+      "nUsableHeight": 1964,
+      "nUsableLeft": 0,
+      "nFullHeight": 1964,
+      "flHorizontalScale": 2,
+      "nUsableTop": 0,
+      "nFullWidth": 3024,
+      "nUsableWidth": 3024,
+      "nFullLeft": 0
+    },
+    "nativeOrdinaryToastPops": [],
+    "hostedOrdinaryToastPops": [
+      {
+        "id": 10001,
+        "type": 3,
+        "source": 1,
+        "context": 0
+      }
+    ],
+    "temporaryDiagnosticsRestored": true,
+    "userConfirmedCS2BottomEdgePosition": true,
+    "userReply": "可以了"
+  },
+  "pending": [
+    "actual standard legacy Steam warning visual acceptance"
+  ]
+}
