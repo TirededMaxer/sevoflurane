@@ -19,19 +19,24 @@ struct SevofluraneMainMenuTests {
     func removedTopLevelMenusKeepHiddenEditingShortcuts() async throws {
         let menu = SevofluraneMainMenu.makeMenu()
         #expect(menu.items.filter { !$0.isHidden }.map(\.title) == ["Sevoflurane"])
+        let previous = NSApp.mainMenu
+        NSApp.mainMenu = menu
+        defer { NSApp.mainMenu = previous }
         let application = try #require(menu.items.first?.submenu)
         application.autoenablesItems = false
         let recorder = ShortcutRecorder()
-        for key in ["x", "c", "v", "a", "z"] {
+        for (key, code) in [("x", UInt16(7)), ("c", 8), ("v", 9), ("a", 0), ("z", 6)] {
             let item = try #require(application.items.first { $0.keyEquivalent == key })
             #expect(item.isHidden && item.allowsKeyEquivalentWhenHidden)
             item.target = recorder
             item.action = #selector(ShortcutRecorder.command(_:))
+            menu.update()
+            application.update()
             let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero,
                 modifierFlags: [.command], timestamp: 0, windowNumber: 0, context: nil,
-                characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 0))
-            #expect(application.performKeyEquivalent(with: event))
-            for _ in 0..<20 {
+                characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: code))
+            #expect(menu.performKeyEquivalent(with: event))
+            for _ in 0..<80 {
                 if recorder.keys.last == key { break }
                 try await Task.sleep(for: .milliseconds(5))
             }

@@ -43,8 +43,8 @@ final class SteamWindow: NSObject {
     /// its whole life at alpha 0.
     var isWindowVisible: Bool {
         guard let window, window.isVisible else { return false }
-        // A menu and the game overlay stay ordered in at alpha 0 so their
-        // pages keep rendering; they count as visible only once faded in.
+        // Menus stay ordered in at alpha 0 so their pages keep rendering;
+        // they count as visible only once faded in.
         return role != .menu || window.alphaValue > 0
     }
 
@@ -479,10 +479,6 @@ final class SteamWindow: NSObject {
             return
         }
         realize()
-        // The game overlay's visibility is the client's to decide, through
-        // `setOverlayActive`; the `ShowWindow`/`BringToFront` Steam sends at
-        // creation must not put it on screen over the game.
-        guard role != .gameOverlay else { return }
         host?.noteWindowWillShow(self)
         // The context page renders in the background; user-facing pages show below.
         guard role.isShowable else { return }
@@ -561,8 +557,8 @@ final class SteamWindow: NSObject {
         if becameRegular {
             // Promotion from `.accessory` only takes effect once the run loop
             // turns. Activating in the same pass is swallowed: the window
-            // comes up behind whatever was frontmost, its traffic lights stay
-            // gray, and clicking it does nothing because as far as the window
+            // comes up behind whatever was frontmost, and clicking it does
+            // nothing because as far as the window
             // server is concerned the app still isn't one that activates —
             // only a Cmd-Tab away and back fixes it.
             DispatchQueue.main.async { [weak self] in self?.activate(window) }

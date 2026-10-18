@@ -612,7 +612,7 @@ final class SteamWebHost {
         // The rebuilt window does not exist for another couple of seconds, and
         // by then cooperative activation no longer sees an event to attribute
         // the request to: it declines, and the window arrives behind whatever
-        // was frontmost with its traffic lights gray.
+        // was frontmost without keyboard ownership.
         ActivationPolicy.becomeRegular(forAWindowWithin: ActivationPolicy.graceForAPromisedWindow)
         NSApp.activate()
         // The window the user asked for does not exist yet: a reload boots
