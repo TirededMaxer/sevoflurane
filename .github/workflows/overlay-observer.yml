@@ -1,0 +1,28 @@
+name: Cloud overlay metadata observer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sevoflurane-overlay-observer
+  cancel-in-progress: false
+
+jobs:
+  observer:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test and cross-compile on a fresh Apple Silicon runner
+        run: bash Tools/steam-overlay-observer/build.sh
+      - name: Upload observer and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam-overlay-observer-${{ github.sha }}
+          path: ${{ runner.temp }}/observer-output/
+          if-no-files-found: error
+          retention-days: 3
