@@ -143,23 +143,8 @@ nonisolated enum SteamWindowRole {
         self == .menu || self == .keyboard || self == .gameOverlay || self == .dialog || self == .toast
     }
 
-    /// Only actual overlay furniture may be a non-activating panel.
-    /// Desktop and sign-in windows keep normal app/keyboard ownership even
-    /// when Steam creates them while a game overlay happens to be open.
-    var canBeOverlayChild: Bool {
-        hasPopupChrome || self == .menu || self == .dialog || self == .keyboard
-    }
-
-    /// Whether the window is one of Steam's ordinary popups — friends, chat,
-    /// the configurator, notes and the rest — whose page draws a
-    /// `.TitleBar.title-area` strip inside a header of its own
-    /// (`.titleBarContainer`). These share one treatment: the macOS title bar
-    /// is transparent over the page, and the chrome script hides Steam's
-    /// strip, pads the header by the title-bar height so its content moves
-    /// out from under the traffic lights, and offers the header's remaining
-    /// stretch as the drag handle. The header keeps Steam's own color, so the
-    /// top of the window matches the rest of it instead of the system's
-    /// title-bar material.
+    /// Original popup headers declare their blank draggable regions. The
+    /// document keeps its own title, controls, fonts and layout.
     var hasPopupChrome: Bool {
         switch self {
         case .auxiliary, .controllerConfig, .chat, .friends: true

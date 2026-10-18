@@ -22,9 +22,7 @@ extension SteamWindow {
     }
 
     func restoreForOpening(_ window: NSWindow) {
-        let overlayScreen = host?.isOverlayActive == true
-            ? host?.popups.values.first(where: { $0.role == .gameOverlay })?.nsWindow?.screen : nil
-        WindowPlacement.restoreOrCenter(window, key: placementName, on: overlayScreen, autoSave: false)
+        WindowPlacement.restoreOrCenter(window, key: placementName, autoSave: false)
     }
 
     /// Restore after Steam has finished applying a popup’s initial size.
@@ -36,7 +34,8 @@ extension SteamWindow {
 
     func savePlacement() {
         guard role.needsAReachableFrame, hasBeenShown,
-              let window = nsWindow, isWindowVisible else { return }
+              let window = nsWindow, isWindowVisible,
+              !window.styleMask.contains(.fullScreen) else { return }
         window.saveFrame(usingName: placementName)
     }
 

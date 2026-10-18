@@ -41,41 +41,6 @@ struct GameOverlayRoleTests {
     }
 }
 
-/// When the overlay group is on screen. The rule is the whole of "travels with
-/// the game and covers nothing else", so the cases that are hard to produce by
-/// hand — a second app in front, a window that raised itself — are pinned here.
-struct OverlayPresenceTests {
-    private let game: pid_t = 100
-    private let ours: pid_t = 200
-    private let other: pid_t = 300
-
-    @Test
-    func `shown only while active and the game or this app is frontmost`() {
-        // Active, and the frontmost app is the game or the overlay's own app.
-        #expect(SteamWebHost.overlayShouldShow(active: true, front: game, gamePID: game, ourPID: ours))
-        #expect(SteamWebHost.overlayShouldShow(active: true, front: ours, gamePID: game, ourPID: ours))
-        // Active, but a third app is frontmost — the user switched away, or a
-        // window grabbed focus itself: off screen, so it never covers that app.
-        #expect(!SteamWebHost.overlayShouldShow(active: true, front: other, gamePID: game, ourPID: ours))
-        // Active, but nothing is frontmost (no app reported).
-        #expect(!SteamWebHost.overlayShouldShow(active: true, front: nil, gamePID: game, ourPID: ours))
-        // Not active: never shown, whatever is in front.
-        for front in [game, ours, other] {
-            #expect(!SteamWebHost.overlayShouldShow(active: false, front: front, gamePID: game, ourPID: ours))
-        }
-    }
-
-    @Test
-    func `with no game window found, only this app in front keeps it up`() {
-        // The game window could not be resolved (gamePID nil): the overlay
-        // stays hidden unless its own app is frontmost, so it is never a
-        // stuck window over the desktop.
-        #expect(!SteamWebHost.overlayShouldShow(active: true, front: game, gamePID: nil, ourPID: ours))
-        #expect(!SteamWebHost.overlayShouldShow(active: true, front: nil, gamePID: nil, ourPID: ours))
-        #expect(SteamWebHost.overlayShouldShow(active: true, front: ours, gamePID: nil, ourPID: ours))
-    }
-}
-
 /// Which on-screen window is a game's, by the resolved Windows program name.
 struct GameProgramTests {
     @Test

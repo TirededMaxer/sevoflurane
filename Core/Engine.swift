@@ -553,15 +553,9 @@ nonisolated enum Engine: Equatable, Sendable, CustomStringConvertible {
             case .none: "--no-wait"
             case .children: "--wait-children"
             }
-            let overlay = EmbeddedOverlayLaunch.environment
-            let extra = overlay.isEmpty ? [] : ["--env", EmbeddedOverlayLaunch.wrapperEnvironment(overlay)]
-            return (wineURL, ["--bottle", bottle, flag] + extra + program, nil)
+            return (wineURL, ["--bottle", bottle, flag] + program, nil)
         case .managed:
-            var env = environment(bottle: bottle)
-            for (key, value) in EmbeddedOverlayLaunch.environment {
-                env[key] = key == "DYLD_INSERT_LIBRARIES" && env[key] != nil ? env[key]! + ":" + value : value
-            }
-            return (wineURL, program, env)
+            return (wineURL, program, environment(bottle: bottle))
         }
     }
 

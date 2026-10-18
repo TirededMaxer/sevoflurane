@@ -651,7 +651,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -659,7 +659,6 @@
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sevoflurane/Info.plist;
-				SWIFT_OBJC_BRIDGING_HEADER = Sevoflurane/EmbeddedOverlayBridge.h;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sevoflurane Debug";
 				INFOPLIST_KEY_GCSupportsGameMode = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
@@ -690,7 +689,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sevoflurane/Microphone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_APP_SANDBOX = NO;
@@ -698,7 +697,6 @@
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sevoflurane/Info.plist;
-				SWIFT_OBJC_BRIDGING_HEADER = Sevoflurane/EmbeddedOverlayBridge.h;
 				INFOPLIST_KEY_GCSupportsGameMode = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -725,7 +723,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -747,7 +745,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -805,7 +803,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -835,7 +833,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = SevofluraneThumbnail/SevofluraneThumbnail.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 35;
+				CURRENT_PROJECT_VERSION = 36;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 52K336H235;
 				ENABLE_HARDENED_RUNTIME = YES;

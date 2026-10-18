@@ -350,14 +350,8 @@ final class SteamWebHost {
         }
     }
 
-    // Overlay presence. It is shown only while the overlay is active *and* the
-    // game (or this app, once the overlay has taken key) is frontmost, so it
-    // rides just above the game and vanishes the moment another app comes
-    // forward — never a full-screen window sitting over everything.
+    // Observed from the original renderer; the host never routes game input.
     @ObservationIgnored var overlayActive = false
-    @ObservationIgnored lazy var embeddedOverlay = EmbeddedSteamOverlay(host: self)
-    @ObservationIgnored var overlayGame: WineWindowWatch.GameWindow?
-    @ObservationIgnored var embeddedFailureGamePID: pid_t?
     @ObservationIgnored var overlayAppID = ""
     /// The install wizard's latest state and how many updates it has had, so the
     /// check that follows one can tell whether the wizard moved on since.
@@ -371,14 +365,6 @@ final class SteamWebHost {
     /// The latest pass of the energy preference mirror, which the next one
     /// waits behind.
     @ObservationIgnored var energyUpdate: Task<Void, Never>?
-    @ObservationIgnored var overlayFrontObserver: (any NSObjectProtocol)?
-    @ObservationIgnored var overlayKeyMonitor: Any?
-
-    /// The popups Steam opened while the overlay was up (its Settings, friends,
-    /// dialogs). The overlay owns them: they are ordered in and out with it and
-    /// dismissed when it closes, so none is left floating above the game.
-    @ObservationIgnored var overlayChildren: [SteamWindow] = []
-
     /// The game's first window is up (``GameLaunchWatch``) — story over.
     func gameWindowDidAppear() {
         guard activeLaunch != nil else { return }
@@ -732,7 +718,6 @@ final class SteamWebHost {
     // MARK: - Popup adoption
 
     func windowDidAdopt(_ window: SteamWindow) {
-        _ = embeddedOverlay
         // The name is what classifies a popup, so an unexpected window on
         // screen can be traced to the name Steam gave it.
         EventLog.shared.log(.window, "popup adopted: \(window.name) as \(window.role)")
@@ -742,25 +727,6 @@ final class SteamWebHost {
         // the mirror passive must not close Steam's saved game UI windows.
         guard !window.usesOriginalGameOverlay else { return }
         window.webView.evaluateJavaScript(SteamPresentation.cleanupScript)
-        // A popup adopted while the overlay is up belongs to it (its Settings,
-        // a dialog): track it so it is ordered in and out with the overlay and
-        // dismissed when it closes, rather than left floating above the game.
-        // The overlay's own UI instance also restores whatever panels were
-        // open when it last closed — the friends list, a game overview — the
-        // moment a game starts, with the overlay still down. Those would come
-        // up as ordinary windows over the game, so they are closed instead:
-        // the overlay starts every session with nothing open.
-        let fromOverlayInstance = SteamWindowRole.instanceUID(ofPopupNamed: window.name) != 0
-        let isOverlayFurniture = window.role.canBeOverlayChild && window.role != .menu
-        if overlayActive, isOverlayFurniture {
-            overlayChildren.append(window)
-        } else if fromOverlayInstance, isOverlayFurniture {
-            EventLog.shared.log(
-                .window, "closed \(window.name): opened by the game overlay while it is down",
-            )
-            window.close()
-            return
-        }
         // Every adoption is a chance the root menus now exist — they are
         // created after the desktop window, so anchoring on the desktop alone
         // reads an empty strip. Re-reading an unchanged strip is a no-op.
@@ -813,11 +779,6 @@ final class SteamWebHost {
         popups.removeValue(forKey: ObjectIdentifier(window.webView))
         refreshLoginWindowState()
         defer { logWindowInventory("closing \(window.name)") }
-        // A window the overlay adopted is held until the overlay dismisses, so
-        // that it rides in and out with it. Once it has closed there is
-        // nothing left to order, and holding it keeps its web view alive past
-        // the page teardown that tells Steam the popup is gone.
-        overlayChildren.removeAll { $0 === window }
         // Steam learns a popup is gone from its document's `unload`, which
         // WebKit ties to the page's teardown rather than to the window
         // closing. Only a popup that went on its own is owed that word: a

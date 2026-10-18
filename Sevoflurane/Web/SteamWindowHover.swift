@@ -85,36 +85,6 @@ extension SteamWindow {
           if (\(role == .menu ? "true" : "false")) {
             \(Self.controlledMenuHoverScript)
             window.__sevoSetCSSHoverPath(path);
-          } else if (\(embeddedPresented ? "true" : "false")) {
-            var style = document.getElementById("sevo-nonkey-hover");
-            if (!style || window.__sevoHoverCSSCount !== document.styleSheets.length) {
-              if (!style) {
-                style = document.createElement("style");
-                style.id = "sevo-nonkey-hover";
-                document.head.appendChild(style);
-              }
-              function mirror(rules) {
-                var css = "";
-                for (var r of rules) {
-                  if (r.selectorText && r.selectorText.indexOf(":hover") >= 0) {
-                    css += r.selectorText.replace(/:hover\\b/g, "[data-sevo-hover]") + "{" + r.style.cssText + "}";
-                  } else if (r.cssRules) {
-                    var children = mirror(r.cssRules);
-                    if (children) css += r.cssText.slice(0, r.cssText.indexOf("{")) + "{" + children + "}";
-                  }
-                }
-                return css;
-              }
-              var css = "";
-              for (var sheet of Array.from(document.styleSheets)) {
-                if (sheet.ownerNode === style || sheet.disabled) continue;
-                try { css += mirror(sheet.cssRules); } catch (e) {}
-              }
-              style.textContent = css;
-              window.__sevoHoverCSSCount = document.styleSheets.length;
-            }
-            prev.forEach(function (n) { if (path.indexOf(n) < 0) n.removeAttribute("data-sevo-hover"); });
-            path.forEach(function (n) { n.setAttribute("data-sevo-hover", ""); });
           }
           function props(n) {
             var k = Object.keys(n).find(function (k) { return k.indexOf("__reactProps$") === 0; });

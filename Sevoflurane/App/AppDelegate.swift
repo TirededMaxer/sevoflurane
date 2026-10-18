@@ -171,7 +171,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             supervisor.showLibraryWhenHealthy()
         }
         startServices()
-        // The rejected Win32-to-AppKit control prototype is not started.
         // Steam's web dialogs are adopted from the original popup documents.
     }
 
@@ -202,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mirror = SteamMenuMirror(host: host)
         menuMirror = mirror
         host.menuMirror = mirror
-        SevofluraneMainMenu.install(mirror: mirror)
+        SevofluraneMainMenu.install()
         // Before the gallery and dry-run gates return: setting the delegate
         // is what lets a click on a notification that woke the app be
         // delivered at all, and reading the permission raises no prompt.

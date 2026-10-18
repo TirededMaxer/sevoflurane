@@ -19,8 +19,6 @@ struct SteamPresentationTests {
             #expect(popup.usesOriginalGameOverlay, "\(name)")
             #expect(popup.nsWindow == nil, "\(name)")
         }
-        #expect(EmbeddedOverlayLaunch.environment.isEmpty)
-        #expect(EmbeddedOverlayLaunch.library == nil)
     }
 
     @Test
@@ -38,14 +36,13 @@ struct SteamPresentationTests {
         let host = SteamWebHost()
         let child = SteamWindow(webView: WKWebView(), role: .chat, name: "chat_1_uid730",
                                 size: CGSize(width: 400, height: 300), origin: nil, host: host)
-        host.overlayChildren = [child]
+        host.popups[ObjectIdentifier(child.webView)] = child
         let key = NSApp.keyWindow
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
         host.noteOverlayActivated(active: true, appID: "730")
         host.noteOverlayActivated(active: false, appID: "730")
-        #expect(host.overlayChildren.count == 1)
-        #expect(host.overlayKeyMonitor == nil)
-        #expect(host.overlayFrontObserver == nil)
+        #expect(host.popups[ObjectIdentifier(child.webView)] === child)
+        #expect(child.nsWindow == nil)
         #expect(NSApp.keyWindow === key)
         #expect(NSWorkspace.shared.frontmostApplication?.processIdentifier == front)
         #expect(!host.chatShowIsUnasked)
@@ -190,83 +187,6 @@ struct SteamPresentationTests {
         #expect(window.frame.origin.y == first.y - 30)
     }
 
-    private func originalWarning() throws -> SteamNativeDialog {
-        let source = #"{"dialogs":[{"handle":33,"pid":22,"title":"Original warning","body":"Not a layout specification","canClose":true,"clientWidth":404,"clientHeight":142,"buttons":[],"controls":[{"handle":101,"id":10,"className":"Static","text":"Original detail","style":0,"x":16,"y":20,"width":370,"height":40,"enabled":true,"tabStop":false,"password":false,"default":false,"checkState":0},{"handle":102,"id":1,"className":"Button","text":"&Yes","style":0,"x":220,"y":82,"width":80,"height":28,"enabled":false,"tabStop":true,"password":false,"default":false,"checkState":0},{"handle":103,"id":2,"className":"Button","text":"&Cancel","style":1,"x":310,"y":82,"width":80,"height":28,"enabled":true,"tabStop":true,"password":false,"default":true,"checkState":0},{"handle":104,"id":21,"className":"Button","text":"Keep && remember","style":3,"x":16,"y":65,"width":180,"height":24,"enabled":true,"tabStop":true,"password":false,"default":false,"checkState":1}]}]}"#
-        return try #require(SteamNativeDialog.decode(source).first)
-    }
-
-    @Test
-    func nativeWarningsKeepOriginalGeometryControlsDefaultAndOptions() throws {
-        let adapter = try #require(NativeSteamDialogWindow(dialog: try originalWarning(), send: { _ in }))
-        defer { adapter.originalDidClose() }
-        #expect(adapter.window.title == "Original warning")
-        #expect(adapter.window.contentView?.frame.size == NSSize(width: 404, height: 142))
-        #expect(adapter.controls.count == 4)
-        #expect(adapter.controls[101]?.frame == NSRect(x: 16, y: 20, width: 370, height: 40))
-        #expect((adapter.controls[101] as? NSTextField)?.stringValue == "Original detail")
-        let yes = try #require(adapter.controls[102] as? NSButton)
-        let cancel = try #require(adapter.controls[103] as? NSButton)
-        let toggle = try #require(adapter.controls[104] as? NSButton)
-        #expect(yes.title == "Yes")
-        #expect(!yes.isEnabled)
-        #expect(cancel.frame == NSRect(x: 310, y: 82, width: 80, height: 28))
-        #expect(adapter.window.defaultButtonCell === cancel.cell)
-        #expect(cancel.keyEquivalent == "\r")
-        #expect(toggle.title == "Keep & remember")
-        #expect(toggle.state == .on)
-        #expect(cancel.nextKeyView === toggle)
-        #expect(toggle.nextKeyView === cancel)
-    }
-
-    @Test
-    func nativeActionsForwardTheOriginalControlAndWaitForItsLifetime() throws {
-        var calls: [[String]] = []
-        let adapter = try #require(NativeSteamDialogWindow(dialog: try originalWarning(), send: { calls.append($0) }))
-        defer { adapter.originalDidClose() }
-        let cancel = try #require(adapter.controls[103] as? NSButton)
-        cancel.performClick(nil)
-        #expect(calls == [["control", "33", "22", "103", "click"]])
-        #expect(adapter.controls.count == 4)
-        adapter.window.cancelOperation(nil)
-        #expect(calls.last == ["control", "33", "22", "103", "click"])
-        #expect(!adapter.windowShouldClose(adapter.window))
-        #expect(calls.last == ["answer", "33", "22", "0"])
-    }
-
-    @Test
-    func originalChangesUpdateExistingControlsWithoutRebuildingOrRecentring() throws {
-        var snapshot = try originalWarning()
-        let adapter = try #require(NativeSteamDialogWindow(dialog: snapshot, send: { _ in }))
-        defer { adapter.originalDidClose() }
-        let originalLabel = adapter.controls[101]
-        let origin = NSPoint(x: 120, y: 160)
-        adapter.window.setFrameOrigin(origin)
-        snapshot.controls?[0].text = "Original changed detail"
-        snapshot.controls?[1].enabled = true
-        snapshot.controls?[3].checkState = 0
-        adapter.update(snapshot)
-        #expect(adapter.controls[101] === originalLabel)
-        #expect((adapter.controls[101] as? NSTextField)?.stringValue == "Original changed detail")
-        #expect((adapter.controls[102] as? NSButton)?.isEnabled == true)
-        #expect((adapter.controls[104] as? NSButton)?.state == .off)
-        #expect(adapter.window.frame.origin == origin)
-    }
-
-    @Test
-    func missingOriginalLayoutNeverBecomesAnInventedAlert() throws {
-        let source = #"{"dialogs":[{"handle":1,"pid":2,"title":"Steam","body":"Original progress","buttons":[],"canClose":false}]}"#
-        let dialog = try #require(SteamNativeDialog.decode(source).first)
-        #expect(NativeSteamDialogWindow(dialog: dialog, send: { _ in }) == nil)
-    }
-
-    @Test
-    func javascriptDialogUsesTheOriginalMessage() {
-        let message = "Steam original warning\n原始提示"
-        let alert = SteamWebCoordinator.javaScriptAlert(message: message, cancel: true)
-        #expect(alert.messageText == message)
-        #expect(alert.buttons.count == 2)
-    }
-
     private func ready(_ web: WKWebView) async throws {
         for _ in 0..<80 {
             if (try? await web.evaluateJavaScript("window.ready===true")) as? Bool == true { return }
@@ -320,12 +240,29 @@ struct SteamClientShapeTests {
         #expect(try await web.evaluateJavaScript("typeof SteamClient.System.Audio") as? String == "undefined")
     }
 
-    private func load(shape: String) async throws -> WKWebView {
+    @Test
+    func browserDialogResponsesReachTheNativeView() async throws {
+        let messages = BrowserViewReports()
+        let web = try await load(shape: "{}", messages: messages)
+        _ = try await web.evaluateJavaScript("""
+        var browser=SteamClient.BrowserView.Create({});
+        browser.DialogResponse(true);browser.DialogResponse(false);
+        """)
+        for _ in 0..<80 {
+            if messages.responses.count == 2 { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(messages.responses == [true, false])
+    }
+
+    private func load(shape: String, messages: BrowserViewReports? = nil) async throws -> WKWebView {
         let url = try #require(Bundle.main.url(forResource: "steamclient_shim", withExtension: "js"))
         let shim = try String(contentsOf: url, encoding: .utf8)
             .replacingOccurrences(of: "%PAGE_PORT%", with: "8761")
             .replacingOccurrences(of: "%STEAM_HOSTS%", with: "[]")
-        let web = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        if let messages { configuration.userContentController.add(messages, name: "sevoWindow") }
+        let web = WKWebView(frame: .zero, configuration: configuration)
         web.loadHTMLString("""
         <script>
         window.__sevoShape=\(shape);
@@ -346,5 +283,16 @@ struct SteamClientShapeTests {
         }
         _ = try #require((try? await web.evaluateJavaScript("window.fixtureReady===true")) as? Bool == true)
         return web
+    }
+}
+
+@MainActor
+private final class BrowserViewReports: NSObject, WKScriptMessageHandler {
+    var responses: [Bool] = []
+    func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let args = body["args"] as? [Any], args.count == 3,
+              args[1] as? String == "dialogResponse", let answer = args[2] as? Bool else { return }
+        responses.append(answer)
     }
 }

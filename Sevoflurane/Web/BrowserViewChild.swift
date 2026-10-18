@@ -38,6 +38,22 @@ final class BrowserViewChild: NSObject {
         )
     }
 
+    private var dialogResponse: ((Bool) -> Void)?
+
+    /// The original Steam BrowserView modal calls DialogResponse. Its own
+    /// document supplies the title, controls, styling and close behavior.
+    func respondToJavaScriptDialog(_ accepted: Bool) {
+        let response = dialogResponse
+        dialogResponse = nil
+        response?(accepted)
+    }
+
+    private func requestJavaScriptDialog(_ event: String, message: String, response: @escaping (Bool) -> Void) {
+        respondToJavaScriptDialog(false)
+        dialogResponse = response
+        fire(event, "[\(JSLiteral.string(message))]")
+    }
+
     private let id: Int
     /// The hosting window's page, where the shim's event sink lives.
     private let hostPage: WKWebView
@@ -192,6 +208,7 @@ final class BrowserViewChild: NSObject {
     }
 
     func destroy() {
+        respondToJavaScriptDialog(false)
         observations = []
         webView.stopLoading()
         webView.navigationDelegate = nil
@@ -249,6 +266,7 @@ extension BrowserViewChild: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
+        respondToJavaScriptDialog(false)
         let url = JSLiteral.string(webView.url?.absoluteString ?? "")
         beginLoadInterval(host: webView.url?.host ?? "")
         fire("start-request", "[\(url)]")
@@ -291,6 +309,16 @@ extension BrowserViewChild: WKNavigationDelegate {
 }
 
 extension BrowserViewChild: WKUIDelegate {
+    func webView(_: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        requestJavaScriptDialog("alert-dialog", message: message) { _ in completionHandler() }
+    }
+
+    func webView(_: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        requestJavaScriptDialog("confirm-dialog", message: message, response: completionHandler)
+    }
+
     /// `target=_blank` in embedded web content is an external link; it belongs
     /// in the user's browser.
     func webView(

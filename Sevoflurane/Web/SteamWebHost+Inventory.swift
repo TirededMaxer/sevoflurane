@@ -67,7 +67,6 @@ extension SteamWebHost {
                 "appActive": NSApp.isActive,
                 "frontmostPID": NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1,
                 "responder": popup.nsWindow?.firstResponder.map { String(describing: type(of: $0)) } ?? "none",
-                "embedded": popup.embeddedPresented,
                 "windowID": popup.nsWindow?.windowNumber ?? 0,
                 "spaces": popup.nsWindow.map { DesktopSpacePlacement.memberships(of: $0) } ?? [],
             ])

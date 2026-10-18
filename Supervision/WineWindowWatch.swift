@@ -190,7 +190,7 @@ nonisolated enum WineWindowWatch {
         "services.exe", "winedevice.exe", "plugplay.exe", "svchost.exe",
         "rpcss.exe", "wineboot.exe", "winemenubuilder.exe", "start.exe",
         "rundll32.exe",
-        "sevo-discord-bridge.exe", "sevo-steam-ui.exe", "sevo-steamstub.exe", "sevo-steamstub32.exe",
+        "sevo-discord-bridge.exe", "sevo-steamstub.exe", "sevo-steamstub32.exe",
         // What setup's dependency step runs (``BottleDependencies``).
         "vc_redist.x64.exe", "vc_redist.x86.exe", "directx_jun2010_redist.exe", "dxsetup.exe",
         "reg.exe", "regedit.exe",

@@ -38,20 +38,7 @@ extension SteamWindow {
             window.hidesOnDeactivate = false
             webView.underPageBackgroundColor = .clear
         case .gameOverlay:
-            // Transparent, floating, click-through, and shown at alpha 0 until
-            // the overlay is activated — the page's own dark backdrop is the
-            // dimming, so an opaque window would read as solid black. It never
-            // hides on deactivation (the game is frontmost while it is up) and
-            // joins every Space so it follows a full-screen game.
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.hasShadow = false
-            window.level = .floating
-            window.hidesOnDeactivate = false
-            window.collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces]
-            webView.underPageBackgroundColor = .clear
-            window.alphaValue = 0
-            window.ignoresMouseEvents = true
+            break // Owned by the original game renderer; never realized here.
         case .dialog:
             // A modal over the desktop window: it keeps Steam's own frame and
             // stays up while another app is frontmost, since it may be the

@@ -64,23 +64,7 @@ struct ForkWindowTests {
         toast.close()
     }
 
-    @Test
-    func packagedNativeDialogHelperExists() {
-        #expect(NativeSteamDialogs.helperURL != nil)
-    }
 
-    @Test
-    func nativeDialogRetainsUnicodeAndButtonIdentity() throws {
-        let scan = #"{"dialogs":[{"handle":65618,"pid":204,"title":"Steam \u6d4b\u8bd5\u9519\u8bef","body":"\u8fde\u63a5\u5931\u8d25","buttons":[{"id":1,"title":"\u786e\u5b9a"},{"id":2,"title":"\u53d6\u6d88"}]}]}"#
-        let dialogs = SteamNativeDialog.decode("Wine startup message\n" + scan + "\n")
-        let dialog = try #require(dialogs.first)
-        #expect(dialog.title == "Steam 测试错误")
-        #expect(dialog.body == "连接失败")
-        #expect(dialog.buttons.map(\.id) == [1, 2])
-        #expect(dialog.buttons.map(\.title) == ["确定", "取消"])
-        #expect(dialog.identity == "204:65618")
-        #expect(SteamNativeDialog.decode("not a scan").isEmpty)
-    }
 }
 
 @MainActor

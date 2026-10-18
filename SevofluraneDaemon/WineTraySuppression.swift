@@ -9,7 +9,7 @@ extension BottleSupervisor {
             "services.exe", "winedevice.exe", "plugplay.exe", "svchost.exe",
             "rpcss.exe", "conhost.exe", "wineboot.exe", "start.exe", "rundll32.exe",
             "winemenubuilder.exe", "steamerrorreporter.exe", "steamerrorreporter64.exe",
-            "tabtip.exe", "gameoverlayui64.exe", "cefwebhelper.exe", "sevo-discord-bridge.exe", "sevo-steam-ui.exe",
+            "tabtip.exe", "gameoverlayui64.exe", "cefwebhelper.exe", "sevo-discord-bridge.exe",
         ]
         let out = await Subprocess.run("/usr/bin/pgrep", WineProcessList.pgrepArguments).output
         return WineProcessList.entries(fromPgrepLong: out).contains {

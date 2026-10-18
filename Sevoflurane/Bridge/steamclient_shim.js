@@ -868,6 +868,7 @@
       SetFocus: function (f) { if (f) send("focus"); },
       CanGoBackward: function () { return history.bCanGoBack; },
       CanGoForward: function () { return history.bCanGoForward; },
+      DialogResponse: function (accepted) { send("dialogResponse", [!!accepted]); },
       PostMessage: function (type, data) {
         send("postMessage", [String(type), JSON.stringify(data === undefined ? null : data)]);
         return true;
@@ -881,7 +882,7 @@
     ["SetWindowStackingOrder", "AddGlass", "EnableSteamInput", "NotifyUserActivation",
      "SetTouchGesturesToCancel", "HandleContextMenuCommand", "SetSteamURLCallback",
      "SetShowContextMenuCallback", "SetBlockedProtocols", "Paste", "FindInPage",
-     "StopFindInPage", "DialogResponse", "SetVRKeyboardVisibility", "AddHeader",
+     "StopFindInPage", "SetVRKeyboardVisibility", "AddHeader",
     ].forEach(function (name) { view[name] = function () {}; });
     return view;
   }

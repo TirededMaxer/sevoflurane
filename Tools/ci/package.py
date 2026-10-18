@@ -17,14 +17,8 @@ assert summary["passedTests"] > 0 and summary["failedTests"] == 0, summary
 source = work / "Release/Build/Products/Release/Sevoflurane.app"
 stage = work / "dmg-root/Sevoflurane.app"
 shutil.copytree(source, stage, symlinks=True)
-experimental = os.environ.get("SEVO_OVERLAY_EXPERIMENT") == "1"
-overlay = stage / "Contents/Resources/EmbeddedOverlay"
-if experimental:
-    overlay.mkdir(parents=True)
-    for name in ("SevoEmbeddedOverlay.dylib", "SevoOverlayRenderer.dylib"):
-        shutil.copy2(Path(os.environ["RUNNER_TEMP"]) / "sevo-overlay" / name, overlay)
-else:
-    assert not overlay.exists()
+assert not (stage / "Contents/Resources/EmbeddedOverlay").exists()
+assert not (stage / "Contents/Resources/SteamUI").exists()
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]
 assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-fork\.[0-9]+", version), version
@@ -43,9 +37,6 @@ def sign(path, entitlements):
     run("codesign", "--force", "--sign", "-", "--options", "runtime", "--timestamp=none",
         "--entitlements", str(entitlements), str(path))
 
-if experimental:
-    for library in overlay.glob("*.dylib"):
-        sign(library, empty)
 for helper in (stage / "Contents/Helpers").iterdir():
     if helper.is_file():
         sign(helper, empty)
@@ -91,5 +82,5 @@ notes += (f"\n\nCloud validation: {summary['passedTests']} passed, {summary['fai
           f"/actions/runs/{os.environ['GITHUB_RUN_ID']})\n")
 (out / "release-notes.md").write_text(notes)
 (out / "manifest.json").write_text(json.dumps({"version": version, "dmg": dmg.name,
-    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": experimental}, indent=2) + "\n")
+    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": False}, indent=2) + "\n")
 print(f"Verified {version}: {len(tools)} MCP tools, SHA-256 {digest}")

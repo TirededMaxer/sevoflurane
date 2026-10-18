@@ -7,10 +7,6 @@ work="$RUNNER_TEMP/sevo-build"
 out="$RUNNER_TEMP/sevo-output"
 mkdir -p "$work" "$out"
 export SEVO_EMBED_ENGINE=0
-# Compile the small Win32 UI bridge from source on this fresh runner.
-if [[ ! -x "$(brew --prefix llvm)/bin/llvm-dlltool" ]]; then brew install llvm; fi
-if [[ ! -x "$(brew --prefix lld)/bin/lld-link" ]]; then brew install lld; fi
-bash Tools/steam-ui/build-cloud.sh
 xcodebuild -version | tee "$out/toolchain.txt"
 sw_vers >> "$out/toolchain.txt"
 common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
@@ -18,11 +14,6 @@ common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
     -clonedSourcePackagesDirPath "$work/SourcePackages"
     -onlyUsePackageVersionsFromResolvedFile
     DEVELOPMENT_TEAM= ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO)
-if [[ "${SEVO_OVERLAY_EXPERIMENT:-0}" == 1 ]]; then
-    common+=('OTHER_SWIFT_FLAGS=$(inherited) -D SEVO_WINDOW_OVERLAY_EXPERIMENT')
-    bash Tools/embedded-overlay/build.sh
-    cp "$RUNNER_TEMP/sevo-overlay/window-check.txt" "$out/overlay-window-check.txt"
-fi
 test_status=0
 xcodebuild "${common[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
     CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO \
