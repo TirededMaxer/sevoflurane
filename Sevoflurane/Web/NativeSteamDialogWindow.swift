@@ -223,7 +223,8 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
         const order=original.controls.filter(c=>c.tabStop&&c.enabled);if(!order.length)return;
         const active=document.activeElement&&document.activeElement.closest('[data-handle]');
         const index=order.findIndex(c=>active&&String(c.handle)===active.dataset.handle);
-        const next=order[(index+(e.shiftKey?-1:1)+order.length)%order.length];
+        const target=index<0?(e.shiftKey?order.length-1:0):(index+(e.shiftKey?-1:1)+order.length)%order.length;
+        const next=order[target];
         const node=elements.get(String(next.handle));if(node){e.preventDefault();(node.querySelector('input')||node).focus()}return;
       }
       if(e.key==='Escape'){const cancel=original.controls.find(c=>c.id===2&&c.enabled&&c.className.toLowerCase()==='button');if(cancel){e.preventDefault();send('click',cancel.handle)}else if(original.canClose){e.preventDefault();send('close')}}

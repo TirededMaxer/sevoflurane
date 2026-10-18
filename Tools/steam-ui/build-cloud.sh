@@ -5,6 +5,9 @@ set -euo pipefail
 cd "$GITHUB_WORKSPACE"
 work="$RUNNER_TEMP/sevo-steam-ui"
 mkdir -p "$work" "Sevoflurane/Resources/SteamUI"
+if [[ ! -x "$(brew --prefix llvm)/bin/llvm-dlltool" || ! -x "$(brew --prefix lld)/bin/lld-link" ]]; then
+    brew install llvm lld
+fi
 llvm="$(brew --prefix llvm)"
 lld="$(brew --prefix lld)"
 for dll in user32 kernel32 gdi32; do
