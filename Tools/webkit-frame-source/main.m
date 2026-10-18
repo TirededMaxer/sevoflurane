@@ -12,6 +12,58 @@ static const double CSSWidth = 768, CSSHeight = 480;
 static const char *RegionNames[] = {"css_motion","scroll","canvas2d","webgl","video"};
 static double milliseconds(CFTimeInterval a, CFTimeInterval b) { return (b-a)*1000; }
 static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255),@(p>>24)]; }
+static id finiteValue(CGFloat n) { return isfinite(n) ? @(n) : (id)NSNull.null; }
+static NSArray *rectValues(CGRect r) { return @[finiteValue(r.origin.x),finiteValue(r.origin.y),finiteValue(r.size.width),finiteValue(r.size.height)]; }
+
+// Official WebKit 7b548466 WKWebViewPrivate.h / WKWebViewMac.mm signatures.
+// These are gated diagnostic SPI, confined to this synthetic WK instance.
+@interface WKWebView (FixtureDiagnosticSPI)
+- (void)_setDrawsBackground:(BOOL)value;
+- (BOOL)_drawsBackground;
+- (void)_setWindowOcclusionDetectionEnabled:(BOOL)value;
+- (BOOL)_windowOcclusionDetectionEnabled;
+@end
+
+static NSDictionary *layerInventory(CALayer *root) {
+    NSMutableArray *nodes=[NSMutableArray new],*pending=[NSMutableArray new];
+    NSMutableDictionary *counts=[NSMutableDictionary new];BOOL truncated=NO;
+    if (root) [pending addObject:@{@"object":root,@"parent":@(-1),@"depth":@0}];
+    for (NSUInteger cursor=0;cursor<pending.count && nodes.count<128;cursor++) {
+        NSDictionary *item=pending[cursor];CALayer *layer=item[@"object"];
+        NSUInteger index=nodes.count,depth=[item[@"depth"] unsignedIntegerValue];
+        NSString *className=NSStringFromClass(layer.class);id contents=layer.contents;
+        counts[className]=@([counts[className] unsignedIntegerValue]+1);
+        [nodes addObject:@{@"index":@(index),@"parent":item[@"parent"],@"depth":@(depth),@"class":className,
+            @"bounds":rectValues(layer.bounds),@"frame":rectValues(layer.frame),@"hidden":@(layer.hidden),
+            @"opacity":finiteValue(layer.opacity),@"opaque":@(layer.opaque),@"contents_scale":finiteValue(layer.contentsScale),
+            @"contents_class":contents ? NSStringFromClass([contents class]) : (id)NSNull.null}];
+        NSArray<CALayer *> *children=layer.sublayers;
+        if (depth>=12) { if (children.count) truncated=YES;continue; }
+        for (CALayer *child in children) {
+            if (pending.count>=128) { truncated=YES;break; }
+            [pending addObject:@{@"object":child,@"parent":@(index),@"depth":@(depth+1)}];
+        }
+    }
+    return @{@"limit":@128,@"max_depth":@12,@"truncated":@(truncated),@"class_counts":counts,@"nodes":nodes};
+}
+static NSDictionary *viewInventory(NSView *root) {
+    NSMutableArray *nodes=[NSMutableArray new],*pending=[NSMutableArray new];BOOL truncated=NO;
+    if (root) [pending addObject:@{@"object":root,@"parent":@(-1),@"depth":@0}];
+    for (NSUInteger cursor=0;cursor<pending.count && nodes.count<64;cursor++) {
+        NSDictionary *item=pending[cursor];NSView *view=item[@"object"];
+        NSUInteger index=nodes.count,depth=[item[@"depth"] unsignedIntegerValue];
+        [nodes addObject:@{@"index":@(index),@"parent":item[@"parent"],@"depth":@(depth),@"class":NSStringFromClass(view.class),
+            @"bounds":rectValues(view.bounds),@"frame":rectValues(view.frame),@"hidden":@(view.hidden),
+            @"hidden_ancestor":@(view.isHiddenOrHasHiddenAncestor),
+            @"layer_class":view.layer ? NSStringFromClass(view.layer.class) : (id)NSNull.null}];
+        if (depth>=12) { if (view.subviews.count) truncated=YES;continue; }
+        for (NSView *child in view.subviews) {
+            if (pending.count>=64) { truncated=YES;break; }
+            [pending addObject:@{@"object":child,@"parent":@(index),@"depth":@(depth+1)}];
+        }
+    }
+    return @{@"limit":@64,@"max_depth":@12,@"truncated":@(truncated),@"nodes":nodes};
+}
 
 @interface PassivePanel : NSPanel @end
 @implementation PassivePanel
@@ -44,6 +96,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 @property(nonatomic,copy) NSString *name;
 @property(nonatomic,strong) NSMutableArray<NSArray<NSNumber *> *> *timings;
 @property(nonatomic,strong) NSMutableArray<NSDictionary *> *examples;
+@property(nonatomic,strong) NSDictionary *inventory;
 - (NSDictionary *)report;
 @end
 @implementation Phase
@@ -84,7 +137,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
         @"region_changes":changes,@"lock_failures":@(lockFailures),@"gpu_errors":@(gpuErrors),
         @"source_visible_samples":@(visibleSamples),@"source_occluded_samples":@(occludedSamples),
         @"app_hidden_samples":@(hiddenSamples),@"app_active_samples":@(activeSamples),
-        @"timings":metrics,@"first_samples":self.examples};
+        @"timings":metrics,@"first_samples":self.examples,@"own_fixture_inventory":self.inventory ?: (id)NSNull.null};
 }
 @end
 
@@ -103,6 +156,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 @property(nonatomic,strong) NSTimer *timer;
 @property(nonatomic,copy) NSString *outputDirectory;
 @property(nonatomic,strong) NSDictionary *readyStatus;
+@property(nonatomic,strong) NSDictionary *diagnosticSPI;
 @property(nonatomic) FCGeometry geometry;
 @property(nonatomic) CFTimeInterval launched, readyTime;
 @property(nonatomic) BOOL ready, inFlight, finishing, written;
@@ -112,6 +166,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 - (void)tick;
 - (BOOL)prepareRenderer;
 - (void)writeReportAndExit;
+- (void)configureDiagnosticSPI;
 @end
 
 @implementation Fixture
@@ -130,6 +185,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     self.web=[[WKWebView alloc] initWithFrame:NSMakeRect(0,0,CSSWidth,CSSHeight) configuration:config];
     self.web.navigationDelegate=self; self.web.wantsLayer=YES;
     self.web.underPageBackgroundColor=NSColor.clearColor;
+    [self configureDiagnosticSPI];
     self.window=[[PassivePanel alloc] initWithContentRect:self.web.bounds
         styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskNonactivatingPanel
         backing:NSBackingStoreBuffered defer:NO];
@@ -167,6 +223,32 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 - (void)beginPhase:(NSString *)name {
     CFTimeInterval now=CACurrentMediaTime();Phase *previous=self.phases.lastObject;if (previous) previous->end=now;
     Phase *phase=[Phase new];phase.name=name;phase->start=now;[self.phases addObject:phase];
+}
+- (void)configureDiagnosticSPI {
+    BOOL backgroundSetter=[self.web respondsToSelector:@selector(_setDrawsBackground:)];
+    BOOL backgroundGetter=[self.web respondsToSelector:@selector(_drawsBackground)];
+    BOOL occlusionSetter=[self.web respondsToSelector:@selector(_setWindowOcclusionDetectionEnabled:)];
+    BOOL occlusionGetter=[self.web respondsToSelector:@selector(_windowOcclusionDetectionEnabled)];
+    id backgroundBefore=NSNull.null,backgroundAfter=NSNull.null,occlusionBefore=NSNull.null,occlusionAfter=NSNull.null;
+    BOOL backgroundApplied=NO,occlusionApplied=NO;
+    @try {
+        if (backgroundGetter) backgroundBefore=@([self.web _drawsBackground]);
+        if (backgroundSetter) { [self.web _setDrawsBackground:NO];backgroundApplied=YES; }
+        if (backgroundGetter) backgroundAfter=@([self.web _drawsBackground]);
+    } @catch (NSException *exception) { (void)exception;[self.errors addObject:@"draws-background-spi-exception"]; }
+    @try {
+        if (occlusionGetter) occlusionBefore=@([self.web _windowOcclusionDetectionEnabled]);
+        if (occlusionSetter) { [self.web _setWindowOcclusionDetectionEnabled:NO];occlusionApplied=YES; }
+        if (occlusionGetter) occlusionAfter=@([self.web _windowOcclusionDetectionEnabled]);
+    } @catch (NSException *exception) { (void)exception;[self.errors addObject:@"occlusion-detection-spi-exception"]; }
+    if (!backgroundSetter || !occlusionSetter) [self.errors addObject:@"diagnostic-spi-setter-unavailable"];
+    if (([backgroundAfter isKindOfClass:NSNumber.class] && [backgroundAfter boolValue]) ||
+        ([occlusionAfter isKindOfClass:NSNumber.class] && [occlusionAfter boolValue]))
+        [self.errors addObject:@"diagnostic-spi-value-not-disabled"];
+    self.diagnosticSPI=@{@"draws_background":@{@"setter_available":@(backgroundSetter),@"getter_available":@(backgroundGetter),
+            @"requested":@NO,@"applied":@(backgroundApplied),@"before":backgroundBefore,@"after":backgroundAfter},
+        @"window_occlusion_detection":@{@"setter_available":@(occlusionSetter),@"getter_available":@(occlusionGetter),
+            @"requested":@NO,@"applied":@(occlusionApplied),@"before":occlusionBefore,@"after":occlusionAfter}};
 }
 - (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
     (void)controller;
@@ -249,6 +331,10 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     if (self.inFlight) { self.skippedBusy++;return; }
     self.inFlight=YES;
     Phase *phase=self.phases.lastObject;SurfaceSlot *slot=self.slots[self.nextSlot++%self.slots.count];
+    if (!phase.inventory) {
+        phase.inventory=@{@"layers":layerInventory(self.pixelRoot),@"views":viewInventory(self.web)};
+        now=CACurrentMediaTime(); // One metadata inventory per phase is outside frame timing.
+    }
     BOOL sourceNested=self.web.layer.superlayer==self.logicalCarrier;
     BOOL diagnose=phase.examples.count<3;
     if (self.window.occlusionState&NSWindowOcclusionStateVisible) phase->visibleSamples++;
@@ -368,6 +454,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     NSDictionary *report=@{@"schema":@1,@"source":@"synthetic-wk-only",@"backend":@"public-CARenderer-Metal-IOSurface",
         @"passed":@(pass),@"steam_connected":@NO,@"runtime_s":@(CACurrentMediaTime()-self.launched),
         @"errors":self.errors,@"ready":self.readyStatus ?: (id)NSNull.null,@"phases":reports,
+        @"diagnostic_spi":self.diagnosticSPI ?: (id)NSNull.null,
         @"geometry":@{@"width":@(g.width),@"height":@(g.height),@"requested_row_bytes":@(g.row_bytes),
             @"iosurface_width":self.slots.count ? @(IOSurfaceGetWidth(self.slots.firstObject.surface)) : (id)NSNull.null,
             @"iosurface_height":self.slots.count ? @(IOSurfaceGetHeight(self.slots.firstObject.surface)) : (id)NSNull.null,
