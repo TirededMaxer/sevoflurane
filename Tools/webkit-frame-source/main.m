@@ -6,6 +6,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#import "render_server.h"
 #include "frame_checks.h"
 
 static const double CSSWidth = 768, CSSHeight = 480;
@@ -86,7 +88,7 @@ static NSDictionary *viewInventory(NSView *root) {
 @public
     uint64_t frames, contentFailures, generationFailures, tearing, backwards;
     uint64_t transitions, duplicateFrames, orientationFailures, orientationChanges;
-    uint64_t sourceReparentedFrames;
+    uint64_t sourceReparentedFrames, transparentOrderedSamples, windowVisibleSamples;
     uint64_t regionChanges[FC_REGION_COUNT], previousRegions[FC_REGION_COUNT];
     uint64_t occludedSamples, visibleSamples, hiddenSamples, activeSamples, lockFailures, gpuErrors;
     uint16_t lastGeneration;
@@ -125,6 +127,7 @@ static NSDictionary *viewInventory(NSView *root) {
         lockFailures==0 && gpuErrors==0 && sourceReparentedFrames==0 && allChanged;
     if ([self.name isEqual:@"visible"] && visibleSamples<8) pass=NO;
     if ([self.name isEqual:@"self_occluded"] && occludedSamples<8) pass=NO;
+    if ([self.name isEqual:@"transparent_ordered"] && transparentOrderedSamples<8) pass=NO;
     if ([self.name isEqual:@"app_hidden"] && (hiddenSamples<8 || occludedSamples<8)) pass=NO;
     return @{@"name":self.name,@"passed":@(pass),@"duration_s":@(duration),
         @"frames":@(frames),@"distinct_generation_transitions":@(transitions),
@@ -133,6 +136,7 @@ static NSDictionary *viewInventory(NSView *root) {
         @"generation_failures":@(generationFailures),@"tearing":@(tearing),@"backwards":@(backwards),
         @"orientation_failures":@(orientationFailures),@"orientation_changes":@(orientationChanges),
         @"source_reparented_frames":@(sourceReparentedFrames),
+        @"transparent_ordered_samples":@(transparentOrderedSamples),@"source_window_visible_samples":@(windowVisibleSamples),
         @"raw_bottom_up":firstOrientation<0 ? (id)NSNull.null : @(firstOrientation==1),
         @"region_changes":changes,@"lock_failures":@(lockFailures),@"gpu_errors":@(gpuErrors),
         @"source_visible_samples":@(visibleSamples),@"source_occluded_samples":@(occludedSamples),
@@ -148,6 +152,9 @@ static NSDictionary *viewInventory(NSView *root) {
 @property(nonatomic,strong) id<MTLDevice> device;
 @property(nonatomic,strong) id<MTLCommandQueue> queue;
 @property(nonatomic,strong) CARenderer *renderer;
+@property(nonatomic,strong) RenderServerFrameSource *renderServer;
+@property(nonatomic,weak) CALayer *originalSourceParent;
+@property(nonatomic) BOOL useRenderServer;
 @property(nonatomic,strong) CALayer *pixelRoot;
 @property(nonatomic,strong) CALayer *logicalCarrier;
 @property(nonatomic,strong) NSArray<SurfaceSlot *> *slots;
@@ -216,9 +223,14 @@ static NSDictionary *viewInventory(NSView *root) {
     });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,9*NSEC_PER_SEC),dispatch_get_main_queue(),^{
         if (self.finishing) return;
+        [self beginPhase:@"transparent_ordered"];
+        [self.cover orderOut:nil];self.window.alphaValue=0; // Remains ordered in; distinct from NSApp hiding.
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,13*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+        if (self.finishing) return;
         [self beginPhase:@"app_hidden"];[NSApp hide:nil]; // Only this diagnostic app.
     });
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(14.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self finish];});
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(18.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self finish];});
 }
 - (void)beginPhase:(NSString *)name {
     CFTimeInterval now=CACurrentMediaTime();Phase *previous=self.phases.lastObject;if (previous) previous->end=now;
@@ -289,6 +301,14 @@ static NSDictionary *viewInventory(NSView *root) {
         [slots addObject:slot];
     }
     self.slots=slots;
+    self.originalSourceParent=self.web.layer.superlayer;
+    if (self.useRenderServer) {
+        self.renderServer=[[RenderServerFrameSource alloc] initWithSourceView:self.web];
+        if (!self.renderServer.available) {
+            [self.errors addObject:self.renderServer.lastError ?: @"render-server-unavailable"];return NO;
+        }
+        return YES; // Preserve this source's original WindowServer attachment and geometry.
+    }
     CGColorSpaceRef color=CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     self.renderer=[CARenderer rendererWithMTLTexture:self.slots.firstObject.texture
         options:@{kCARendererMetalCommandQueue:self.queue,kCARendererColorSpace:(__bridge id)color}];
@@ -332,18 +352,27 @@ static NSDictionary *viewInventory(NSView *root) {
     self.inFlight=YES;
     Phase *phase=self.phases.lastObject;SurfaceSlot *slot=self.slots[self.nextSlot++%self.slots.count];
     if (!phase.inventory) {
-        phase.inventory=@{@"layers":layerInventory(self.pixelRoot),@"views":viewInventory(self.web)};
+        phase.inventory=@{@"layers":layerInventory(self.useRenderServer ? self.web.layer : self.pixelRoot),@"views":viewInventory(self.web)};
         now=CACurrentMediaTime(); // One metadata inventory per phase is outside frame timing.
     }
-    BOOL sourceNested=self.web.layer.superlayer==self.logicalCarrier;
+    BOOL sourceNested=self.web.layer.superlayer==(self.useRenderServer ? self.originalSourceParent : self.logicalCarrier);
     BOOL diagnose=phase.examples.count<3;
     if (self.window.occlusionState&NSWindowOcclusionStateVisible) phase->visibleSamples++;
     else phase->occludedSamples++;
     if (NSApp.hidden) phase->hiddenSamples++;
+    if (self.window.isVisible) phase->windowVisibleSamples++;
+    if (self.window.isVisible && self.window.alphaValue==0 && !NSApp.hidden) phase->transparentOrderedSamples++;
     if (NSApp.active) phase->activeSamples++;
     FCGeometry geometry=self.geometry; geometry.row_bytes=IOSurfaceGetBytesPerRow(slot.surface);
     CFTimeInterval began=now;
-    @try {
+    if (self.useRenderServer) {
+        BOOL ok=[self.renderServer renderLayer:self.web.layer toSurface:slot.surface
+            scaleX:(CGFloat)geometry.width/CSSWidth scaleY:(CGFloat)geometry.height/CSSHeight];
+        if (!ok) {
+            self.inFlight=NO;[self.errors addObject:self.renderServer.lastError ?: @"render-server-call-failed"];
+            [self finish];return;
+        }
+    } else @try {
         [self.renderer setDestination:slot.texture];
         id<MTLCommandBuffer> clear=[self.queue commandBuffer];
         MTLRenderPassDescriptor *pass=[MTLRenderPassDescriptor renderPassDescriptor];
@@ -362,20 +391,23 @@ static NSDictionary *viewInventory(NSView *root) {
         (void)exception;self.inFlight=NO;[self.errors addObject:@"carenderer-exception"];[self finish];return;
     }
     CFTimeInterval submitted=CACurrentMediaTime();
-    id<MTLCommandBuffer> completed=[self.queue commandBuffer];
-    if (!completed) { self.inFlight=NO;[self.errors addObject:@"completion-marker-unavailable"];[self finish];return; }
-    // Explicitly read the tracked destination texture on the same queue, rather
-    // than relying on completion of an empty command buffer as a GPU fence.
-    id<MTLBlitCommandEncoder> dependency=[completed blitCommandEncoder];
-    if (!dependency) { self.inFlight=NO;[self.errors addObject:@"completion-dependency-unavailable"];[self finish];return; }
-    [dependency copyFromTexture:slot.texture sourceSlice:0 sourceLevel:0
-        sourceOrigin:MTLOriginMake(0,0,0) sourceSize:MTLSizeMake(1,1,1)
-        toBuffer:slot.completionByte destinationOffset:0 destinationBytesPerRow:256 destinationBytesPerImage:256];
-    [dependency endEncoding];
-    // Retain slot until its completion AND the entire CPU read/copy have finished.
-    [completed addCompletedHandler:^(id<MTLCommandBuffer> command) {
+    id<MTLCommandBuffer> completed=nil;
+    if (!self.useRenderServer) {
+        completed=[self.queue commandBuffer];
+        if (!completed) { self.inFlight=NO;[self.errors addObject:@"completion-marker-unavailable"];[self finish];return; }
+        // Explicitly read the tracked destination texture on the same queue, rather
+        // than relying on completion of an empty command buffer as a GPU fence.
+        id<MTLBlitCommandEncoder> dependency=[completed blitCommandEncoder];
+        if (!dependency) { self.inFlight=NO;[self.errors addObject:@"completion-dependency-unavailable"];[self finish];return; }
+        [dependency copyFromTexture:slot.texture sourceSlice:0 sourceLevel:0
+            sourceOrigin:MTLOriginMake(0,0,0) sourceSize:MTLSizeMake(1,1,1)
+            toBuffer:slot.completionByte destinationOffset:0 destinationBytesPerRow:256 destinationBytesPerImage:256];
+        [dependency endEncoding];
+    }
+    // Slot lifetime includes all API/GPU work and its independent CPU copy.
+    // Snapshot true is API status, not a separately proven macOS GPU fence.
+    void (^consume)(BOOL)=^(BOOL gpuOK) {
         CFTimeInterval gpuDone=CACurrentMediaTime(),locked=gpuDone,copied=gpuDone;
-        BOOL gpuOK=command.status==MTLCommandBufferStatusCompleted;
         BOOL lockOK=NO,copyOK=NO;int orientation=-1;FCResult result={0};FCDiagnostics diagnostic={0};uint32_t seed=0;
         if (gpuOK) {
             kern_return_t status=IOSurfaceLock(slot.surface,kIOSurfaceLockReadOnly,&seed);
@@ -428,8 +460,15 @@ static NSDictionary *viewInventory(NSView *root) {
                 @"canvas":@(result.canvas),@"webgl":@(result.webgl),@"video":@(result.video),@"surface_seed":@(seed)}];
             self.inFlight=NO;if (self.finishing) [self writeReportAndExit];
         });
-    }];
-    [completed commit];
+    };
+    if (self.useRenderServer) {
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{consume(YES);});
+    } else {
+        [completed addCompletedHandler:^(id<MTLCommandBuffer> command) {
+            consume(command.status==MTLCommandBufferStatusCompleted);
+        }];
+        [completed commit];
+    }
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action decisionHandler:(void (^)(WKNavigationActionPolicy))handler {
     (void)webView;
@@ -442,19 +481,20 @@ static NSDictionary *viewInventory(NSView *root) {
     if (!self.inFlight) { [self writeReportAndExit];return; }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{
         if (self.written) return;
-        [self.errors addObject:@"gpu-completion-timeout-no-cpu-read-or-manual-surface-release"];
+        [self.errors addObject:@"frame-completion-timeout-no-manual-surface-release"];
         [self writeReportAndExit]; // Process teardown only; slot remains retained until exit.
     });
 }
 - (void)writeReportAndExit {
     if (self.written) return;self.written=YES;
-    NSMutableArray *reports=[NSMutableArray new];BOOL pass=self.errors.count==0 && self.phases.count==3;
+    NSMutableArray *reports=[NSMutableArray new];BOOL pass=self.errors.count==0 && self.phases.count==4;
     for (Phase *phase in self.phases) { NSDictionary *r=phase.report;[reports addObject:r];if (![r[@"passed"] boolValue]) pass=NO; }
     FCGeometry g=self.geometry;
-    NSDictionary *report=@{@"schema":@1,@"source":@"synthetic-wk-only",@"backend":@"public-CARenderer-Metal-IOSurface",
+    NSDictionary *report=@{@"schema":@1,@"source":@"synthetic-wk-only",@"backend":self.useRenderServer ? @"experimental-CARenderServerSnapshot-IOSurface" : @"public-CARenderer-Metal-IOSurface",
         @"passed":@(pass),@"steam_connected":@NO,@"runtime_s":@(CACurrentMediaTime()-self.launched),
         @"errors":self.errors,@"ready":self.readyStatus ?: (id)NSNull.null,@"phases":reports,
         @"diagnostic_spi":self.diagnosticSPI ?: (id)NSNull.null,
+        @"render_server":self.renderServer ? self.renderServer.metadata : (id)NSNull.null,
         @"geometry":@{@"width":@(g.width),@"height":@(g.height),@"requested_row_bytes":@(g.row_bytes),
             @"iosurface_width":self.slots.count ? @(IOSurfaceGetWidth(self.slots.firstObject.surface)) : (id)NSNull.null,
             @"iosurface_height":self.slots.count ? @(IOSurfaceGetHeight(self.slots.firstObject.surface)) : (id)NSNull.null,
@@ -481,8 +521,15 @@ static NSDictionary *viewInventory(NSView *root) {
 @end
 
 int main(int argc,const char **argv) {
-    (void)argc;(void)argv;
+    BOOL server=NO;
+    if (argc==3 && !strcmp(argv[1],"--backend") && !strcmp(argv[2],"render-server")) server=YES;
+    else if (argc!=1 && !(argc==3 && !strcmp(argv[1],"--backend") && !strcmp(argv[2],"carenderer"))) {
+        fprintf(stderr,"usage: WebKitFrameSource [--backend carenderer|render-server]\n");return 2;
+    }
     static Fixture *owner; // NSApplication.delegate does not own its delegate.
-    @autoreleasepool { NSApplication *app=NSApplication.sharedApplication;owner=[Fixture new];app.delegate=owner;[app run]; }
+    @autoreleasepool {
+        NSApplication *app=NSApplication.sharedApplication;owner=[Fixture new];
+        owner.useRenderServer=server;app.delegate=owner;[app run];
+    }
     return 2;
 }

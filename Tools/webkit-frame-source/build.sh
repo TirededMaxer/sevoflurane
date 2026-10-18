@@ -23,7 +23,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 clang -std=c11 -arch arm64 -mmacosx-version-min=13.0 -O2 -Wall -Wextra -Werror \
   -c frame_checks.c -o "$work/frame_checks.o"
 clang -arch arm64 -mmacosx-version-min=13.0 -fobjc-arc -O2 -Wall -Wextra -Werror \
-  main.m "$work/frame_checks.o" -framework AppKit -framework WebKit -framework QuartzCore \
+  main.m render_server.m "$work/frame_checks.o" -framework AppKit -framework WebKit -framework QuartzCore \
   -framework Metal -framework IOSurface -framework CoreGraphics -framework CoreFoundation \
   -o "$app/Contents/MacOS/WebKitFrameSource"
 cp Info.plist "$app/Contents/Info.plist"
