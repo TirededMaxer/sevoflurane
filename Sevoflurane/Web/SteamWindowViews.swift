@@ -6,6 +6,17 @@ import WebKit
 final class SteamDocumentWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    // NSWindow's perform* methods click standard titlebar buttons. This
+    // document has no such buttons: preserve the same delegate/OS operations
+    // for menu commands while Steam keeps painting its own controls.
+    override func performClose(_ sender: Any?) {
+        guard delegate?.windowShouldClose?(self) != false else { return }
+        close()
+    }
+
+    override func performMiniaturize(_ sender: Any?) { miniaturize(sender) }
+    override func performZoom(_ sender: Any?) { zoom(sender) }
 }
 
 /// A panel that can take key focus while borderless.

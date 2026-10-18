@@ -156,6 +156,24 @@ struct SteamPresentationTests {
     }
 
     @Test
+    func originalMaximizeUsesTheNativeWindowAndRestoresItsGeometry() {
+        let delegate = DocumentZoom()
+        let window = SteamDocumentWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 300),
+                                         styleMask: [.borderless, .closable, .miniaturizable, .resizable],
+                                         backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.delegate = delegate
+        let original = window.frame
+        defer { window.delegate = nil; window.close() }
+        window.performZoom(nil)
+        #expect(window.frame == delegate.frame)
+        #expect(window.isZoomed)
+        window.performZoom(nil)
+        #expect(window.frame == original)
+        #expect(!window.isZoomed)
+    }
+
+    @Test
     func toastWindowFollowsOriginalAnimationCoordinates() throws {
         let popup = SteamWindow(webView: WKWebView(), role: .toast, name: "notificationtoasts_1_desktop",
                                 size: CGSize(width: 360, height: 90), origin: nil, host: nil)
@@ -271,4 +289,10 @@ private final class DragReports: NSObject, WKScriptMessageHandler {
 private final class DocumentClose: NSObject, NSWindowDelegate {
     var calls = 0
     func windowShouldClose(_: NSWindow) -> Bool { calls += 1; return false }
+}
+
+@MainActor
+private final class DocumentZoom: NSObject, NSWindowDelegate {
+    let frame = NSRect(x: 50, y: 50, width: 800, height: 600)
+    func windowWillUseStandardFrame(_: NSWindow, defaultFrame: NSRect) -> NSRect { frame }
 }
