@@ -156,8 +156,9 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func originalMaximizeUsesTheNativeWindowAndRestoresItsGeometry() {
-        let delegate = DocumentZoom()
+    func originalMaximizeUsesTheNativeWindowAndRestoresItsGeometry() throws {
+        let screen = try #require(NSScreen.main)
+        let delegate = DocumentZoom(frame: screen.visibleFrame.insetBy(dx: 50, dy: 20))
         let window = SteamDocumentWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 300),
                                          styleMask: [.borderless, .closable, .miniaturizable, .resizable],
                                          backing: .buffered, defer: false)
@@ -293,6 +294,7 @@ private final class DocumentClose: NSObject, NSWindowDelegate {
 
 @MainActor
 private final class DocumentZoom: NSObject, NSWindowDelegate {
-    let frame = NSRect(x: 50, y: 50, width: 800, height: 600)
+    let frame: NSRect
+    init(frame: NSRect) { self.frame = frame }
     func windowWillUseStandardFrame(_: NSWindow, defaultFrame: NSRect) -> NSRect { frame }
 }
