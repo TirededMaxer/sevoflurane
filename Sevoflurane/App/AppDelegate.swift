@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let bridge = SteamBridge()
     let provisioner = Provisioner()
     lazy var supervisor = ClientSupervisor(host: host, bridge: bridge)
+    private let nativeSteamDialogs = NativeSteamDialogs()
     lazy var steamSession = SteamSessionWatch(bridge: bridge)
     let gameLaunchWatch = GameLaunchWatch()
     let runRecorder = RunRecorder()
@@ -171,6 +172,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             supervisor.showLibraryWhenHealthy()
         }
         startServices()
+        nativeSteamDialogs.modalityDidChange = { [weak host = host] blocked in
+            host?.setNativeDialogModal(blocked)
+        }
+        nativeSteamDialogs.start { [weak self] in
+            guard let self else { return false }
+            return self.isRuntimeStarted && !self.supervisor.daemonIsUnreachable
+                && self.supervisor.health != .paused
+        }
     }
 
     /// Points the engine manifest at the URL a developer named, from the
@@ -536,6 +545,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// after this: the lines describing the shutdown are the ones a reader
     /// wants most, so the process waits for them to reach the disk.
     func applicationWillTerminate(_: Notification) {
+        nativeSteamDialogs.stop()
         if !isDuplicate { DebugModeSwitch.shared.endSession() }
         EventLog.shared.log(.app, "the app is stopping")
         EventLog.flush()

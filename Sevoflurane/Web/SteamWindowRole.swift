@@ -32,12 +32,8 @@ nonisolated enum SteamWindowRole {
     /// the corner of the screen. The same Steam content is shown here in
     /// a non-activating panel anchored to the display’s bottom-right corner.
     case toast
-    /// The in-game Steam overlay (Shift+Tab), desktop or Big Picture. Steam
-    /// opens it as an off-screen composited browser sized to the whole screen;
-    /// here it is a transparent, floating, click-through panel placed over the
-    /// game and shown only while the overlay is active. Its visibility is
-    /// driven by the client's `RegisterForOverlayActivated`, not by the
-    /// `ShowWindow` Steam sends at creation.
+    /// Steam's off-screen game page. CEF and GameOverlayRenderer own its
+    /// browser, input and lifetime; the desktop host creates no mirror window.
     case gameOverlay
     /// Steam's generic modal dialog (`PopupWindow_…`): the "Shutting down
     /// Steam" notice, and the confirmations it raises over its main window.

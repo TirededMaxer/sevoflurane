@@ -172,7 +172,7 @@ extension SteamWindow {
 
     /// This window's geometry and the display it is on, in Steam's
     /// coordinates. The screen's own origin travels with its size, the way
-    /// ``monitorDimensions()`` reports `nAvailableLeft`: a display at a
+    /// ``monitorDimensions()`` reports `nUsableLeft`: a display at a
     /// negative x holds windows at a negative x, and a screen described by
     /// size alone cannot say so.
     func dimensions() -> [String: Any] {
@@ -200,16 +200,29 @@ extension SteamWindow {
 
     func monitorDimensions() -> [String: Any] {
         let screen = measuredScreen
-        let visible = screen.visible
-        return [
-            "flHorizontalScale": screen.scale,
-            "flVerticalScale": screen.scale,
-            "nFullWidth": screen.frame.width,
-            "nFullHeight": screen.frame.height,
-            "nAvailableWidth": visible.width,
-            "nAvailableHeight": visible.height,
-            "nAvailableLeft": visible.minX,
-            "nAvailableTop": SteamScreenSpace.flipLine - visible.maxY,
+        return Self.monitorDimensions(
+            frame: screen.frame, visibleFrame: screen.visible,
+            scale: screen.scale, flipLine: SteamScreenSpace.flipLine,
+        ).mapValues { $0 as Any }
+    }
+
+    /// Steam's monitor query uses physical pixels; its original page divides
+    /// every coordinate and dimension by the corresponding display scale.
+    /// MoveTo then receives logical coordinates, matching AppKit points.
+    nonisolated static func monitorDimensions(
+        frame: CGRect, visibleFrame: CGRect, scale: CGFloat, flipLine: CGFloat,
+    ) -> [String: CGFloat] {
+        [
+            "flHorizontalScale": scale,
+            "flVerticalScale": scale,
+            "nFullLeft": frame.minX * scale,
+            "nFullTop": (flipLine - frame.maxY) * scale,
+            "nFullWidth": frame.width * scale,
+            "nFullHeight": frame.height * scale,
+            "nUsableLeft": visibleFrame.minX * scale,
+            "nUsableTop": (flipLine - visibleFrame.maxY) * scale,
+            "nUsableWidth": visibleFrame.width * scale,
+            "nUsableHeight": visibleFrame.height * scale,
         ]
     }
 }

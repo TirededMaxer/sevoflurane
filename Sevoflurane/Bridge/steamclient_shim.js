@@ -449,6 +449,30 @@
 
   function mk(path, node) {
     var fn = function () {
+      // These browser instances belong to CEF's game renderer. Forwarding
+      // another UI's single-callback registration into SharedJSContext
+      // replaces Steam's own store subscription and leaves the game blank.
+      // The WebKit desktop has no game browser instances of its own.
+      if (nativeWindowHandler(window)) {
+        // This realm hosts desktop windows and the sole general-toast queue.
+        // Games and their focus stay in CEF. Replaying this single-slot native
+        // subscription would also take the real game's focus away from CEF.
+        if (path === "SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged") {
+          var alive = true, focusCallback = arguments[0];
+          Promise.resolve().then(function () {
+            if (alive && typeof focusCallback === "function") focusCallback(0, 0);
+          });
+          return { unregister: function () { alive = false; } };
+        }
+        if (path === "SteamClient.Overlay.GetOverlayBrowserInfo"
+            || path === "SteamClient.WebChat.GetOverlayChatBrowserInfo") {
+          return Promise.resolve([]);
+        }
+        if (path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged"
+            || path === "SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") {
+          return { unregister: function () {} };
+        }
+      }
       var routed = nativeRoute(path, arguments);
       if (routed) return routed;
       nativeTap(path, arguments);

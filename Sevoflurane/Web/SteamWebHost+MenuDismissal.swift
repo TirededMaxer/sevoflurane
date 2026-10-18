@@ -10,11 +10,10 @@ extension SteamWebHost {
     /// survivor is closed from this side.
     func installMenuDismissalGuard() {
         menuDismissalMonitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown, .keyDown],
+            matching: [.leftMouseDown, .rightMouseDown],
         ) { [weak self] event in
             MainActor.assumeIsolated {
-                self?.chatPolicy.noteUserInteraction(at: .now)
-                if event.type != .keyDown { self?.notePressOutsideMenus(event) }
+                self?.notePressOutsideMenus(event)
             }
             return event
         }

@@ -29,11 +29,7 @@ extension SteamWebHost {
         runInContext(Self.chatScript(accountID: id), describedAs: "chat with \(accountID)")
     }
 
-    // A ShowWindow from Steam is authoritative, including an incoming chat.
-    var chatShowIsUnasked: Bool { false }
-
     private func runInContext(_ script: String, describedAs what: String) {
-        chatPolicy.noteChatRequest(at: .now)
         // The window comes forward with the app, the way any window opened
         // from a menu-bar item does. Cooperative activation declines a
         // request it cannot attribute to an event, so this happens now,
@@ -42,37 +38,6 @@ extension SteamWebHost {
         Task(name: "Open \(what)") {
             let result = await evaluateInContext(script)
             EventLog.shared.log(.window, "\(what): \(result ?? "no answer")")
-        }
-    }
-
-    /// One notification from the context page's subscription
-    /// (``notificationScript``), already decoded and with its identities
-    /// resolved.
-    func noteSteamNotification(json: String) {
-        guard let data = json.data(using: .utf8),
-              let notification = try? JSONDecoder().decode(SteamNotification.self, from: data)
-        else {
-            EventLog.shared.log(.app, "unreadable notification payload: \(json.prefix(200))")
-            return
-        }
-        // The mirrored Steam toast renders this event in the bottom-right corner.
-        _ = notification
-        // The bottle's hidden twin UI renders the same toast as a CEF window
-        // of its own (`notificationtoasts_N_desktop`), bottom-right on the
-        // real desktop. The supervisor's sweep would catch it eventually;
-        // catching it on the event is what keeps it from ever being seen.
-        // The schedule belongs to ``PopupSweeper``, so a second notification
-        // arriving mid-sweep lengthens this one instead of racing it.
-        Task(name: "Hide client toast twin") {
-            await PopupSweeper.shared.sweepAfterNotification { hidden in
-                let names = hidden.names.joined(separator: ", ")
-                EventLog.enqueue(
-                    .client,
-                    hidden.scope == .twins
-                        ? "hid the client's own copy of what this app draws: \(names)"
-                        : "hid the client's own CEF windows: \(names)",
-                )
-            }
         }
     }
 
@@ -106,102 +71,9 @@ extension SteamWebHost {
         """
     }
 
-    /// Subscribes the context page to Steam's own toast value.
-    ///
-    /// `CurrentToastSubscribableValue` is what Steam's toast component reads,
-    /// so subscribing to it sees exactly the notifications Steam would have
-    /// drawn — and the user's Steam notification settings, which are applied
-    /// upstream of it, are honored without this app knowing they exist. The
-    /// payload is deserialized by Steam's own per-type descriptor
-    /// (`GetNotificationTargets()[type].proto`), so the schema can never
-    /// drift from the client's.
-    ///
-    /// Identities are resolved here because only the page can resolve them:
-    /// an account id is a persona in `friendStore`, an app id is a name in
-    /// `appStore`. Steam renders the words in its original toast page.
-    static let notificationScript = """
-    (function () {
-      if (window.__sevoNotifications) return "already registered";
-      var store = window.NotificationStore;
-      if (!store || !store.CurrentToastSubscribableValue) return "unavailable";
-      window.__sevoNotifications = true;
-    
-      /* SteamID64 = account id + this. */
-      var BASE = BigInt("76561197960265728");
-    
-      function accountID(steamid) {
-        try { return String(BigInt(steamid) - BASE); } catch (e) { return ""; }
-      }
-    
-      function persona(steamid) {
-        try {
-          var id = Number(accountID(steamid));
-          if (!id) return "";
-          /* GetFriendState takes Steam's own CSteamID, of which it uses
-             exactly one method. */
-          var state = window.friendStore.GetFriendState(
-            { GetAccountID: function () { return id; } });
-          return (state && state.display_name) || "";
-        } catch (e) { return ""; }
-      }
-    
-      function appName(appid) {
-        try {
-          var app = window.appStore.GetAppOverviewByAppID(Number(appid));
-          return (app && app.display_name) || "";
-        } catch (e) { return ""; }
-      }
-    
-      /* Steam's own answer to "does this make a sound", asked here because
-         only the page can ask it: a friend's message honors the per-friend
-         override on top of Friends & Chat's bSounds_PlayMessage, and a group
-         message reads bSounds_PlayChatRoomNotification. Steam’s native
-         WebKit toast keeps its own sound; the hidden Wine twin stays silent. */
-      function playsSound(kind, id) {
-        try {
-          var app = window.g_FriendsUIApp;
-          if (kind === 9) return !!app.BPlayChatRoomNotificationSound();
-          if (kind !== 8) return false;
-          var player = window.friendStore.GetPlayer(Number(id));
-          if (player && typeof player.BPlayMessageSound === "function") {
-            return !!player.BPlayMessageSound();
-          }
-          return !!app.SettingsStore.FriendsSettings.bSounds_PlayMessage;
-        } catch (e) { return false; }
-      }
-    
-      store.CurrentToastSubscribableValue.Subscribe(function (toast) {
-        if (!toast) return;
-        var data = toast.data;
-        var fields = data && data.toObject ? data.toObject() : {};
-        var out = {
-          kind: toast.eType,
-          source: toast.eSource,
-          id: String(toast.notificationID),
-          title: fields.title || "",
-          body: fields.body || "",
-          icon: fields.icon || "",
-          steamid: String(fields.steamid || fields.steamid_sender || ""),
-          appid: fields.appid ? String(fields.appid) : "",
-          gameName: fields.game_name || "",
-        };
-        out.accountid = out.steamid ? accountID(out.steamid) : "";
-        if (!out.title && out.steamid) out.title = persona(out.steamid);
-        if (!out.gameName && out.appid) out.gameName = appName(out.appid);
-        out.sound = playsSound(out.kind, out.accountid);
-        try {
-          window.webkit.messageHandlers.sevoWindow.postMessage(
-            { fn: "__steamNotification", args: [JSON.stringify(out)] });
-        } catch (e) {}
-      });
-      return "registered";
-    })()
-    """
-
     /// Observe Steam state without changing its appearance. Notification content, sounds,
     /// chat creation and game input remain the original client's decisions.
     func installContextScripts() {
-        install(Self.overlayScript, describedAs: "Steam overlay state", settledAt: ["registered", "already registered"])
         install(Self.installWizardScript, describedAs: "Steam install window", settledAt: ["registered", "already registered"])
         install(Self.callFailureScript, describedAs: "Steam call diagnostics", settledAt: ["registered", "already registered"])
         // Original pages keep their original notification, sound and chat
@@ -209,6 +81,12 @@ extension SteamWebHost {
         installInClient(SteamPresentation.originalClientScript,
                         describedAs: "restore original Steam page appearance",
                         settledAt: ["original"])
+        installInClient(SteamPresentation.originalGameToastOwnershipScript,
+                        describedAs: "single general notification owner",
+                        settledAt: ["installed", "already installed"])
+        installInClient(SteamPresentation.gameToastCornerScript,
+                        describedAs: "original game notifications at bottom-right",
+                        settledAt: ["installed", "already installed"])
     }
 
     private func installInClient(

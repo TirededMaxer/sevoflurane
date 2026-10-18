@@ -8,7 +8,7 @@ struct OverlayPopupChromeTests {
     @Test
     func `desktop and login remain activating windows while overlay is open`() {
         let host = SteamWebHost()
-        host.overlayActive = true
+
         for role in [SteamWindowRole.desktop, .login] {
             let popup = SteamWindow(webView: WKWebView(), role: role, name: "scope-test",
                                     size: CGSize(width: 400, height: 300), origin: nil, host: host)
@@ -64,7 +64,7 @@ struct OverlayPopupChromeTests {
     @Test
     func `desktop chat follows Steam show while the original overlay is active`() {
         let host = SteamWebHost()
-        host.overlayActive = true
+
         let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
         let window = OrderWindow()
         owner.window = window
@@ -78,7 +78,7 @@ struct OverlayPopupChromeTests {
     @Test
     func `game chat instance is left to the original renderer`() {
         let host = SteamWebHost()
-        host.overlayActive = true
+
         let owner = chat(named: "chat_ChatWindow_5_uid1320", host: host)
         let window = OrderWindow()
         owner.window = window
@@ -90,7 +90,6 @@ struct OverlayPopupChromeTests {
     @Test
     func `desktop chat works normally when the overlay is closed`() {
         let host = SteamWebHost()
-        host.chatPolicy.noteChatRequest(at: .now)
         let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
         let window = OrderWindow()
         owner.window = window

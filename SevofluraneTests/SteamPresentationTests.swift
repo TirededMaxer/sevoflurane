@@ -32,20 +32,22 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func overlayStateObservationLeavesFocusAndSavedChildWindowsAlone() {
+    func nativeModalRestoresParentMouseStateAndCoversNewWindows() {
         let host = SteamWebHost()
-        let child = SteamWindow(webView: WKWebView(), role: .chat, name: "chat_1_uid730",
-                                size: CGSize(width: 400, height: 300), origin: nil, host: host)
-        host.popups[ObjectIdentifier(child.webView)] = child
-        let key = NSApp.keyWindow
-        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        host.noteOverlayActivated(active: true, appID: "730")
-        host.noteOverlayActivated(active: false, appID: "730")
-        #expect(host.popups[ObjectIdentifier(child.webView)] === child)
-        #expect(child.nsWindow == nil)
-        #expect(NSApp.keyWindow === key)
-        #expect(NSWorkspace.shared.frontmostApplication?.processIdentifier == front)
-        #expect(!host.chatShowIsUnasked)
+        let parent = SteamWindow(webView: WKWebView(), role: .desktop, name: "SP Desktop_uid0",
+                                 size: CGSize(width: 400, height: 300), origin: nil, host: host)
+        host.popups[ObjectIdentifier(parent.webView)] = parent
+        parent.realize()
+        defer { parent.close() }
+        parent.nsWindow?.ignoresMouseEvents = false
+        host.setNativeDialogModal(true)
+        #expect(parent.nsWindow?.ignoresMouseEvents == true)
+        let later = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+        later.ignoresMouseEvents = true
+        host.applyNativeDialogModal(to: later)
+        host.setNativeDialogModal(false)
+        #expect(parent.nsWindow?.ignoresMouseEvents == false)
+        #expect(later.ignoresMouseEvents)
     }
 
     @Test
@@ -73,6 +75,35 @@ struct SteamPresentationTests {
         #expect(try await web.evaluateJavaScript("window.calls") as? Int == 1)
         _ = try await web.evaluateJavaScript("document.getElementById('toast').remove()")
         #expect(try await web.evaluateJavaScript("document.getElementById('toast')===null") as? Bool == true)
+    }
+
+    @Test
+    func gameToastsUseOriginalInstanceAndKeepInsetsAndCallbacks() async throws {
+        let web = WKWebView()
+        web.loadHTMLString("""
+        <script>
+        window.registrations=0;window.nativeRegistrations=0;window.originalQueue=[{id:10001}];
+        window.created=[];window.positions=[];
+        window.overlayStore={
+          RegisterForBrowserCreated:function(fn){created.push(fn);registrations++;return {unregister:function(){}};},
+          RegisterForNotificationPositionChanged:function(fn){positions.push(fn);registrations++;return {unregister:function(){}};}
+        };
+        window.first={NotificationPosition:{position:2,horizontalInset:18,verticalInset:24},
+          SetNotificationPosition:function(p,x,y){this.NotificationPosition={position:p,horizontalInset:x,verticalInset:y};}};
+        window.SteamUIStore={WindowStore:{m_mapOverlayPopupByPID:new Map([[1,first]])}};
+        window.SteamClient={Overlay:{RegisterForNotificationPositionChanged:function(){nativeRegistrations++;}}};
+        window.fixtureReady=true;
+        </script>
+        """, baseURL: nil)
+        try await ready(web)
+        #expect(try await web.evaluateJavaScript(SteamPresentation.gameToastCornerScript) as? String == "installed")
+        #expect(try await web.evaluateJavaScript("JSON.stringify(first.NotificationPosition)") as? String == #"{"position":3,"horizontalInset":18,"verticalInset":24}"#)
+        _ = try await web.evaluateJavaScript("first.NotificationPosition.position=2;positions[0](730,2,18,24)")
+        #expect(try await web.evaluateJavaScript("first.NotificationPosition.position") as? Int == 3)
+        #expect(try await web.evaluateJavaScript("originalQueue.length") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("nativeRegistrations") as? Int == 0)
+        #expect(try await web.evaluateJavaScript(SteamPresentation.gameToastCornerScript) as? String == "already installed")
+        #expect(try await web.evaluateJavaScript("registrations") as? Int == 2)
     }
 
     @Test
@@ -255,6 +286,39 @@ struct SteamClientShapeTests {
         #expect(messages.responses == [true, false])
     }
 
+    @Test
+    func gameBrowserSubscriptionsStayWithOriginalSteam() async throws {
+        let messages = BrowserViewReports()
+        let web = try await load(shape: #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1}}"#, messages: messages)
+        let result = try await web.evaluateJavaScript("""
+        (async function(){
+          var a=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(function(){throw Error('wrong renderer')});
+          var b=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(function(){throw Error('wrong renderer')});
+          a.unregister();b.unregister();
+          var info=await SteamClient.Overlay.GetOverlayBrowserInfo();
+          var chats=await SteamClient.WebChat.GetOverlayChatBrowserInfo();
+          return JSON.stringify({info:info,chats:chats,forwarded:window.sentCommands});
+        })()
+        """) as? String
+        #expect(result == #"{"info":[],"chats":[],"forwarded":[]}"#)
+    }
+
+    @Test
+    func desktopToastContextNeverRegistersForNativeGameFocus() async throws {
+        let messages = BrowserViewReports()
+        let web = try await load(shape: #"{"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#, messages: messages)
+        let result = try await web.evaluateJavaScript("""
+        (async function(){
+          var focus=[];
+          var a=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(app,pid){focus.push([app,pid]);});
+          var b=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(){throw Error('unregistered callback')});
+          b.unregister();await Promise.resolve();a.unregister();
+          return JSON.stringify({focus:focus,forwarded:window.sentCommands});
+        })()
+        """) as? String
+        #expect(result == #"{"focus":[[0,0]],"forwarded":[]}"#)
+    }
+
     private func load(shape: String, messages: BrowserViewReports? = nil) async throws -> WKWebView {
         let url = try #require(Bundle.main.url(forResource: "steamclient_shim", withExtension: "js"))
         let shim = try String(contentsOf: url, encoding: .utf8)
@@ -268,9 +332,10 @@ struct SteamClientShapeTests {
         window.__sevoShape=\(shape);
         window.SteamUIStore={WindowStore:{MainWindowInstance:{}}};
         window.collectionStore={allAppsCollection:{}};
+        window.sentCommands=[];
         window.WebSocket=class {
-          constructor(){this.readyState=0;this.bufferedAmount=0;}
-          send(){} close(){this.readyState=3;} addEventListener(){} removeEventListener(){}
+          constructor(){this.readyState=1;this.bufferedAmount=0;}
+          send(value){window.sentCommands.push(JSON.parse(value));} close(){this.readyState=3;} addEventListener(){} removeEventListener(){}
         };
         WebSocket.CONNECTING=0;WebSocket.OPEN=1;WebSocket.CLOSING=2;WebSocket.CLOSED=3;
         \(shim)

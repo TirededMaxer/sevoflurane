@@ -137,6 +137,7 @@ final class SteamWindow: NSObject {
         if let maximumSize { window.contentMaxSize = maximumSize }
         place(window)
         self.window = window
+        host?.applyNativeDialogModal(to: window)
         if role != .toast {
             mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
                 let handled = MainActor.assumeIsolated {
@@ -229,7 +230,7 @@ final class SteamWindow: NSObject {
             // Steam minimizes the chat it just opened for a message so it
             // flashes in the taskbar; miniaturizing a window that was never
             // shown would put a phantom in the Dock instead.
-            if !heldForNotification { window?.miniaturize(nil) }
+            window?.miniaturize(nil)
         case "ToggleMaximize":
             window?.zoom(nil)
         case "ToggleFullScreen":
@@ -334,10 +335,6 @@ final class SteamWindow: NSObject {
             if let appID = Int(string(args, 0)) {
                 MacBuildHandoff.playMacBuild(appID: appID)
             }
-        case "__steamNotification":
-            // The context page's toast subscription
-            // (SteamWebHost.notificationScript), one decoded notification.
-            host?.noteSteamNotification(json: string(args, 0))
         case "__unreadChats":
             // Tapped out of Steam's own unread-count post to the client
             // (the shim's NATIVE_TAPS).
@@ -350,14 +347,6 @@ final class SteamWindow: NSObject {
                 appID: string(args, 1),
                 task: string(args, 2),
                 actionID: string(args, 3),
-            )
-        case "__overlayActivated":
-            // The context page's overlay subscription
-            // (SteamWebHost.overlayScript): observe the original renderer's
-            // visibility and app id without controlling its windows or input.
-            host?.noteOverlayActivated(
-                active: ((args.first as? NSNumber)?.intValue ?? 0) != 0,
-                appID: string(args, 1),
             )
         case "__steamCallFailure":
             // A SteamClient call the client refused, from its console
@@ -463,7 +452,6 @@ final class SteamWindow: NSObject {
 
     /// A chat window Steam opened for an incoming message, kept built and off
     /// screen until something the user did asks for it.
-    private(set) var heldForNotification = false
 
     func show(activating: Bool) {
         guard !usesOriginalGameOverlay else { return }
@@ -493,21 +481,6 @@ final class SteamWindow: NSObject {
             return
         }
         showWasDeferredByHold = false
-        if role == .chat, !window.isVisible, host?.chatShowIsUnasked == true {
-            // The backstop behind ``SteamChatAutoOpen``, which refuses Steam
-            // the auto-open in the first place. A show that still arrives with
-            // no press in this app and no request for a chat behind it is one
-            // Steam decided on, so the window stays built and hidden until
-            // something asks — the notification click, or the friends list.
-            // Nothing else happens for it either: no Dock icon, and no
-            // minimize or move of a window nobody has seen.
-            heldForNotification = true
-            EventLog.shared.log(
-                .window, "chat window \(name) opened by an incoming message — left to the notification",
-            )
-            return
-        }
-        heldForNotification = false
         if host?.clientIsStopping == true, role != .dialog {
             // The client on its way out asks for its windows once more; the
             // library coming forward and taking key is not how a quit should

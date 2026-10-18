@@ -48,7 +48,7 @@ struct ForkWindowTests {
     @Test
     func steamToastUsesBottomRightAndNeverTakesFocus() {
         let host = SteamWebHost()
-        host.overlayActive = true
+
         let toast = SteamWindow(webView: WKWebView(), role: .toast, name: "notificationtoasts_1_desktop", size: CGSize(width: 360, height: 90), origin: nil, host: host)
         toast.realize()
         #expect(toast.nsWindow is SteamToastPanel)

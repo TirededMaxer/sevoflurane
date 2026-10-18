@@ -588,17 +588,8 @@ nonisolated enum ClientLifecycle {
         return await PopupSweeper.shared.sweep(scope).names
     }
 
-    /// Runs one of the app's standing scripts in the bottled client's own
-    /// friends UI, retrying until it answers that it is in place.
-    ///
-    /// The client runs a second copy of the UI this app hosts, and it reacts
-    /// to every event the same way: it opens a CEF chat window for an arriving
-    /// message, on the Wine desktop in front of whatever the user was doing,
-    /// and it plays Steam's message chime out of a page nobody can see. So
-    /// both refusals — ``SteamChatAutoOpen`` and ``SteamMessageSound`` — go to
-    /// that copy as well as to the app's own page.
-    ///
-    /// Answers what the script answered, for the caller's log.
+    /// Installs a host presentation policy in the original SharedJSContext,
+    /// retrying while Steam's stores start. Returns the policy's own outcome.
     static func installInClientUI(
         _ script: String, settledAt outcomes: Set<String>, attempts: Int = 10,
     ) async -> String {

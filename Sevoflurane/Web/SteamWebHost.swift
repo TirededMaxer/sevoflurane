@@ -248,10 +248,6 @@ final class SteamWebHost {
 
     // MARK: - Friends, chat, and notifications
 
-    /// What the host has seen of the user, for telling a chat window Steam
-    /// opened for an incoming message from one it opened for a click.
-    @ObservationIgnored var chatPolicy = UnaskedChatPolicy(startingAt: .now)
-
     /// The unread count Steam posts to the client, tapped on its way through
     /// the shim.
     func noteUnreadChats(_ count: Int) {
@@ -335,9 +331,6 @@ final class SteamWebHost {
         }
     }
 
-    // Observed from the original renderer; the host never routes game input.
-    @ObservationIgnored var overlayActive = false
-    @ObservationIgnored var overlayAppID = ""
     /// The install wizard's latest state and how many updates it has had, so the
     /// check that follows one can tell whether the wizard moved on since.
     @ObservationIgnored var installWizardState = 0
@@ -407,6 +400,8 @@ final class SteamWebHost {
     @ObservationIgnored var context: SteamWindow?
     @ObservationIgnored var contextWindow: NSWindow?
     @ObservationIgnored var popups: [ObjectIdentifier: SteamWindow] = [:]
+    @ObservationIgnored var nativeDialogModal = false
+    @ObservationIgnored var nativeDialogMouseStates = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
     @ObservationIgnored var coordinator: SteamWebCoordinator?
     /// Watches the Styles folder while the custom style is on.
     @ObservationIgnored var userStylesWatch: FolderWatch?
