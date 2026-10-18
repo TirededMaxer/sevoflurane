@@ -15,11 +15,10 @@ struct ModalAlertsTests {
         )
         let deadline = ContinuousClock.now + .seconds(3)
         let timer = Timer(timeInterval: 0.01, repeats: true) { timer in
-            MainActor.assumeIsolated {
-                if workRan() || ContinuousClock.now >= deadline {
-                    timer.invalidate()
-                    NSApp.abortModal()
-                }
+            let done = MainActor.assumeIsolated { workRan() || ContinuousClock.now >= deadline }
+            if done {
+                timer.invalidate()
+                MainActor.assumeIsolated { NSApp.abortModal() }
             }
         }
         RunLoop.main.add(timer, forMode: .modalPanel)

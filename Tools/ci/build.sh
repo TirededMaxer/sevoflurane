@@ -26,7 +26,17 @@ import json,sys
 s=json.load(open(sys.argv[1]))
 print(f"Cloud tests: {s['passedTests']} passed; {s['failedTests']} failed; {s['skippedTests']} skipped")
 PY_SUMMARY
-if [[ "$test_status" != 0 ]]; then tail -100 "$out/tests.log"; exit "$test_status"; fi
+if [[ "$test_status" != 0 ]]; then
+    python3 - "$out/tests.log" <<'PY_FAILURES'
+import sys
+from pathlib import Path
+for line in Path(sys.argv[1]).read_text(errors="replace").splitlines():
+    if "error:" in line or "✘" in line or "Expectation failed:" in line:
+        print(line)
+PY_FAILURES
+    tail -30 "$out/tests.log"
+    exit "$test_status"
+fi
 xcodebuild "${common[@]}" -configuration Release -derivedDataPath "$work/Release" \
     CODE_SIGNING_ALLOWED=NO ENABLE_HARDENED_RUNTIME=YES ENABLE_TESTABILITY=NO build \
     > "$out/build.log" 2>&1 || { tail -100 "$out/build.log"; exit 1; }
