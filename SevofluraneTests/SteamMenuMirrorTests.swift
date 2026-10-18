@@ -16,10 +16,11 @@ struct SteamMenuMirrorTests {
 @MainActor
 struct SevofluraneMainMenuTests {
     @Test
-    func removedTopLevelMenusKeepHiddenEditingShortcuts() throws {
+    func removedTopLevelMenusKeepHiddenEditingShortcuts() async throws {
         let menu = SevofluraneMainMenu.makeMenu()
         #expect(menu.items.filter { !$0.isHidden }.map(\.title) == ["Sevoflurane"])
         let application = try #require(menu.items.first?.submenu)
+        application.autoenablesItems = false
         let recorder = ShortcutRecorder()
         for key in ["x", "c", "v", "a", "z"] {
             let item = try #require(application.items.first { $0.keyEquivalent == key })
@@ -29,7 +30,11 @@ struct SevofluraneMainMenuTests {
             let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero,
                 modifierFlags: [.command], timestamp: 0, windowNumber: 0, context: nil,
                 characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 0))
-            #expect(menu.performKeyEquivalent(with: event))
+            #expect(application.performKeyEquivalent(with: event))
+            for _ in 0..<20 {
+                if recorder.keys.last == key { break }
+                try await Task.sleep(for: .milliseconds(5))
+            }
         }
         #expect(recorder.keys == ["x", "c", "v", "a", "z"])
     }

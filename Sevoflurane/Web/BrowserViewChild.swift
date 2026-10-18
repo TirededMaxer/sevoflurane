@@ -38,7 +38,7 @@ final class BrowserViewChild: NSObject {
         )
     }
 
-    private var dialogResponse: ((Bool) -> Void)?
+    private var dialogResponse: (@MainActor @Sendable (Bool) -> Void)?
 
     /// The original Steam BrowserView modal calls DialogResponse. Its own
     /// document supplies the title, controls, styling and close behavior.
@@ -48,7 +48,7 @@ final class BrowserViewChild: NSObject {
         response?(accepted)
     }
 
-    private func requestJavaScriptDialog(_ event: String, message: String, response: @escaping (Bool) -> Void) {
+    private func requestJavaScriptDialog(_ event: String, message: String, response: @escaping @MainActor @Sendable (Bool) -> Void) {
         respondToJavaScriptDialog(false)
         dialogResponse = response
         fire(event, "[\(JSLiteral.string(message))]")
@@ -310,12 +310,12 @@ extension BrowserViewChild: WKNavigationDelegate {
 
 extension BrowserViewChild: WKUIDelegate {
     func webView(_: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping () -> Void) {
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable () -> Void) {
         requestJavaScriptDialog("alert-dialog", message: message) { _ in completionHandler() }
     }
 
     func webView(_: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+                 initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable (Bool) -> Void) {
         requestJavaScriptDialog("confirm-dialog", message: message, response: completionHandler)
     }
 

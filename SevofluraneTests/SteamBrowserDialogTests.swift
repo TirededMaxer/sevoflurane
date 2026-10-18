@@ -3,6 +3,7 @@ import Testing
 import WebKit
 @testable import Sevoflurane
 
+@Suite(.serialized)
 @MainActor
 struct SteamBrowserDialogTests {
     @Test(arguments: [true, false])
@@ -62,6 +63,8 @@ struct SteamBrowserDialogTests {
             }
             _ = try #require(try await web.evaluateJavaScript("window.ready===true") as? Bool == true)
         }
+        #expect(child.responds(to: NSSelectorFromString("webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:")))
+        #expect(child.responds(to: NSSelectorFromString("webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:")))
         return (child, page, window)
     }
 
