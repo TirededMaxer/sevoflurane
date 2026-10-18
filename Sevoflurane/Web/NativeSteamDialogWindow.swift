@@ -236,7 +236,7 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
       }
     });
     </script></body></html>
-    """
+    """#
 }
 
 @MainActor
