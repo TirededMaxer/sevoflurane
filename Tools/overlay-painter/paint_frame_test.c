@@ -4,18 +4,26 @@
 #include <stdlib.h>
 #include <string.h>
 int main(int argc, char **argv) {
-    uint8_t storage[64 + 16] = {0};
+    union { sevo_frame_header aligned; uint8_t bytes[64 + 16]; } frame = {0};
+    uint8_t *storage = frame.bytes;
     sevo_frame_header *h = (sevo_frame_header *)storage;
     memcpy(h->magic, SEVO_FRAME_MAGIC, 8);
     h->header_bytes = 64; h->width = 2; h->height = 2; h->stride = 8; h->payload_bytes = 16;
-    assert(sevo_frame_pixels(storage, sizeof(storage), 2, 2) == storage + 64);
-    assert(!sevo_frame_pixels(storage, sizeof(storage)-1, 2, 2));
-    assert(!sevo_frame_pixels(storage, sizeof(storage), 4, 1));
-    h->stride = 4; assert(!sevo_frame_pixels(storage, sizeof(storage), 2, 2)); h->stride = 8;
-    h->payload_bytes = UINT64_MAX; assert(!sevo_frame_pixels(storage, sizeof(storage), 2, 2)); h->payload_bytes = 16;
-    h->width = UINT32_MAX; assert(!sevo_frame_pixels(storage, sizeof(storage), 2, 2)); h->width = 2;
-    h->header_bytes = 0; assert(!sevo_frame_pixels(storage, sizeof(storage), 2, 2)); h->header_bytes = 64;
+    assert(sevo_frame_pixels(storage, sizeof(frame.bytes), 2, 2) == storage + 64);
+    assert(!sevo_frame_pixels(storage, sizeof(frame.bytes)-1, 2, 2));
+    assert(!sevo_frame_pixels(storage, sizeof(frame.bytes), 4, 1));
+    h->stride = 4; assert(!sevo_frame_pixels(storage, sizeof(frame.bytes), 2, 2)); h->stride = 8;
+    h->payload_bytes = UINT64_MAX; assert(!sevo_frame_pixels(storage, sizeof(frame.bytes), 2, 2)); h->payload_bytes = 16;
+    h->width = UINT32_MAX; assert(!sevo_frame_pixels(storage, sizeof(frame.bytes), 2, 2)); h->width = 2;
+    h->header_bytes = 0; assert(!sevo_frame_pixels(storage, sizeof(frame.bytes), 2, 2)); h->header_bytes = 64;
     assert(!sevo_frame_pixels(NULL, 0, 2, 2));
+    assert(sevo_overlay_title_prefix("SP Overlay", 10));
+    assert(sevo_overlay_title_prefix("SP Overlay: 123/4", 17));
+    assert(!sevo_overlay_title_prefix("SP OverlayX", 11));
+    assert(!sevo_overlay_title_prefix("Steam", 5));
+    uint16_t wide[] = {'S','P',' ','O','v','e','r','l','a','y',':','1',0};
+    assert(sevo_overlay_title_prefix(wide, 12));
+    assert(!sevo_overlay_title_prefix(NULL, 20));
     if (argc == 2) {
         FILE *f = fopen(argv[1], "rb"); assert(f); assert(!fseek(f, 0, SEEK_END));
         long size = ftell(f); assert(size > 64); rewind(f);

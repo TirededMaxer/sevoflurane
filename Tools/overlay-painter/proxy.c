@@ -72,13 +72,7 @@ static void set_restore(int id) {
     ReleaseSRWLockExclusive(&lock);
 }
 static int overlay_title(const cef_string_view *s) {
-    static const char prefix[]="SP Overlay:";
-    if(!s || !s->text || s->length < sizeof(prefix)-1) return 0;
-    const unsigned char *p=s->text;
-    if(!memcmp(p,prefix,sizeof(prefix)-1)) return 1;
-    if(p[0]!='S' || p[1]!=0) return 0;
-    for(size_t i=0;i<sizeof(prefix)-1;i++)if(p[i*2]!=(unsigned char)prefix[i] || p[i*2+1]!=0)return 0;
-    return 1;
+    return s && sevo_overlay_title_prefix(s->text, s->length);
 }
 static void __cdecl on_title(void *self, void *browser, const cef_string_view *title) {
     int id=browser_id(browser), match=overlay_title(title);
@@ -132,7 +126,9 @@ static void __cdecl on_paint(void *self,void *browser,int type,size_t count,cons
         original(self,browser,type,restore?1:count,restore?&full:rects,buffer,width,height,scroll_offset,page_scale);
         if(restore)InterlockedIncrement64(&stats->restored_paints);
     }
-    if(bytes)UnmapViewOfFile(bytes);if(map)CloseHandle(map);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
+    if(bytes) { UnmapViewOfFile(bytes); }
+    if(map) { CloseHandle(map); }
+    if(file!=INVALID_HANDLE_VALUE) { CloseHandle(file); }
 }
 static void * __cdecl get_render(void *self) {
     get_handler_fn original=(get_handler_fn)original_slot(self,CLIENT_RENDER);
@@ -150,7 +146,10 @@ static BOOL CALLBACK initialize(PINIT_ONCE once, PVOID parameter, PVOID *context
     if(!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,line,-1,directory,2048))return TRUE;
     wchar_t output[2304];swprintf(output,2304,L"%ls\\cef-%lu.stats",directory,GetCurrentProcessId());
     HANDLE file=CreateFileW(output,GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
-    if(file==INVALID_HANDLE_VALUE)return TRUE;HANDLE map=CreateFileMappingW(file,NULL,PAGE_READWRITE,0,sizeof(sevo_probe_stats),NULL);CloseHandle(file);if(!map)return TRUE;
+    if(file==INVALID_HANDLE_VALUE) { return TRUE; }
+    HANDLE map=CreateFileMappingW(file,NULL,PAGE_READWRITE,0,sizeof(sevo_probe_stats),NULL);
+    CloseHandle(file);
+    if(!map) { return TRUE; }
     stats=MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,0);CloseHandle(map);if(!stats)return TRUE;memset(stats,0,sizeof(*stats));memcpy(stats->magic,SEVO_STATS_MAGIC,8);stats->version=1;stats->pid=GetCurrentProcessId();
     typedef const char *(__cdecl *hash_fn)(int);hash_fn hash=(hash_fn)GetProcAddress(original_module,"cef_api_hash");
     if(!hash || strcmp(hash(0),API_PLATFORM)||strcmp(hash(1),API_UNIVERSAL)){InterlockedIncrement64(&stats->abi_rejected);return TRUE;}

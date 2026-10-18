@@ -12,3 +12,16 @@ const uint8_t *sevo_frame_pixels(const void *bytes, size_t length, int width, in
     if (expected > SEVO_FRAME_LIMIT || h.payload_bytes != expected || length != sizeof(h) + expected) return NULL;
     return (const uint8_t *)bytes + sizeof(h);
 }
+
+/* Steam has shipped both its short overlay title and the PID/browser suffix. */
+int sevo_overlay_title_prefix(const void *text, size_t length) {
+    static const unsigned char prefix[] = "SP Overlay";
+    if (!text || length < sizeof(prefix) - 1) return 0;
+    const unsigned char *p = text;
+    if (p[0] == 'S' && p[1] == 0) {
+        for (size_t i = 0; i < sizeof(prefix) - 1; i++)
+            if (p[i * 2] != prefix[i] || p[i * 2 + 1] != 0) return 0;
+        return length == sizeof(prefix) - 1 || (p[20] == ':' && p[21] == 0);
+    }
+    return !memcmp(p, prefix, sizeof(prefix) - 1) && (length == sizeof(prefix) - 1 || p[10] == ':');
+}

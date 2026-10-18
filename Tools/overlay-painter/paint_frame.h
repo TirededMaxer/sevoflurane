@@ -23,4 +23,5 @@ typedef struct {
 } sevo_probe_stats;
 /* Validate the complete packed BGRA frame before handing it to CEF's original painter. */
 const uint8_t *sevo_frame_pixels(const void *bytes, size_t length, int width, int height);
+int sevo_overlay_title_prefix(const void *text, size_t length);
 #endif
