@@ -80,6 +80,9 @@ final class SteamWindow: NSObject {
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
     private var mouseMonitor: Any?
+    private var pendingKeyboardPress: (() -> Void)?
+    private var keyboardActivationObserver: (any NSObjectProtocol)?
+    private var keyboardSwitchObserver: (any NSObjectProtocol)?
     var hasBeenShown = false
 
     weak var host: SteamWebHost?
@@ -151,7 +154,11 @@ final class SteamWindow: NSObject {
         if role != .toast {
             mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
                 let handled = MainActor.assumeIsolated {
-                    guard let self, event.window === self.window else { return false }
+                    guard let self else { return false }
+                    guard event.window === self.window else {
+                        if event.type == .leftMouseDown { self.cancelPendingKeyboardPress() }
+                        return false
+                    }
                     if self.role == .menu, event.type == .leftMouseUp {
                         DispatchQueue.main.async { [weak self] in self?.clearMenuHover() }
                         return false
@@ -631,20 +638,60 @@ final class SteamWindow: NSObject {
     /// A physical press must acquire keyboard ownership too. An activation
     /// requested while a popup is being built can be declined by macOS; a
     /// visible window alone does not prove where subsequent typing will go.
-    private func takeKeyboardForUserPress(_ event: NSEvent) {
+    func takeKeyboardForUserPress(_ event: NSEvent, activation: Activation = Activation()) {
         guard let window, event.window === window, !embeddedPresented,
               window.alphaValue > 0, role != .menu, role != .toast else { return }
+        cancelPendingKeyboardPress()
         let panel = window.styleMask.contains(.nonactivatingPanel)
-        let promotion = !panel && NSApp.activationPolicy() != .regular
-        if !panel { Activation().bringAppForward() }
-        let finish = { [weak self, weak window] in
-            guard let self, let window, !self.embeddedPresented, window.alphaValue > 0 else { return }
-            window.makeKey()
+        pendingKeyboardPress = { [weak self, weak window] in
+            guard let self, let window, self.window === window, !self.embeddedPresented,
+                  window.isVisible, window.alphaValue > 0, panel || activation.appIsActive else { return }
+            self.cancelPendingKeyboardPress()
+            // Raise only the clicked window. activateAllWindows can raise the
+            // ordered-but-transparent menu panels and lose the selected key.
+            window.makeKeyAndOrderFront(nil)
             self.ensureWebKeyboardResponder()
             EventLog.shared.log(.window, "keyboard press: \(self.name), appActive=\(NSApp.isActive), key=\(window.isKeyWindow), responder=\(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none")")
         }
-        if promotion { DispatchQueue.main.async(execute: finish) }
-        else { finish() }
+        if panel || activation.appIsActive {
+            pendingKeyboardPress?()
+            return
+        }
+        // Even a regular app activates asynchronously. The old code delayed
+        // only accessory -> regular promotion, then lost ordinary first clicks.
+        keyboardActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: NSApp, queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pendingKeyboardPress?() }
+        }
+        keyboardSwitchObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+                self?.cancelPendingKeyboardPress()
+            }
+        }
+        activation.claimRight()
+        // Activation may complete in the same call, or AppKit may deliver it
+        // after dispatching this physical event. No click is replayed to Steam.
+        pendingKeyboardPress?()
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in
+            MainActor.assumeIsolated { self?.pendingKeyboardPress?() }
+        }
+    }
+
+    func cancelPendingKeyboardPress() {
+        pendingKeyboardPress = nil
+        if let keyboardActivationObserver {
+            NotificationCenter.default.removeObserver(keyboardActivationObserver)
+            self.keyboardActivationObserver = nil
+        }
+        if let keyboardSwitchObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(keyboardSwitchObserver)
+            self.keyboardSwitchObserver = nil
+        }
     }
 
     func ensureWebKeyboardResponder() {
@@ -931,6 +978,7 @@ final class SteamWindow: NSObject {
     func detach(reason: DetachReason) {
         desktopShowWanted = false
         desktopShowActivating = false
+        cancelPendingKeyboardPress()
         if let mouseMonitor {
             NSEvent.removeMonitor(mouseMonitor)
             self.mouseMonitor = nil
@@ -1092,6 +1140,7 @@ extension SteamWindow: NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_: Notification) {
+        cancelPendingKeyboardPress()
         ensureWebKeyboardResponder()
         clearHoverAppearance()
     }

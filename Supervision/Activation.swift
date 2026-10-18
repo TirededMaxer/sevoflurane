@@ -61,6 +61,8 @@ struct Activation {
         self.surface = surface
     }
 
+    var appIsActive: Bool { surface.appIsActive }
+
     /// Takes the activation right for this app while a user action is still
     /// the reason for it, so a launch that only produces a window seconds
     /// later still has something to spend.

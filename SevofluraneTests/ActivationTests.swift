@@ -21,6 +21,7 @@ final class RecordingActivationSurface: ActivationSurface {
     private(set) var lines: [String] = []
 
     var appIsActive = false
+    var activateSelfImmediately = true
     var appPolicy: NSApplication.ActivationPolicy = .accessory
     var running: Set<pid_t> = []
     /// What `activate(pid:)` returns, in order; the last value repeats.
@@ -43,7 +44,7 @@ final class RecordingActivationSurface: ActivationSurface {
     }
 
     func activateSelf() {
-        appIsActive = true
+        if activateSelfImmediately { appIsActive = true }
         steps.append(.activateSelf)
     }
 

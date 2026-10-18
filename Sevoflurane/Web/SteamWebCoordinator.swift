@@ -3,13 +3,12 @@ import WebKit
 
 /// A web view whose first click counts.
 ///
-/// A menu panel opens without key status, so every initial click in it is a
-/// "first mouse". WKWebView's default answer spends that click on making the
-/// panel key — Steam's menus then need one click to highlight and a second to
-/// activate. In a panel the click always belongs to the page.
+/// The click that selects a Steam window also belongs to its original page.
+/// Waiting for a second click makes desktop controls behave differently from
+/// Steam, just as it does for a never-key menu panel.
 final class SteamWebView: WKWebView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        window is NSPanel || super.acceptsFirstMouse(for: event)
+        true
     }
 }
 

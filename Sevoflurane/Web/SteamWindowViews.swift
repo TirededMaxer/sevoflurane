@@ -126,6 +126,8 @@ final class SteamContentView: NSView {
         return super.hitTest(point)
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override var mouseDownCanMoveWindow: Bool {
         true
     }
