@@ -11,7 +11,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let bridge = SteamBridge()
     let provisioner = Provisioner()
     lazy var supervisor = ClientSupervisor(host: host, bridge: bridge)
-    private let nativeSteamDialogs = NativeSteamDialogs()
     lazy var steamSession = SteamSessionWatch(bridge: bridge)
     let gameLaunchWatch = GameLaunchWatch()
     let runRecorder = RunRecorder()
@@ -172,11 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             supervisor.showLibraryWhenHealthy()
         }
         startServices()
-        nativeSteamDialogs.start { [weak self] in
-            guard let self else { return false }
-            return self.isRuntimeStarted && !self.supervisor.isQuitting
-                && self.supervisor.health != .paused && !self.supervisor.daemonIsUnreachable
-        }
+        // The rejected Win32-to-AppKit control prototype is not started.
+        // Steam's web dialogs are adopted from the original popup documents.
     }
 
     /// Points the engine manifest at the URL a developer named, from the

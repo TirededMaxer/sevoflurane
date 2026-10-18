@@ -198,7 +198,7 @@ extension SteamWebHost {
     })()
     """
 
-    /// Observe Steam state and add appearance. Notification content, sounds,
+    /// Observe Steam state without changing its appearance. Notification content, sounds,
     /// chat creation and game input remain the original client's decisions.
     func installContextScripts() {
         install(Self.overlayScript, describedAs: "Steam overlay state", settledAt: ["registered", "already registered"])
@@ -207,8 +207,8 @@ extension SteamWebHost {
         // Original pages keep their original notification, sound and chat
         // decisions. No payload is reinterpreted or re-posted by the host.
         installInClient(SteamPresentation.originalClientScript,
-                        describedAs: "macOS appearance on original Steam pages",
-                        settledAt: ["installed", "already installed"])
+                        describedAs: "restore original Steam page appearance",
+                        settledAt: ["original"])
     }
 
     private func installInClient(

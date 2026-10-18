@@ -1,6 +1,13 @@
 import AppKit
 import WebKit
 
+/// Steam supplies its original Windows frame in the document. AppKit must
+/// still allow that borderless document to become the main keyboard window.
+final class SteamDocumentWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 /// A panel that can take key focus while borderless.
 ///
 /// Steam's menus dismiss themselves when their window loses focus, which only

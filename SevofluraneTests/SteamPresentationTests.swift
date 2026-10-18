@@ -52,44 +52,93 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func toastStylingPreservesOriginalContentClickAndDismissal() async throws {
+    func originalToastStylesLayoutHandlersAndAnimationAreUnchanged() async throws {
         let web = WKWebView()
         web.loadHTMLString("""
-        <style>#toast{transition:opacity .125s linear}</style>
+        <style>body{font-family:serif}#toast{background:rgb(23,26,33);border-radius:2px;transition:opacity .125s linear}
+        button{border-radius:0;width:120px;height:30px}</style>
         <div id="toast"><button id="action">Original Steam action</button><span id="body">Original message</span></div>
         <script>
         window.calls=0;window.originalButton=document.getElementById('action');
         window.originalHandler=function(){window.calls++};originalButton.onclick=originalHandler;
-        window.ready=true;
+        window.inspect=function(){var b=getComputedStyle(originalButton),t=getComputedStyle(document.getElementById('toast'));
+          return JSON.stringify({html:document.documentElement.outerHTML,font:getComputedStyle(document.body).fontFamily,
+            buttonRadius:b.borderRadius,toastRadius:t.borderRadius,background:t.backgroundColor,animation:t.transitionDuration,
+            width:originalButton.getBoundingClientRect().width})};window.ready=true;
         </script>
         """, baseURL: nil)
         try await ready(web)
-        _ = try await web.evaluateJavaScript(SteamPresentation.script(role: .toast))
-        #expect(try await web.evaluateJavaScript("document.getElementById('body').textContent") as? String == "Original message")
+        let before = try await web.evaluateJavaScript("inspect()") as? String
+        _ = try await web.evaluateJavaScript(SteamPresentation.cleanupScript)
+        #expect(try await web.evaluateJavaScript("inspect()") as? String == before)
         #expect(try await web.evaluateJavaScript("document.getElementById('action')===originalButton && originalButton.onclick===originalHandler") as? Bool == true)
         _ = try await web.evaluateJavaScript("originalButton.click()")
         #expect(try await web.evaluateJavaScript("window.calls") as? Int == 1)
-        #expect(try await web.evaluateJavaScript("getComputedStyle(document.getElementById('toast')).transitionDuration") as? String == "0.125s")
         _ = try await web.evaluateJavaScript("document.getElementById('toast').remove()")
         #expect(try await web.evaluateJavaScript("document.getElementById('toast')===null") as? Bool == true)
     }
 
     @Test
-    func originalWindowOpenKeepsReceiverArgumentsAndHandle() async throws {
+    func originalClientMigrationNeverWrapsWindowOpenOrInstallsStyles() async throws {
         let web = WKWebView()
         web.loadHTMLString("""
         <iframe id="child"></iframe><script>
-        window.receiver={};window.forwarded=[];window.handle=document.getElementById('child').contentWindow;
-        window.open=function(){forwarded.push({receiver:this===window.receiver,args:Array.from(arguments)});return handle};
-        window.g_PopupManager={m_mapPopups:new Map()};window.ready=true;
+        window.handle=document.getElementById('child').contentWindow;
+        window.originalOpen=window.open;window.intervals=0;window.setInterval=function(){intervals++};
+        window.g_PopupManager={m_mapPopups:new Map([['friends',{m_popup:handle,m_strName:'friendslist_uid730'}]])};
+        window.originalDOM=handle.document.documentElement.outerHTML;window.ready=true;
         </script>
         """, baseURL: nil)
         try await ready(web)
-        #expect(try await web.evaluateJavaScript(SteamPresentation.originalClientScript) as? String == "installed")
-        #expect(try await web.evaluateJavaScript("window.open.call(receiver,'about:blank','friendslist_uid730','width=400')===handle") as? Bool == true)
-        #expect(try await web.evaluateJavaScript("JSON.stringify(forwarded)") as? String == #"[{"receiver":true,"args":["about:blank","friendslist_uid730","width=400"]}]"#)
-        #expect(try await web.evaluateJavaScript("handle.document.documentElement.getAttribute('data-sevo-macos-ui')") as? String == "game")
-        #expect(try await web.evaluateJavaScript(SteamPresentation.originalClientScript) as? String == "already installed")
+        #expect(try await web.evaluateJavaScript(SteamPresentation.originalClientScript) as? String == "original")
+        #expect(try await web.evaluateJavaScript("window.open===originalOpen && intervals===0") as? Bool == true)
+        #expect(try await web.evaluateJavaScript("handle.document.documentElement.outerHTML===originalDOM") as? Bool == true)
+        #expect(try await web.evaluateJavaScript(SteamPresentation.originalClientScript) as? String == "original")
+    }
+
+    @Test
+    func originalTitleStripRemainsVisibleAndInteractiveWhileReportingEmptyDragRegions() async throws {
+        let configuration = WKWebViewConfiguration()
+        let messages = DragReports()
+        configuration.userContentController.add(messages, name: "sevoWindow")
+        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 600), configuration: configuration)
+        web.loadHTMLString("""
+        <style>body{margin:0}.row{display:flex;width:900px;height:32px}.menus{width:140px}.space{flex:1}
+        .controls{width:99px}.TitleBar{display:flex;height:32px}.TitleBar button{width:33px}</style>
+        <div class="row"><div class="menus"><button id="menu">Steam</button></div><div class="space"></div>
+        <div class="controls"><div class="TitleBar title-area"><button id="min">_</button><button id="max">□</button><button id="close">×</button></div></div></div>
+        <script>window.calls=[];document.querySelectorAll('button').forEach(function(b){b.onclick=function(){calls.push(b.id)}});window.ready=true;</script>
+        """, baseURL: nil)
+        try await ready(web)
+        let before = try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.script)
+        #expect(try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String == before)
+        for _ in 0..<80 {
+            if messages.last != nil { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        let regions = try #require(messages.last)
+        #expect(regions == [[140, 0, 661, 32]])
+        _ = try await web.evaluateJavaScript("document.querySelectorAll('button').forEach(function(b){b.click()})")
+        #expect(try await web.evaluateJavaScript("JSON.stringify(calls)") as? String == #"["menu","min","max","close"]"#)
+    }
+
+    @Test
+    func sourceWindowControlsNeedNoMacTitlebarAndToastsHaveNoAddedMaterial() throws {
+        for role in [SteamWindowRole.desktop, .login, .friends, .chat, .auxiliary, .bigPicture, .toast, .dialog] {
+            let popup = SteamWindow(webView: WKWebView(), role: role, name: "source-ui-test",
+                                    size: CGSize(width: 500, height: 300), origin: nil, host: nil)
+            popup.realize()
+            defer { popup.detach(reason: .pageTeardown) }
+            let window = try #require(popup.nsWindow)
+            #expect(!window.styleMask.contains(.titled))
+            #expect(window.toolbar == nil)
+            #expect(window.standardWindowButton(.closeButton) == nil)
+            #expect(window.contentView?.bounds.size == CGSize(width: 500, height: 300))
+            #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == false)
+            if role != .toast { #expect(window.canBecomeKey) }
+            if !role.isPanel { #expect(window.canBecomeMain) }
+        }
     }
 
     @Test
@@ -191,5 +240,15 @@ struct SteamPresentationTests {
             try await Task.sleep(for: .milliseconds(25))
         }
         Issue.record("WebKit fixture did not load")
+    }
+}
+
+@MainActor
+private final class DragReports: NSObject, WKScriptMessageHandler {
+    var last: [[Double]]?
+    func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
+        let body = message.body as? [String: Any]
+        let args = body?["args"] as? [Any]
+        last = args?.first as? [[Double]]
     }
 }

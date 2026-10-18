@@ -741,7 +741,7 @@ final class SteamWebHost {
         // The original renderer owns this popup's input and lifetime. Keeping
         // the mirror passive must not close Steam's saved game UI windows.
         guard !window.usesOriginalGameOverlay else { return }
-        window.webView.evaluateJavaScript(SteamPresentation.script(role: window.role))
+        window.webView.evaluateJavaScript(SteamPresentation.cleanupScript)
         // A popup adopted while the overlay is up belongs to it (its Settings,
         // a dialog): track it so it is ordered in and out with the overlay and
         // dismissed when it closes, rather than left floating above the game.
@@ -782,9 +782,8 @@ final class SteamWebHost {
         status = "Steam is ready"
         PerfProbe.poi.emitEvent("DesktopAdopted")
         EventLog.shared.log(.window, "desktop window adopted — Steam is ready")
-        // Steam draws a Windows title bar because under CEF it owns a
-        // borderless OS window. Hosted here its buttons duplicate the traffic
-        // lights and its strip has nowhere for them to sit.
+        // Keep Steam's original Windows title strip and buttons. The host
+        // only supplies the OS drag operation that CEF app-region requires.
         window.webView.evaluateJavaScript(SteamDesktopChrome.script)
         // The Mac compatibility strip on game pages, in the slot Steam's own
         // Deck strip leaves empty on a desktop client.

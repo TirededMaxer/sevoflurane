@@ -99,9 +99,7 @@ extension SteamWindow {
 
     /// The desktop and sign-in windows, whose title bar Steam draws itself.
     private func applyDesktopChrome(to window: NSWindow) {
-        // Steam draws its own title bar; the macOS one is reduced to the
-        // traffic lights floating over it, and Steam's duplicate buttons
-        // are hidden by the chrome script.
+        // The original document supplies its titlebar and all its buttons.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = Self.steamBackground
@@ -112,12 +110,6 @@ extension SteamWindow {
         window.collectionBehavior = [.primary, .managed, .fullScreenPrimary]
         if role == .desktop {
             window.title = "Steam"
-            // Steam's strip is 32pt tall; the bare titlebar's ~28pt sets
-            // the traffic lights slightly high against Steam's own row. An
-            // empty unified-compact toolbar is the supported way to ask
-            // for the taller titlebar that centers them.
-            window.toolbar = NSToolbar()
-            window.toolbarStyle = .unifiedCompact
         }
     }
 

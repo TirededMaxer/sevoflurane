@@ -196,26 +196,13 @@ final class SteamWindow: NSObject {
             // pair above everything else. It can still become key for the
             // overlay's own mouse and hover (SteamPanel.canBecomeKey).
             SteamPanel(contentRect: content)
-        case .bigPicture:
-            // BPM draws its own top bar flush with the content, leaving no
-            // strip for overlaid traffic lights, so the title bar stays a real
-            // one outside the page.
-            NSWindow(
-                contentRect: content,
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false,
-            )
         default:
-            NSWindow(
+            // Steam already paints its complete frame and window controls.
+            // An activating borderless window hosts the unmodified document;
+            // adding an AppKit titlebar would cover or move source controls.
+            SteamDocumentWindow(
                 contentRect: content,
-                styleMask: [
-                    .titled,
-                    .closable,
-                    .miniaturizable,
-                    .resizable,
-                    .fullSizeContentView,
-                ],
+                styleMask: [.borderless, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false,
             )
@@ -231,17 +218,6 @@ final class SteamWindow: NSObject {
         // when a menu is up — that is what keeps its mouse-out logic (menu
         // dismissal) alive.
         container.relaysHover = true
-        if role == .toast || role == .dialog {
-            let material = NSVisualEffectView(frame: container.bounds)
-            material.autoresizingMask = [.width, .height]
-            material.material = .popover
-            material.blendingMode = .behindWindow
-            material.state = .active
-            container.addSubview(material)
-            container.wantsLayer = true
-            container.layer?.cornerRadius = role == .toast ? 14 : 12
-            container.layer?.masksToBounds = true
-        }
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
