@@ -12,8 +12,7 @@ nonisolated enum SteamWindowRole {
     case context
     /// The main desktop window — nav, library, store.
     case desktop
-    /// Big Picture Mode. Renders its own top bar with no room for overlaid
-    /// traffic lights, so it gets a real title bar outside the content.
+    /// Big Picture Mode, with Steam's own controls and fullscreen setting.
     case bigPicture
     /// The first-run login window.
     case login

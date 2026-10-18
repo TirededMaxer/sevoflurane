@@ -15,8 +15,7 @@ extension SteamWebHost {
     /// (its handler does `GetOverlayInstance(appid, pid)` then, for a desktop
     /// overlay, `SetIsOverlayActive(bActive)`): the second argument is the
     /// app id, the third the shown flag. Both come back through the popup
-    /// message handler as `__overlayActivated`; the app id lets the host close
-    /// the overlay the way "Back to Game" does, `SetOverlayState(appid, 0)`.
+    /// message handler as `__overlayActivated` for local diagnostics.
     /// Re-registered on reload.
     static let overlayScript = """
     (function () {

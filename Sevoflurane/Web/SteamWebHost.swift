@@ -223,35 +223,20 @@ final class SteamWebHost {
     /// needs the client restarted first, and the launch itself comes back here
     /// because it is a line of JavaScript in the page.
     ///
-    /// `forgettingChoice` clears the launch option Steam remembers for the app
-    /// first, so its `ShowLaunchOption` request is asked rather than answered
-    /// from memory: what an answer given ahead of time (``launchOptionAnswers``)
-    /// needs, since Steam's own UI answers from memory before this app can.
-    func launchGame(appID: Int, forgettingChoice: Bool = false) {
-        context?.webView.evaluateJavaScript(
-            forgettingChoice
-                ? LaunchOptions.forgetAndRunScript(appID: appID)
-                : "SteamClient.Apps.RunGame(String(\(appID)), '', -1, 100)",
-        )
+    /// An explicit CLI option uses the existing shared script; ordinary
+    /// launches keep Steam's own remembered choice and original dialog.
+    func launchGame(appID: Int, option: Int? = nil) {
+        let script = option.map { LaunchOptions.runAnsweringScript(appID: appID, option: $0) }
+            ?? "SteamClient.Apps.RunGame(String(\(appID)), '', -1, 100)"
+        context?.webView.evaluateJavaScript(script)
     }
-
-    /// Launch options chosen before Steam asks, by app id, each used once:
-    /// `sevo app launch --option <n>`.
-    @ObservationIgnored var launchOptionAnswers: [Int: Int] = [:]
-
-    /// The app whose launch-option alert is on screen, while it is.
-    @ObservationIgnored var launchOptionPending: Int?
-    /// The game action whose launch-option request was last taken up: the
-    /// context page and the shim's tap can both report one request.
-    @ObservationIgnored var launchOptionAction: Int?
 
     /// What a sweep of the client's popups leaves alone right now: the popup
     /// named after the game a launch is in flight for, and any other
     /// desktop-UI popup the role table cannot name, since either may be the
-    /// dialog the launch is waiting on. While this app's own alert is asking
-    /// the question, the client's copy of it is redundant and is not spared.
+    /// dialog the launch is waiting on. Steam's own launch dialog remains visible.
     var launchPopupSparing: PopupSparing {
-        guard let launch = activeLaunch, launchOptionPending != launch.appID else { return .none }
+        guard let launch = activeLaunch else { return .none }
         return PopupSparing(exactBases: [gameName(launch.appID)], unclassifiedDesktopPopups: true)
     }
 

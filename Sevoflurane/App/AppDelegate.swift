@@ -171,7 +171,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             supervisor.showLibraryWhenHealthy()
         }
         startServices()
-        // Steam's web dialogs are adopted from the original popup documents.
     }
 
     /// Points the engine manifest at the URL a developer named, from the

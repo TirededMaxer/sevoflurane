@@ -351,21 +351,10 @@ final class SteamWindow: NSObject {
                 task: string(args, 2),
                 actionID: string(args, 3),
             )
-        case "__launchOptions":
-            // The shim's tap on Steam's launch-option request (its
-            // CALLBACK_TAPS): the app answers it with a native alert.
-            host?.noteLaunchOptions(
-                appID: Int(string(args, 0)) ?? 0,
-                actionID: Int(string(args, 1)) ?? 0,
-                json: string(args, 2),
-                remembered: string(args, 3),
-            )
         case "__overlayActivated":
             // The context page's overlay subscription
-            // (SteamWebHost.overlayScript): Shift+Tab toggled the in-game
-            // overlay. The host places and shows the overlay window over the
-            // game, or hides it and returns focus. The app id is carried so the
-            // host can close it through Steam.
+            // (SteamWebHost.overlayScript): observe the original renderer's
+            // visibility and app id without controlling its windows or input.
             host?.noteOverlayActivated(
                 active: ((args.first as? NSNumber)?.intValue ?? 0) != 0,
                 appID: string(args, 1),

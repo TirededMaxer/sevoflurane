@@ -366,53 +366,6 @@
     "SteamClient.WebChat.SetNumChatsWithUnreadPriorityMessages": "__unreadChats",
   };
 
-  /* Registrations whose callback the host answers one request of, inside the
-     app. Steam's UI asks "how should this app start" through
-     RegisterForGameActionUserRequest and answers it with its own dialog, or
-     silently from a remembered choice; here the request goes to the host as
-     __launchOptions instead, which puts it as a native alert. Every other
-     request reaches the page's handler untouched. */
-  function launchOptionKey(appid, options) {
-    /* Steam's own key and hash (LaunchOptions.rememberedKeyScript is its twin). */
-    var text = JSON.stringify(options), hash = 0;
-    for (var i = 0; i < text.length; i++) {
-      hash = (hash << 5) - hash + text.charCodeAt(i);
-      hash |= 0;
-    }
-    return "Apps\\" + appid + "\\DefaultLaunchOption\\"
-      + (hash < 0 ? 4294967295 + hash + 1 : hash).toString(16);
-  }
-  var CALLBACK_TAPS = {
-    "SteamClient.Apps.RegisterForGameActionUserRequest": function (cb) {
-      /* Steam calls it with (action id, app id, action, request). */
-      return function (actionID, gameid, action, request) {
-        var handler = nativeWindowHandler(window);
-        if (request !== "ShowLaunchOption" || !handler) {
-          return cb.apply(this, arguments);
-        }
-        var post = function (options, remembered) {
-          try {
-            handler.postMessage({ fn: "__launchOptions", args: [
-              String(gameid), String(actionID), JSON.stringify(options || []),
-              typeof remembered === "string" ? remembered : "",
-            ] });
-          } catch (e) {}
-        };
-        window.SteamClient.Apps.GetLaunchOptionsForApp(Number(gameid)).then(function (options) {
-          var key = launchOptionKey(gameid, options);
-          return window.SteamClient.Storage.GetString(key).then(function (remembered) {
-            post(options, remembered);
-          }, function () { post(options, ""); });
-        }, function () { post([], ""); });
-      };
-    },
-  };
-  function tapCallbacks(path, args) {
-    // Steam retains its launch-option dialog, remembered selection, default
-    // choice and cancellation path. Native windows only host its own UI.
-    return Array.prototype.slice.call(args);
-  }
-
   /* Routes whose target is a path only the client knows: resolved here, where
      the API lives, and then opened through the directory route above. */
   var NATIVE_RESOLVERS = {
@@ -505,7 +458,7 @@
         entry = { command: arguments[0], fn: arguments[1] };
         steamURLHandlers.push(entry);
       }
-      var sent = call(path, tapCallbacks(path, arguments));
+      var sent = call(path, arguments);
       if (isRegistration(path)) {
         return {
           unregister: function () {

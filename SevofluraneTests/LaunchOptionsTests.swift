@@ -21,7 +21,6 @@ struct LaunchOptionsTests {
             LaunchOption(index: 0, description: "Play", type: 0),
             LaunchOption(index: 1, description: "Run Benchmark Tool (Compatibility Mode)", type: 9),
         ])
-        #expect(LaunchOptions.summary(options) == "“Play”, “Run Benchmark Tool (Compatibility Mode)”")
     }
 
     @Test
@@ -98,35 +97,13 @@ struct LaunchOptionsTests {
     }
 
     @Test
-    func `a remembered answer counts only while it names an option`() {
-        let options = LaunchOptions.parse(wukong)
-        #expect(LaunchOptions.rememberedIndex("1", among: options) == 1)
-        #expect(LaunchOptions.rememberedIndex("", among: options) == nil)
-        #expect(LaunchOptions.rememberedIndex("7", among: options) == nil)
-        #expect(LaunchOptions.rememberedIndex(nil, among: options) == nil)
-    }
-
-    /// Steam's key is `Apps\<appid>\DefaultLaunchOption\<hex>` where hex is the
-    /// unsigned `h = h * 31 + c` hash of the options' JSON. The Swift and the
-    /// JavaScript spellings must agree, since one reads what the other clears.
-    @Test
-    func `the remembered key is the same in Swift and in the script`() throws {
-        let key = LaunchOptions.rememberedKey(appID: 2358720, optionsJSON: "[]")
-        // "[]" hashes to 91 * 31 + 93 = 2914.
-        #expect(key == "Apps\\2358720\\DefaultLaunchOption\\b62")
+    func `the CLI remembered-key script uses Steam's original key`() throws {
         let context = try #require(JSContext())
         let function = try #require(context.evaluateScript(LaunchOptions.rememberedKeyScript))
-        let options = try #require(context.evaluateScript(wukong))
-        let fromScript = try #require(function.call(withArguments: [2358720, options])?.toString())
-        #expect(fromScript == LaunchOptions.rememberedKey(appID: 2358720, optionsJSON: wukong))
-        #expect(fromScript.hasPrefix("Apps\\2358720\\DefaultLaunchOption\\"))
+        let options = try #require(context.evaluateScript("[]"))
+        #expect(function.call(withArguments: [2358720, options])?.toString() == "Apps\\2358720\\DefaultLaunchOption\\b62")
     }
 
-    @Test
-    func `the answers name the action and the option as strings`() {
-        #expect(LaunchOptions.continueScript(actionID: 12, index: 1) == "SteamClient.Apps.ContinueGameAction(12, \"1\"); \"sent\"")
-        #expect(LaunchOptions.cancelScript(actionID: 12) == "SteamClient.Apps.CancelGameAction(12); \"sent\"")
-    }
 }
 
 /// A version 29 `appinfo.vdf` holding one unrelated app and Megabonk, whose

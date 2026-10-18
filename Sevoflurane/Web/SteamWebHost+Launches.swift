@@ -32,7 +32,6 @@ extension SteamWebHost {
             if var launch = activeLaunch {
                 launch.detail = "Waiting for the game window…"
                 setLaunch(launch, clearAfter: 180)
-                launchOptionAnswers[launch.appID] = nil
             }
             // The end of a launch is the moment the user looks at the window
             // again, whether a game came up or an error dialog did, so it is
@@ -45,7 +44,6 @@ extension SteamWebHost {
                 "launch \(id): Steam reported an error\(task.isEmpty ? "" : " — \(task)")",
             )
             if id != 0 {
-                launchOptionAnswers[id] = nil
                 onGameActionError?(id, task)
             }
         case "life":
@@ -87,66 +85,6 @@ extension SteamWebHost {
                     result.append(result.isEmpty ? character : Character(character.lowercased()))
                 } + "…"
         }
-    }
-
-    // MARK: - Launch options
-
-    /// Steam asked how to start `appID` (`ShowLaunchOption`, tapped out of the
-    /// page by the shim). Answered without asking when an answer was given
-    /// ahead of time, when Steam remembers one from a "Forever" in its own
-    /// dialog, or when there is nothing to choose between; otherwise a native
-    /// alert asks, after this message handler returns.
-    func noteLaunchOptions(appID: Int, actionID: Int, json: String, remembered: String) {
-        guard launchOptionAction != actionID else { return }
-        launchOptionAction = actionID
-        let options = LaunchOptions.parse(json) { SteamAppInfo.launchDescriptions(appID: appID) }
-        EventLog.shared.log(
-            .client,
-            "launch \(appID): Steam asks how to start it — \(options.count) option"
-                + "\(options.count == 1 ? "" : "s"): \(LaunchOptions.summary(options))",
-        )
-        if let chosen = launchOptionAnswers.removeValue(forKey: appID) {
-            EventLog.shared.log(.client, "launch \(appID): option \(chosen) chosen ahead of time")
-            answerLaunchOptions(appID: appID, actionID: actionID, with: chosen, of: options)
-            return
-        }
-        if let index = LaunchOptions.rememberedIndex(remembered, among: options) {
-            EventLog.shared.log(.client, "launch \(appID): Steam remembers option \(index) for it")
-            answerLaunchOptions(appID: appID, actionID: actionID, with: index, of: options)
-            return
-        }
-        guard options.count > 1 else {
-            answerLaunchOptions(appID: appID, actionID: actionID, with: options.first?.index ?? 0, of: options)
-            return
-        }
-        if var launch = activeLaunch, launch.appID == appID {
-            launch.detail = "Choose how to start it…"
-            setLaunch(launch, clearAfter: 180)
-        }
-        launchOptionPending = appID
-        let name = gameName(appID)
-        // After this handler returns: a modal alert must not run inside a page message.
-        ModalAlerts.present { [weak self] in
-            let chosen = LaunchOptionPrompt.choose(from: options, for: name)
-            guard let self else { return }
-            launchOptionPending = nil
-            answerLaunchOptions(appID: appID, actionID: actionID, with: chosen, of: options)
-        }
-    }
-
-    /// Sends the answer through the page, the way its own dialog would have.
-    /// Nil abandons the launch.
-    private func answerLaunchOptions(appID: Int, actionID: Int, with index: Int?, of options: [LaunchOption]) {
-        let script: String
-        if let index {
-            let label = options.first { $0.index == index }?.description ?? "option \(index)"
-            EventLog.shared.log(.client, "launch \(appID): starting with option \(index) \u{201C}\(label)\u{201D}")
-            script = LaunchOptions.continueScript(actionID: actionID, index: index)
-        } else {
-            EventLog.shared.log(.client, "launch \(appID): canceled at the chooser")
-            script = LaunchOptions.cancelScript(actionID: actionID)
-        }
-        Task(name: "Answer how to start \(appID)") { _ = await evaluateInContext(script) }
     }
 
     /// Subscribes the context page to the client's game-action events and to

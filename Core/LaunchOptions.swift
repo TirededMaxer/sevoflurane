@@ -84,38 +84,6 @@ nonisolated enum LaunchOptions {
         }
     }
 
-    /// The index Steam's dialog would start with on its own: the stored
-    /// answer, when there is one and it still names an option in the list.
-    static func rememberedIndex(_ stored: String?, among options: [LaunchOption]) -> Int? {
-        guard let stored, let index = Int(stored.trimmingCharacters(in: .whitespaces)),
-              options.contains(where: { $0.index == index }) else { return nil }
-        return index
-    }
-
-    /// The options as a log names them: `"Play", "Run Benchmark Tool"`.
-    static func summary(_ options: [LaunchOption]) -> String {
-        options.map { "\u{201C}\($0.description)\u{201D}" }.joined(separator: ", ")
-    }
-
-    // MARK: - Steam's memory
-
-    /// The `SteamClient.Storage` key Steam keeps an app's remembered launch
-    /// option under, for the options list exactly as `GetLaunchOptionsForApp`
-    /// serializes it.
-    static func rememberedKey(appID: Int, optionsJSON: String) -> String {
-        "Apps\\\(appID)\\DefaultLaunchOption\\\(String(hash(optionsJSON), radix: 16))"
-    }
-
-    /// Steam's string hash, unsigned: `h = h * 31 + unit` over UTF-16 code
-    /// units, truncated to 32 bits at each step.
-    private static func hash(_ text: String) -> UInt32 {
-        var hash: Int32 = 0
-        for unit in text.utf16 {
-            hash = (hash << 5) &- hash &+ Int32(unit)
-        }
-        return UInt32(bitPattern: hash)
-    }
-
     /// The same key as a JavaScript function `(appid, options) -> key`, for
     /// the scripts that read or clear the memory where the options are.
     static let rememberedKeyScript = """
@@ -129,37 +97,6 @@ nonisolated enum LaunchOptions {
         + (hash < 0 ? 4294967295 + hash + 1 : hash).toString(16);
     })
     """
-
-    // MARK: - Answering
-
-    /// Answers a `ShowLaunchOption` request with one option.
-    static func continueScript(actionID: Int, index: Int) -> String {
-        "SteamClient.Apps.ContinueGameAction(\(actionID), \(JSLiteral.string(String(index)))); \"sent\""
-    }
-
-    /// Abandons the launch at its `ShowLaunchOption` request.
-    static func cancelScript(actionID: Int) -> String {
-        "SteamClient.Apps.CancelGameAction(\(actionID)); \"sent\""
-    }
-
-    /// Starts an app after clearing the option Steam remembers for it, so the
-    /// question is asked again rather than answered from memory. Answers
-    /// `"started"` once the launch is requested.
-    static func forgetAndRunScript(appID: Int) -> String {
-        """
-        (function () {
-          var appid = \(appID);
-          var key = \(rememberedKeyScript);
-          var run = function () {
-            SteamClient.Apps.RunGame(String(appid), "", -1, 100);
-            return "started";
-          };
-          return SteamClient.Apps.GetLaunchOptionsForApp(appid)
-            .then(function (options) { return SteamClient.Storage.DeleteKey(key(appid, options)); })
-            .then(run, run);
-        })()
-        """
-    }
 
     /// Starts an app and answers its `ShowLaunchOption` request with `option`,
     /// from a context with no app to ask the user: the client's own

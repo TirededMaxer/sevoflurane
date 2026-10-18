@@ -7,7 +7,7 @@ import AppKit
 /// A native alert rather than a dialog drawn into Steam's page: the
 /// decision is made where the install passes through the bridge, from a
 /// verdict that lives on this side, so it needs no anchor in Steam's
-/// markup, and it reads like the app's other questions (``LaunchOptionPrompt``).
+/// markup. This is Sevoflurane's compatibility warning, not a Steam dialog.
 @MainActor
 enum InstallWarning {
     /// How long Install waits for the verdict before going ahead without
