@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+#plate{position:absolute;inset:8px;background:#20252b;color:white;font:13px system-ui}
+#label{position:absolute;top:170px;left:calc(50% - 92px);width:184px;text-align:center}
+.corner{position:absolute;width:24px;height:24px}
+.tl{left:16px;top:16px;background:rgb(230,50,60)}
+.tr{right:16px;top:16px;background:rgb(20,210,80)}
+.bl{left:16px;bottom:16px;background:rgb(30,90,240)}
+.br{right:16px;bottom:16px;background:rgb(240,190,20)}
+.generation{position:absolute;display:flex;width:128px;height:8px}
+.generation i{display:block;flex:none;width:8px;height:8px;background:#101010}
+.gtl{left:56px;top:20px}.gtr{right:56px;top:20px}
+.gbl{left:56px;bottom:20px}.gbr{right:56px;bottom:20px}
+canvas,video{position:absolute;width:128px;height:80px}
+#two{left:32px;top:80px}#gl{right:32px;top:80px}
+#video{left:calc(50% - 64px);bottom:42px;background:#000}
+#motion{position:absolute;left:calc(50% - 70px);top:80px;width:140px;height:80px;background:#334}
+#motion span{position:absolute;top:8px;width:28px;height:64px;background:#72e04a;animation:slide .9s linear infinite alternate}
+@keyframes slide{from{transform:translateX(4px)}to{transform:translateX(108px)}}
+#scroll{position:absolute;left:32px;top:190px;width:140px;height:96px;overflow:hidden}
+#scroll div{height:1600px;background:repeating-linear-gradient(#a035d0 0 18px,#2ad5a0 18px 36px,#335ecc 36px 54px)}
+</style>
+<div id="plate"></div>
+<div class="corner tl"></div><div class="corner tr"></div>
+<div class="corner bl"></div><div class="corner br"></div>
+<div class="generation gtl"></div><div class="generation gtr"></div>
+<div class="generation gbl"></div><div class="generation gbr"></div>
+<canvas id="two" width="128" height="80"></canvas>
+<canvas id="gl" width="128" height="80"></canvas>
+<div id="motion"><span></span></div><div id="scroll"><div></div></div>
+<video id="video" width="128" height="80" muted autoplay playsinline></video>
+<div id="label">Synthetic WK frame source<br>CSS · scroll · Canvas · WebGL · video</div>
+<script>
+(() => {
+  const send = value => window.webkit.messageHandlers.fixture.postMessage(value);
+  const blocks = Array.from(document.querySelectorAll('.generation'), block => {
+    for (let n=0;n<16;n++) block.appendChild(document.createElement('i'));
+    return Array.from(block.children);
+  });
+  const two = document.querySelector('#two').getContext('2d');
+  const gl = document.querySelector('#gl').getContext('webgl', {alpha:false,preserveDrawingBuffer:true});
+  const source = document.createElement('canvas'); source.width=128; source.height=80;
+  const videoContext = source.getContext('2d');
+  const video = document.querySelector('#video');
+  let generation=0, videoReady=false, readySent=false;
+  function ready() {
+    if (!readySent && generation>4 && videoReady) {
+      readySent=true; send({kind:'ready',canvas:!!two,webgl:!!gl,video:videoReady});
+    }
+  }
+  function frame() {
+    generation=(generation+1)&65535; if (!generation) generation=1;
+    for (const block of blocks) for (let bit=0;bit<16;bit++)
+      block[bit].style.backgroundColor=(generation&(1<<bit))?'#ffffff':'#101010';
+    two.fillStyle='rgb(190,30,200)';two.fillRect(0,0,128,80);
+    two.fillStyle='#fff';two.fillRect(16+(generation*3)%96,20,12,52);
+    if (gl) {
+      gl.disable(gl.SCISSOR_TEST);gl.clearColor(0,.8,.8,1);gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.SCISSOR_TEST);gl.scissor(16+(generation*3)%96,8,12,52);
+      gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.disable(gl.SCISSOR_TEST);
+    }
+    videoContext.fillStyle='rgb(255,120,20)';videoContext.fillRect(0,0,128,80);
+    videoContext.fillStyle='#000';videoContext.fillRect(16+(generation*3)%96,20,12,52);
+    document.querySelector('#scroll').scrollTop=(generation*2)%400;
+    ready(); requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  try {
+    if (!source.captureStream) throw Error('captureStream unavailable');
+    video.srcObject=source.captureStream(30);
+    video.addEventListener('playing',()=>{videoReady=true;ready();},{once:true});
+    video.play().catch(()=>send({kind:'error',code:'video-play-failed'}));
+  } catch (_) {send({kind:'error',code:'canvas-capture-stream-unavailable'});}
+})();
+</script>

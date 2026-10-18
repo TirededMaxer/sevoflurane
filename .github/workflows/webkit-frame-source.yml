@@ -1,0 +1,28 @@
+name: Cloud WebKit frame source diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sevoflurane-webkit-frame-source
+  cancel-in-progress: false
+
+jobs:
+  frame-source:
+    runs-on: xcode-27
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test pixel checker, compile and sign on fresh Apple Silicon
+        run: bash Tools/webkit-frame-source/build.sh
+      - name: Upload diagnostic app and cloud evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-frame-source-${{ github.sha }}
+          path: ${{ runner.temp }}/webkit-frame-source-output/
+          if-no-files-found: error
+          retention-days: 3
