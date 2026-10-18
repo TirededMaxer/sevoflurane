@@ -123,6 +123,16 @@ nonisolated enum SteamWindowRole {
         return Int(popupName[range.upperBound...]) ?? 0
     }
 
+    /// Steam renders these pages inside the game. They must never acquire a
+    /// second NSWindow or be hidden/closed by the desktop mirror.
+    static func usesOriginalGameOverlay(popupName: String) -> Bool {
+        let role = Self(popupName: popupName)
+        if role == .gameOverlay { return true }
+        if role == .toast && (popupName.contains("_gameoverlay") || popupName.contains("_overlay")) { return true }
+        return instanceUID(ofPopupNamed: popupName) != 0
+            && role != .desktop && role != .login && role != .bigPicture && role != .context
+    }
+
     /// Panels never activate the app or take key focus from other apps. The
     /// game overlay is one: it takes key focus itself while active (for its
     /// own input) but must never promote the app to a regular one or steal
@@ -157,7 +167,7 @@ nonisolated enum SteamWindowRole {
 
     /// The context page stays hidden; all user-facing Steam windows may show.
     var isShowable: Bool {
-        self != .context
+        self != .context && self != .gameOverlay
     }
 
     /// Whether a frame that lands on no display is a mistake.

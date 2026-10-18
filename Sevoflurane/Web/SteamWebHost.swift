@@ -738,6 +738,10 @@ final class SteamWebHost {
         EventLog.shared.log(.window, "popup adopted: \(window.name) as \(window.role)")
         refreshLoginWindowState()
         defer { logWindowInventory("adopting \(window.name)") }
+        // The original renderer owns this popup's input and lifetime. Keeping
+        // the mirror passive must not close Steam's saved game UI windows.
+        guard !window.usesOriginalGameOverlay else { return }
+        window.webView.evaluateJavaScript(SteamPresentation.script(role: window.role))
         // A popup adopted while the overlay is up belongs to it (its Settings,
         // a dialog): track it so it is ordered in and out with the overlay and
         // dismissed when it closes, rather than left floating above the game.
@@ -826,7 +830,7 @@ final class SteamWebHost {
         if reason == .steamClosedIt, !isTearingDownPage,
            window !== desktop, window.role != .menu, window.role != .context {
             notifyPopupUnloaded(named: window.name)
-            repairStuckModalOverlay()
+            // Deliver browser teardown only; Steam decides when its modal state ends.
             // Settings is one of these popups, and a language or a friends-list
             // preference rewrites the strip's labels as it closes.
             menuMirror?.refresh()

@@ -20,3 +20,4 @@ TranslateMessage
 DispatchMessageW
 GetDlgItem
 PostMessageW
+SendMessageW

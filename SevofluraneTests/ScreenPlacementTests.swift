@@ -55,7 +55,7 @@ struct ScreenPlacementTests {
     func overlayChildOpensCenteredWithoutChangingRootOverlayOrToastPlacement() throws {
         let host = SteamWebHost()
         host.overlayActive = true
-        let child = SteamWindow(webView: WKWebView(), role: .chat, name: "chat_uid123", size: CGSize(width: 600, height: 360), origin: CGPoint(x: 0, y: 0), host: host)
+        let child = SteamWindow(webView: WKWebView(), role: .chat, name: "chat_uid0", size: CGSize(width: 600, height: 360), origin: CGPoint(x: 0, y: 0), host: host)
         NSWindow.removeFrame(usingName: child.placementName)
         child.realize()
         defer { child.detach(reason: .pageTeardown); NSWindow.removeFrame(usingName: child.placementName) }
@@ -76,11 +76,11 @@ struct ScreenPlacementTests {
     }
 
     @Test
-    func aRecreatedSteamWindowRestoresFrameAcrossInstanceUIDs() throws {
+    func aRecreatedDesktopChatRestoresItsUserFrame() throws {
         let host = SteamWebHost()
         host.overlayActive = true
         func popup(_ uid: Int) -> SteamWindow {
-            SteamWindow(webView: WKWebView(), role: .friends, name: "friendslist_uid\(uid)", size: CGSize(width: 400, height: 300), origin: nil, host: host)
+            SteamWindow(webView: WKWebView(), role: .chat, name: "chat_\(uid)_uid0", size: CGSize(width: 400, height: 300), origin: nil, host: host)
         }
         let first = popup(123)
         NSWindow.removeFrame(usingName: first.placementName)

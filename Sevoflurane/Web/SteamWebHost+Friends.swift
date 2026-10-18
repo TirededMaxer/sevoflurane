@@ -29,9 +29,8 @@ extension SteamWebHost {
         runInContext(Self.chatScript(accountID: id), describedAs: "chat with \(accountID)")
     }
 
-    var chatShowIsUnasked: Bool {
-        chatPolicy.showIsUnasked(at: .now)
-    }
+    // A ShowWindow from Steam is authoritative, including an incoming chat.
+    var chatShowIsUnasked: Bool { false }
 
     private func runInContext(_ script: String, describedAs what: String) {
         chatPolicy.noteChatRequest(at: .now)
@@ -199,52 +198,17 @@ extension SteamWebHost {
     })()
     """
 
-    /// Installs the scripts the context page needs standing: the notification
-    /// subscription, and the refusal of the chat window Steam opens for an
-    /// incoming message.
-    ///
-    /// Both reach for a global the bundle assigns partway through boot, and
-    /// Steam sends no "the UI is ready" signal, so each is retried until it
-    /// answers with one of the outcomes that means it is in place — the same
-    /// gap ``SteamMenuMirror`` retries across. The bottled client runs a
-    /// second copy of the friends UI, which opens a CEF chat window of its
-    /// own, so the refusal goes to that one too.
+    /// Observe Steam state and add appearance. Notification content, sounds,
+    /// chat creation and game input remain the original client's decisions.
     func installContextScripts() {
-        install(
-            Self.notificationScript,
-            describedAs: "Steam notifications",
-            settledAt: ["registered", "already registered"],
-        )
-        install(
-            Self.overlayScript,
-            describedAs: "Steam overlay activation",
-            settledAt: ["registered", "already registered"],
-        )
-        install(
-            Self.installWizardScript,
-            describedAs: "Steam's install wizard",
-            settledAt: ["registered", "already registered"],
-        )
-        install(
-            Self.callFailureScript,
-            describedAs: "Steam's refused calls",
-            settledAt: ["registered", "already registered"],
-        )
-        install(
-            SteamChatAutoOpen.refusalScript,
-            describedAs: "unasked chat windows",
-            settledAt: SteamChatAutoOpen.settled,
-        )
-        installInClient(
-            SteamChatAutoOpen.refusalScript,
-            describedAs: "unasked chat windows",
-            settledAt: SteamChatAutoOpen.settled,
-        )
-        installInClient(
-            SteamMessageSound.refusalScript,
-            describedAs: "Steam's own message sound",
-            settledAt: SteamMessageSound.settled,
-        )
+        install(Self.overlayScript, describedAs: "Steam overlay state", settledAt: ["registered", "already registered"])
+        install(Self.installWizardScript, describedAs: "Steam install window", settledAt: ["registered", "already registered"])
+        install(Self.callFailureScript, describedAs: "Steam call diagnostics", settledAt: ["registered", "already registered"])
+        // Original pages keep their original notification, sound and chat
+        // decisions. No payload is reinterpreted or re-posted by the host.
+        installInClient(SteamPresentation.originalClientScript,
+                        describedAs: "macOS appearance on original Steam pages",
+                        settledAt: ["installed", "already installed"])
     }
 
     private func installInClient(

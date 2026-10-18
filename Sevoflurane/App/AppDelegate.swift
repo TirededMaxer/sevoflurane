@@ -358,10 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let appID = await self?.host.appID(fromSteam: gameID), appID != 0 else { return }
                 await Self.prepareLaunch(appID: appID)
             }
-            await bridge.setInstallGate { [weak self] appID in
-                guard let host = await self?.host else { return true }
-                return await host.confirmInstall(appID: appID)
-            }
+            // Steam owns its install wizard and all install confirmations.
             // The bridge sees a client die before any probe does.
             await bridge.setClientConnectionLostHandler { [weak self] in
                 DispatchQueue.main.async {

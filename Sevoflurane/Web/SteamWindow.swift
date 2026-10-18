@@ -23,6 +23,9 @@ final class SteamWindow: NSObject {
     private var desktopShowActivating = false
 
     var window: NSWindow?
+    var usesOriginalGameOverlay: Bool {
+        role == .gameOverlay || SteamWindowRole.usesOriginalGameOverlay(popupName: name)
+    }
     private(set) var embeddedPresented = false
 
     func setEmbeddedPresentation(_ shown: Bool, frame: NSRect? = nil) {
@@ -127,7 +130,7 @@ final class SteamWindow: NSObject {
     /// `ShowWindow` or `BringToFront`. Creating it visible would flash an empty
     /// frame before the UI paints.
     func realize() {
-        guard window == nil, role != .context else { return }
+        guard window == nil, role != .context, !usesOriginalGameOverlay else { return }
 
         let content = NSRect(origin: .zero, size: requestedSize)
         let window = makeWindow(content: content)
@@ -160,15 +163,6 @@ final class SteamWindow: NSObject {
                 return handled ? nil : event
             }
         }
-        if role.canBeOverlayChild, let childLevel = host?.overlayChildLevel {
-            // Opened while the overlay is up — ride just above it rather than
-            // at the normal level, where the overlay and game would hide it.
-            // A `SteamPanel` hides itself when its app deactivates, and this
-            // app is never the active one over a game, so that is turned off or
-            // the popup would vanish the instant it appeared.
-            window.level = NSWindow.Level(rawValue: childLevel)
-            window.hidesOnDeactivate = false
-        }
         if role == .menu || role == .gameOverlay {
             // Ordered in at alpha 0 (chrome sets it) so WebKit schedules the
             // page and it renders; the overlay is placed and faded in only
@@ -181,16 +175,6 @@ final class SteamWindow: NSObject {
 
     /// The bare `NSWindow` for this popup's role, before any dressing.
     private func makeWindow(content: NSRect) -> NSWindow {
-        if role.canBeOverlayChild, host?.isOverlayActive == true {
-            // A popup opened while the overlay is up (its Settings, a dialog):
-            // a non-activating panel, so it does not pull focus off the game.
-            // `realize` levels it above the overlay, and `show` orders it in
-            // without activating the app.
-            // Popup chrome hides Steam's window controls in favor of native
-            // ones. Keep those controls (and their drag strip) on overlay
-            // popups too, while preserving non-activating panel behavior.
-            return SteamPanel(contentRect: content, hasTitleBar: role.hasPopupChrome)
-        }
         return switch role {
         case .menu, .keyboard, .dialog:
             SteamPanel(contentRect: content)
@@ -240,6 +224,17 @@ final class SteamWindow: NSObject {
         // when a menu is up — that is what keeps its mouse-out logic (menu
         // dismissal) alive.
         container.relaysHover = true
+        if role == .toast || role == .dialog {
+            let material = NSVisualEffectView(frame: container.bounds)
+            material.autoresizingMask = [.width, .height]
+            material.material = .popover
+            material.blendingMode = .behindWindow
+            material.state = .active
+            container.addSubview(material)
+            container.wantsLayer = true
+            container.layer?.cornerRadius = role == .toast ? 14 : 12
+            container.layer?.masksToBounds = true
+        }
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
@@ -468,6 +463,11 @@ final class SteamWindow: NSObject {
             // on.
             if self.name.isEmpty, !name.isEmpty {
                 self.name = name
+                role = SteamWindowRole(popupName: name)
+                if usesOriginalGameOverlay {
+                    window?.ignoresMouseEvents = true
+                    window?.orderOut(nil)
+                }
                 EventLog.shared.log(.window, "late adoption: orphan popup is \(name)")
             }
             return
@@ -524,6 +524,7 @@ final class SteamWindow: NSObject {
     }
 
     func show(activating: Bool) {
+        guard !usesOriginalGameOverlay else { return }
         if (role == .desktop || role == .login),
            !(role == .login && host?.defersLoginWindow == true),
            host?.clientIsStopping != true,
@@ -540,21 +541,7 @@ final class SteamWindow: NSObject {
         // `setOverlayActive`; the `ShowWindow`/`BringToFront` Steam sends at
         // creation must not put it on screen over the game.
         guard role != .gameOverlay else { return }
-        guard !isDesktopChatMirrorInOverlay else { return }
         host?.noteWindowWillShow(self)
-        if role.canBeOverlayChild, host?.embeddedOverlay.presenting == true {
-            prepareOpeningPlacement()
-            setEmbeddedPresentation(true)
-            return
-        }
-        // A popup opened while the overlay is up rides above it (a
-        // non-activating panel levelled in `realize`) and is ordered in
-        // without activating the app, so the game keeps focus.
-        if role.canBeOverlayChild, host?.isOverlayActive == true {
-            prepareOpeningPlacement()
-            window?.orderFrontRegardless()
-            return
-        }
         // The context page renders in the background; user-facing pages show below.
         guard role.isShowable else { return }
         guard let window else { return }
@@ -747,7 +734,7 @@ final class SteamWindow: NSObject {
         if orderedIn {
             // Returning from another app must not reveal a hidden desktop
             // chat twin through the overlay group's separate ordering path.
-            guard !isDesktopChatMirrorInOverlay else { return }
+            guard !usesOriginalGameOverlay else { return }
             prepareOpeningPlacement()
             window.orderFrontRegardless()
         } else {

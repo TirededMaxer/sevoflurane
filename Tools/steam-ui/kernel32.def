@@ -1,0 +1,12 @@
+LIBRARY kernel32.dll
+EXPORTS
+OpenProcess
+QueryFullProcessImageNameW
+CloseHandle
+WriteFile
+GetStdHandle
+GetCommandLineW
+ExitProcess
+GetModuleHandleW
+LoadLibraryW
+GetProcAddress

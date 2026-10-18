@@ -408,10 +408,9 @@
     },
   };
   function tapCallbacks(path, args) {
-    var list = Array.prototype.slice.call(args);
-    var tap = CALLBACK_TAPS[path];
-    if (!tap || !nativeWindowHandler(window)) return list;
-    return list.map(function (a) { return typeof a === "function" ? tap(a) : a; });
+    // Steam retains its launch-option dialog, remembered selection, default
+    // choice and cancellation path. Native windows only host its own UI.
+    return Array.prototype.slice.call(args);
   }
 
   /* Routes whose target is a path only the client knows: resolved here, where

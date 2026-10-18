@@ -23,7 +23,7 @@ struct GameOverlayRoleTests {
         // otherwise read as occluded and stop)…
         #expect(!role.allowsOcclusionDetection)
         // …may be shown, and carries no chrome of its own.
-        #expect(role.isShowable)
+        #expect(!role.isShowable) // The original game renderer shows it.
         #expect(!role.hasPopupChrome)
     }
 

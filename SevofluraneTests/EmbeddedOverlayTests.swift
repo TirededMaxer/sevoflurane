@@ -11,6 +11,9 @@ struct EmbeddedOverlayTests {
         #expect(EmbeddedOverlayLaunch.environment.isEmpty)
     }
 
+    // Historical renderer fixtures are retained for source comparison only.
+    // SteamPresentationTests exercises the shipping original-renderer contract.
+    #if SEVO_HISTORICAL_COMPOSITOR_TESTS
     @Test
     func `embedded backing stays invisible and cannot intercept native input`() {
         let popup = SteamWindow(webView: WKWebView(), role: .gameOverlay, name: "desktopoverlay_uid730",
@@ -151,6 +154,7 @@ struct EmbeddedOverlayTests {
         ])
         #expect(result == "DYLD_INSERT_LIBRARIES=\"/Applications/A \\\"Test\\\".app/lib.dylib\" SEVO_OVERLAY_BRIDGE=\"/Users/Name With Space/Overlay/cs2.surface\"")
     }
+    #endif
 }
 
 @MainActor

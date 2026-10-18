@@ -393,6 +393,9 @@ actor SteamBridge {
             return spareUnclassified && instanceOf(name) === 0 && !known(base);
           };
           var allowed = function (name) {
+            var gameBase = baseOf(name);
+            if (gameBase.indexOf("desktopoverlay") === 0 || gameBase.indexOf("gamepadoverlay") === 0
+                || instanceOf(name) !== 0 || gameBase.indexOf("_gameoverlay") >= 0) return false;
             if (spared(name)) return false;
             if (!exact) return true;
             var base = baseOf(name);

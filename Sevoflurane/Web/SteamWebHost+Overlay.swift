@@ -12,58 +12,13 @@ extension SteamWebHost {
     /// so it is not hidden behind it. `nil` when no overlay is up.
     var overlayChildLevel: Int? { overlayGame.map { $0.layer + 2 } }
 
-    /// The in-game overlay was activated or dismissed (Shift+Tab), told by the
-    /// context page's subscription (``overlayScript``). Places the overlay
-    /// window over the running game and fades it in, or fades it out and hands
-    /// focus back to the game process. The game window's frame comes from
-    /// CGWindowList (`WineWindowWatch.gameWindow`), so a game that moved or
-    /// resized since launch is followed on the next activation.
+    /// Keep menu-bar diagnostics in step with Steam without driving its UI.
     func noteOverlayActivated(active: Bool, appID: String) {
-        guard let overlay = popups.values.first(where: { $0.role == .gameOverlay }) else {
-            EventLog.shared.log(
-                .window,
-                "overlay \(active ? "activated" : "dismissed"), but no overlay window is adopted",
-            )
-            return
-        }
-        _ = embeddedOverlay
+        // A read-only observation: do not synthesize focus, input, opacity,
+        // cursor restoration or child-window teardown around Steam's renderer.
         overlayActive = active
-        guard active else {
-            removeOverlayFrontObserver()
-            removeOverlayKeyMonitor()
-            embeddedOverlay.hide()
-            overlay.setEmbeddedPresentation(false)
-            overlay.hideOverlay()
-            // Closed, not merely hidden: a child left open is one Steam
-            // restores at the next activation and at the next game start.
-            for child in overlayChildren {
-                child.close()
-            }
-            overlayChildren.removeAll()
-            if let pid = overlayGame?.pid, NSWorkspace.shared.frontmostApplication?.processIdentifier != pid {
-                Task(name: "Return focus to the game") {
-                    await Activation().bringForward(pid: pid, describedAs: "the game behind the overlay")
-                    ActivationPolicy.recedeIfLastWindow(closing: nil)
-                }
-            }
-            overlayGame = nil
-            EventLog.shared.log(.window, "overlay dismissed; focus returned to the game")
-            return
-        }
         overlayAppID = appID
-        Task(name: "Show Steam overlay") { [weak self] in
-            let game = await WineWindowWatch.gameWindow()
-            guard let self, overlayActive else { return }
-            overlayGame = game
-            installOverlayFrontObserver(overlay)
-            installOverlayKeyMonitor()
-            applyOverlayPresence(overlay)
-            EventLog.shared.log(
-                .window,
-                "overlay activated over the game "
-                    + "(\(game.map { "pid \($0.pid), level \($0.layer)" } ?? "no game window found"))",
-            )
-        }
+        EventLog.shared.log(.window, "original Steam overlay \(active ? "active" : "inactive") for \(appID)")
     }
 
     /// Closes the overlay the way its own "Back to Game" does — through Steam,

@@ -4,13 +4,9 @@ import Foundation
 /// It only installs hooks in cs2.exe; Steam infrastructure keeps its existing policy.
 nonisolated enum EmbeddedOverlayLaunch {
     static var surface: URL { AppIdentity.supportFolder.appendingPathComponent("Overlay/cs2.surface") }
-    // The prototype failed live clarity and input-isolation acceptance.
-    // Stable builds keep the existing native panel overlay.
-    #if SEVO_WINDOW_OVERLAY_EXPERIMENT
-    static let enabled = true
-    #else
+    // Game rendering and input belong to Steam. The former compositor remains
+    // source-only for comparison and cannot be enabled in an application build.
     static let enabled = false
-    #endif
     static var library: URL? {
         guard enabled else { return nil }
         return BundledResources.url("EmbeddedOverlay/SevoEmbeddedOverlay.dylib")

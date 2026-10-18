@@ -78,7 +78,7 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `desktop chat twin stays hidden through show and overlay reordering`() {
+    func `desktop chat follows Steam show while the original overlay is active`() {
         let host = SteamWebHost()
         host.overlayActive = true
         let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
@@ -87,13 +87,13 @@ struct OverlayPopupChromeTests {
 
         owner.show(activating: false)
         owner.setOrderedIn(true)
-        #expect(window.orderCount == 0)
+        #expect(window.orderCount == 2)
         owner.setOrderedIn(false)
         #expect(window.hideCount == 1)
     }
 
     @Test
-    func `game chat instance still shows and follows overlay presence`() {
+    func `game chat instance is left to the original renderer`() {
         let host = SteamWebHost()
         host.overlayActive = true
         let owner = chat(named: "chat_ChatWindow_5_uid1320", host: host)
@@ -102,7 +102,7 @@ struct OverlayPopupChromeTests {
 
         owner.show(activating: false)
         owner.setOrderedIn(true)
-        #expect(window.orderCount == 2)
+        #expect(window.orderCount == 0)
     }
 
     @Test
