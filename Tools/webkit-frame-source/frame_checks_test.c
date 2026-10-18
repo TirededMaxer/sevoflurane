@@ -39,6 +39,12 @@ static void cases(int scale) {
     assert(fc_orientation(source,padded)==0);
     assert(fc_copy_rows(copy,packed.height*packed.row_bytes,source,padded,false));
     FCResult r=fc_check(copy,packed);assert(fc_content_pass(r) && r.generation==1234);
+    FCDiagnostics d=fc_diagnostics(copy,packed);
+    assert(d.nonzero_alpha>0 && d.min_alpha==0 && d.max_alpha==255);
+    assert(d.min_x==16u*(size_t)scale && d.min_y==16u*(size_t)scale);
+    assert(d.max_x==752u*(size_t)scale && d.max_y==464u*(size_t)scale);
+    if (scale==1) assert(d.logical_coordinate_corners[0]==r.corner_bgra[0]);
+    else assert(d.logical_coordinate_corners[0]==0); // Distinguishes point coordinates from pixels.
     uint64_t before=r.regions[2];fill(copy,packed,56,110,16,20,255,255,255,255);
     assert(fc_check(copy,packed).regions[2]!=before);
     generation(source,padded,3,1235);
@@ -63,6 +69,8 @@ static void cases(int scale) {
     assert(fc_copy_rows(copy,packed.height*packed.row_bytes,flipped,padded,true));
     assert(fc_content_pass(fc_check(copy,packed)));
     assert(!fc_copy_rows(copy,packed.height*packed.row_bytes-1,source,padded,false));
+    memset(source,0,padded.height*padded.row_bytes);d=fc_diagnostics(source,padded);
+    assert(d.nonzero_alpha==0 && d.max_x==0 && d.max_y==0 && d.min_alpha==0 && d.max_alpha==0);
     free(flipped);free(source);free(copy);
 }
 int main(void) {
@@ -72,6 +80,6 @@ int main(void) {
     assert(!fc_content_pass((FCResult){0}));
     double values[]={4,1,3,2};assert(fc_percentile(values,4,.95)==4 && fc_percentile(values,4,0)==1);
     assert(isnan(fc_percentile(values,0,.5)));
-    puts("PASS: actual BGRA checker, scale 1/2, padded rows, orientation normalization, generation tearing, video omission, alpha, motion hashes and bounds");
+    puts("PASS: actual BGRA checker, scale 1/2, padded rows, orientation normalization, generation tearing, video omission, alpha, motion hashes, bounds and coverage diagnostics");
     return 0;
 }

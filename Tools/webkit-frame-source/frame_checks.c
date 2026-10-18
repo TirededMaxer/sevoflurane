@@ -94,6 +94,31 @@ FCResult fc_check(const uint8_t *p, FCGeometry g) {
     r.regions[4] = region_hash(p,g,g.css_width/2-64,g.css_height-122,128,80); // video
     return r;
 }
+FCDiagnostics fc_diagnostics(const uint8_t *p, FCGeometry g) {
+    FCDiagnostics d={0};
+    if (!p || !fc_geometry_valid(g)) return d;
+    d.min_alpha=255;d.min_x=g.width;d.min_y=g.height;
+    for (size_t y=0;y<g.height;y++) for (size_t x=0;x<g.width;x++) {
+        uint8_t alpha=p[y*g.row_bytes+x*4+3];
+        if (alpha<d.min_alpha) d.min_alpha=alpha;
+        if (alpha>d.max_alpha) d.max_alpha=alpha;
+        if (!alpha) continue;
+        d.nonzero_alpha++;
+        if (x<d.min_x) d.min_x=x;
+        if (y<d.min_y) d.min_y=y;
+        if (x+1>d.max_x) d.max_x=x+1;
+        if (y+1>d.max_y) d.max_y=y+1;
+    }
+    if (!d.nonzero_alpha) d.min_x=d.min_y=d.max_x=d.max_y=0;
+    for (int i=0;i<4;i++) {
+        size_t x=(size_t)((i&1) ? g.css_width-28 : 28);
+        size_t y=(size_t)((i&2) ? g.css_height-28 : 28);
+        if (x>=g.width) x=g.width-1;
+        if (y>=g.height) y=g.height-1;
+        memcpy(&d.logical_coordinate_corners[i],p+y*g.row_bytes+x*4,4);
+    }
+    return d;
+}
 bool fc_content_pass(FCResult r) {
     return r.corners && r.transparent_edges && r.generation_valid &&
         r.generation_equal && r.canvas && r.webgl && r.video;

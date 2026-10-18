@@ -34,6 +34,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 @public
     uint64_t frames, contentFailures, generationFailures, tearing, backwards;
     uint64_t transitions, duplicateFrames, orientationFailures, orientationChanges;
+    uint64_t sourceReparentedFrames;
     uint64_t regionChanges[FC_REGION_COUNT], previousRegions[FC_REGION_COUNT];
     uint64_t occludedSamples, visibleSamples, hiddenSamples, activeSamples, lockFailures, gpuErrors;
     uint16_t lastGeneration;
@@ -68,7 +69,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     double duration=MAX(0,end-start);
     BOOL pass=frames>=8 && transitions>=8 && contentFailures==0 && generationFailures==0 &&
         tearing==0 && backwards==0 && orientationFailures==0 && orientationChanges==0 &&
-        lockFailures==0 && gpuErrors==0 && allChanged;
+        lockFailures==0 && gpuErrors==0 && sourceReparentedFrames==0 && allChanged;
     if ([self.name isEqual:@"visible"] && visibleSamples<8) pass=NO;
     if ([self.name isEqual:@"self_occluded"] && occludedSamples<8) pass=NO;
     if ([self.name isEqual:@"app_hidden"] && (hiddenSamples<8 || occludedSamples<8)) pass=NO;
@@ -78,6 +79,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
         @"duplicate_frames":@(duplicateFrames),@"content_failures":@(contentFailures),
         @"generation_failures":@(generationFailures),@"tearing":@(tearing),@"backwards":@(backwards),
         @"orientation_failures":@(orientationFailures),@"orientation_changes":@(orientationChanges),
+        @"source_reparented_frames":@(sourceReparentedFrames),
         @"raw_bottom_up":firstOrientation<0 ? (id)NSNull.null : @(firstOrientation==1),
         @"region_changes":changes,@"lock_failures":@(lockFailures),@"gpu_errors":@(gpuErrors),
         @"source_visible_samples":@(visibleSamples),@"source_occluded_samples":@(occludedSamples),
@@ -93,6 +95,8 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
 @property(nonatomic,strong) id<MTLDevice> device;
 @property(nonatomic,strong) id<MTLCommandQueue> queue;
 @property(nonatomic,strong) CARenderer *renderer;
+@property(nonatomic,strong) CALayer *pixelRoot;
+@property(nonatomic,strong) CALayer *logicalCarrier;
 @property(nonatomic,strong) NSArray<SurfaceSlot *> *slots;
 @property(nonatomic,strong) NSMutableArray<Phase *> *phases;
 @property(nonatomic,strong) NSMutableArray<NSString *> *errors;
@@ -207,10 +211,32 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     self.renderer=[CARenderer rendererWithMTLTexture:self.slots.firstObject.texture
         options:@{kCARendererMetalCommandQueue:self.queue,kCARendererColorSpace:(__bridge id)color}];
     CGColorSpaceRelease(color);
-    self.renderer.layer=self.web.layer; // Public API; remote-layer coverage is the subject of this test.
-    self.renderer.bounds=self.web.bounds;
-    if (!self.renderer) [self.errors addObject:@"carenderer-create-failed"];
-    return self.renderer!=nil;
+    if (!self.renderer) { [self.errors addObject:@"carenderer-create-failed"];return NO; }
+    // CARenderer renders in target coordinates, not AppKit backing-point units.
+    // Only our standalone carrier is transformed; WK's bounds, anchor, position,
+    // contentsScale and geometryFlipped remain managed by WK/AppKit.
+    CALayer *source=self.web.layer;
+    if (!source) { [self.errors addObject:@"fixture-source-layer-unavailable"];return NO; }
+    if (!CGRectEqualToRect(self.web.bounds,CGRectMake(0,0,CSSWidth,CSSHeight))) {
+        [self.errors addObject:@"fixture-logical-bounds-changed"];return NO;
+    }
+    CGFloat sx=(CGFloat)width/self.web.bounds.size.width,sy=(CGFloat)height/self.web.bounds.size.height;
+    [CATransaction begin];[CATransaction setDisableActions:YES];
+    self.pixelRoot=[CALayer layer];self.pixelRoot.bounds=CGRectMake(0,0,width,height);
+    self.pixelRoot.anchorPoint=CGPointZero;self.pixelRoot.position=CGPointZero;
+    self.pixelRoot.opaque=NO;self.pixelRoot.backgroundColor=NULL;
+    self.logicalCarrier=[CALayer layer];self.logicalCarrier.bounds=self.web.bounds;
+    self.logicalCarrier.anchorPoint=CGPointZero;
+    self.logicalCarrier.position=CGPointMake(-source.frame.origin.x*sx,-source.frame.origin.y*sy);
+    self.logicalCarrier.opaque=NO;self.logicalCarrier.backgroundColor=NULL;
+    self.logicalCarrier.transform=CATransform3DMakeScale(sx,sy,1);
+    // This WK instance belongs exclusively to this synthetic fixture. No user
+    // window/layer is discovered or detached. AppKit may reject/reparent this
+    // layer; diagnostics explicitly record that instead of continually moving it.
+    [self.logicalCarrier addSublayer:source];[self.pixelRoot addSublayer:self.logicalCarrier];
+    self.renderer.layer=self.pixelRoot;self.renderer.bounds=self.pixelRoot.bounds;
+    [CATransaction commit];[CATransaction flush];
+    return YES;
 }
 - (void)tick {
     if (self.finishing) return;
@@ -223,6 +249,8 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     if (self.inFlight) { self.skippedBusy++;return; }
     self.inFlight=YES;
     Phase *phase=self.phases.lastObject;SurfaceSlot *slot=self.slots[self.nextSlot++%self.slots.count];
+    BOOL sourceNested=self.web.layer.superlayer==self.logicalCarrier;
+    BOOL diagnose=phase.examples.count<3;
     if (self.window.occlusionState&NSWindowOcclusionStateVisible) phase->visibleSamples++;
     else phase->occludedSamples++;
     if (NSApp.hidden) phase->hiddenSamples++;
@@ -242,7 +270,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
         }
         [clearEncoder endEncoding];[clear commit];
         [self.renderer beginFrameAtTime:now timeStamp:NULL];
-        [self.renderer addUpdateRect:self.web.bounds];
+        [self.renderer addUpdateRect:self.pixelRoot.bounds];
         [self.renderer render];[self.renderer endFrame];
     } @catch (NSException *exception) {
         (void)exception;self.inFlight=NO;[self.errors addObject:@"carenderer-exception"];[self finish];return;
@@ -262,7 +290,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
     [completed addCompletedHandler:^(id<MTLCommandBuffer> command) {
         CFTimeInterval gpuDone=CACurrentMediaTime(),locked=gpuDone,copied=gpuDone;
         BOOL gpuOK=command.status==MTLCommandBufferStatusCompleted;
-        BOOL lockOK=NO,copyOK=NO;int orientation=-1;FCResult result={0};uint32_t seed=0;
+        BOOL lockOK=NO,copyOK=NO;int orientation=-1;FCResult result={0};FCDiagnostics diagnostic={0};uint32_t seed=0;
         if (gpuOK) {
             kern_return_t status=IOSurfaceLock(slot.surface,kIOSurfaceLockReadOnly,&seed);
             locked=CACurrentMediaTime();copied=locked;lockOK=status==KERN_SUCCESS;
@@ -273,7 +301,10 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
                 copied=CACurrentMediaTime();
                 kern_return_t unlock=IOSurfaceUnlock(slot.surface,kIOSurfaceLockReadOnly,NULL);
                 if (unlock!=KERN_SUCCESS) lockOK=NO;
-                if (copyOK) { FCGeometry packed=geometry;packed.row_bytes=geometry.width*4;result=fc_check(slot.copy,packed); }
+                if (copyOK) {
+                    FCGeometry packed=geometry;packed.row_bytes=geometry.width*4;result=fc_check(slot.copy,packed);
+                    if (diagnose) diagnostic=fc_diagnostics(slot.copy,packed);
+                }
             }
         }
         CFTimeInterval done=CACurrentMediaTime();
@@ -282,6 +313,7 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
         dispatch_async(dispatch_get_main_queue(),^{
             phase->frames++;[phase.timings addObject:timing];
             if (!gpuOK) phase->gpuErrors++;
+            if (!sourceNested) phase->sourceReparentedFrames++;
             if (gpuOK && !lockOK) phase->lockFailures++;
             if (!copyOK || !fc_content_pass(result)) phase->contentFailures++;
             if (orientation<0) phase->orientationFailures++;
@@ -302,6 +334,10 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
             if (phase.examples.count<3) [phase.examples addObject:@{
                 @"generation":@(result.generation),@"corners_bgra":@[bgra(result.corner_bgra[0]),bgra(result.corner_bgra[1]),bgra(result.corner_bgra[2]),bgra(result.corner_bgra[3])],
                 @"generation_valid":@(result.generation_valid),@"generation_equal":@(result.generation_equal),
+                @"source_layer_under_carrier":@(sourceNested),@"coordinates_normalized":@(orientation>=0),
+                @"alpha_nonzero_count":@(diagnostic.nonzero_alpha),@"alpha_min":@(diagnostic.min_alpha),@"alpha_max":@(diagnostic.max_alpha),
+                @"alpha_bbox_px":diagnostic.nonzero_alpha ? @[@(diagnostic.min_x),@(diagnostic.min_y),@(diagnostic.max_x),@(diagnostic.max_y)] : (id)NSNull.null,
+                @"logical_coordinate_corners_bgra":@[bgra(diagnostic.logical_coordinate_corners[0]),bgra(diagnostic.logical_coordinate_corners[1]),bgra(diagnostic.logical_coordinate_corners[2]),bgra(diagnostic.logical_coordinate_corners[3])],
                 @"content_pass":@(fc_content_pass(result)),@"transparent_edges":@(result.transparent_edges),
                 @"canvas":@(result.canvas),@"webgl":@(result.webgl),@"video":@(result.video),@"surface_seed":@(seed)}];
             self.inFlight=NO;if (self.finishing) [self writeReportAndExit];
@@ -337,6 +373,12 @@ static NSArray *bgra(uint32_t p) { return @[@(p&255),@((p>>8)&255),@((p>>16)&255
             @"iosurface_height":self.slots.count ? @(IOSurfaceGetHeight(self.slots.firstObject.surface)) : (id)NSNull.null,
             @"actual_row_bytes":self.slots.count ? @(IOSurfaceGetBytesPerRow(self.slots.firstObject.surface)) : (id)NSNull.null,
             @"css_width":@(CSSWidth),@"css_height":@(CSSHeight),@"backing_scale":@(self.window.backingScaleFactor)},
+        @"render_mapping":self.pixelRoot ? @{@"renderer_bounds_width":@(self.renderer.bounds.size.width),@"renderer_bounds_height":@(self.renderer.bounds.size.height),
+            @"carrier_scale_x":@(self.logicalCarrier.transform.m11),@"carrier_scale_y":@(self.logicalCarrier.transform.m22),
+            @"source_bounds_width":@(self.web.layer.bounds.size.width),@"source_bounds_height":@(self.web.layer.bounds.size.height),
+            @"source_contents_scale":@(self.web.layer.contentsScale),@"source_geometry_flipped":@(self.web.layer.geometryFlipped),
+            @"source_layer_under_carrier":@(self.web.layer.superlayer==self.logicalCarrier),
+            @"pixel_root_opaque":@(self.pixelRoot.opaque),@"carrier_opaque":@(self.logicalCarrier.opaque)} : (id)NSNull.null,
         @"build_commit":[NSBundle.mainBundle objectForInfoDictionaryKey:@"SevoBuildCommit"] ?: @"unknown",
         @"macos":NSProcessInfo.processInfo.operatingSystemVersionString,
         @"busy_ticks_skipped":@(self.skippedBusy),@"gpu_pending_at_exit":@(self.inFlight),

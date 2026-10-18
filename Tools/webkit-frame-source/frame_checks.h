@@ -16,6 +16,12 @@ typedef struct {
     uint32_t corner_bgra[4];
     uint64_t regions[FC_REGION_COUNT];
 } FCResult;
+typedef struct {
+    uint64_t nonzero_alpha;
+    size_t min_x, min_y, max_x, max_y; /* Maxima are exclusive; zero if empty. */
+    uint8_t min_alpha, max_alpha;
+    uint32_t logical_coordinate_corners[4];
+} FCDiagnostics;
 
 bool fc_geometry_valid(FCGeometry g);
 /* A separate copy owns every byte read by validation. Source may be padded. */
@@ -24,6 +30,8 @@ bool fc_copy_rows(uint8_t *dst, size_t capacity, const uint8_t *src,
 /* 0 = top-down, 1 = bottom-up, -1 = pattern absent/incomplete. */
 int fc_orientation(const uint8_t *pixels, FCGeometry g);
 FCResult fc_check(const uint8_t *pixels, FCGeometry g);
+/* Diagnostic only: never changes the existing strict acceptance checker. */
+FCDiagnostics fc_diagnostics(const uint8_t *pixels, FCGeometry g);
 bool fc_content_pass(FCResult r);
 double fc_percentile(const double *values, size_t count, double fraction);
 #endif
