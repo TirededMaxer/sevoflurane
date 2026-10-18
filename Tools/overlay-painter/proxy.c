@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 #include "paint_frame.h"
 #define CLIENT_DISPLAY 0x48
 #define CLIENT_RENDER 0xa8
@@ -60,7 +61,8 @@ static int is_overlay(int id, int *restore, int clear_restore) {
     AcquireSRWLockExclusive(&lock);
     for(size_t i=0;i<browser_count;i++) if(browsers[i].id==id) {
         overlay=browsers[i].overlay; if(restore)*restore=browsers[i].restore;
-        if(clear_restore)browsers[i].restore=0; break;
+        if(clear_restore) browsers[i].restore=0;
+        break;
     }
     ReleaseSRWLockExclusive(&lock); return overlay;
 }

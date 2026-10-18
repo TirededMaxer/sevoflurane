@@ -53,7 +53,7 @@ class InstallerTests(unittest.TestCase):
         original_read=Path.read_bytes;seen=0
         def read(p):
             nonlocal seen
-            if p==self.resources/'libcef.dll':
+            if p.resolve()==(self.resources/'libcef.dll').resolve():
                 seen+=1
                 if seen==2:raise OSError('interrupted copy')
             return original_read(p)

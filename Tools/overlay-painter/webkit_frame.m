@@ -1,6 +1,8 @@
 #import <AppKit/AppKit.h>
 #import <WebKit/WebKit.h>
 #include "paint_frame.h"
+#include <string.h>
+#include <stdlib.h>
 /* One-shot diagnostic fixture. This is not a continuous screenshot producer. */
 @interface FrameDelegate : NSObject <WKNavigationDelegate>
 @property WKWebView *view;
