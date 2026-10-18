@@ -1,0 +1,84 @@
+{
+  "build": 46,
+  "source": "cf258658c3bd279ce8228b93dab21c6cbd2ec5da",
+  "outcome": "Steam startup restored original libcef.dll before the proxy was loaded",
+  "stats": {
+    "source": "cf258658c3bd279ce8228b93dab21c6cbd2ec5da",
+    "stats": []
+  },
+  "original_cef_sha256": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+  "client_start": {
+    "intent": "start",
+    "note": "healthy after ~33s",
+    "state": {
+      "app": {
+        "app": "not running",
+        "build": "34E66A99-BC89-3E0C-9AC0-7CCE2752C0CA",
+        "daemon": "running",
+        "debug": false,
+        "detail": "client healthy",
+        "health": "healthy",
+        "host": {
+          "isLowPowerMode": false,
+          "isThrottling": false,
+          "memory": "normal",
+          "otherProcessorShare": 0.5090739194001148,
+          "temperature": 54.785940987723215
+        },
+        "needsAttention": false,
+        "signedInElsewhere": null,
+        "version": "1.7.0-fork.5"
+      },
+      "app_attached": false,
+      "app_running": false,
+      "bottle": "Steam",
+      "bottle_incomplete": null,
+      "bridge": false,
+      "client": "running",
+      "client_bottle": "Steam",
+      "client_pinned": false,
+      "dump_rate_10m": 0,
+      "engine": "CrossOver 26.3",
+      "provisioning": null,
+      "services_up": false,
+      "signed_in_elsewhere": null,
+      "steam_installed": true
+    },
+    "verdict": "confirmed"
+  },
+  "client_stop": {
+    "intent": "stop",
+    "note": "client stopped, auto-restart paused",
+    "state": {
+      "app": {
+        "app": "not running",
+        "build": "34E66A99-BC89-3E0C-9AC0-7CCE2752C0CA",
+        "daemon": "running",
+        "debug": false,
+        "detail": "auto-restart paused",
+        "health": "paused",
+        "host": null,
+        "needsAttention": false,
+        "signedInElsewhere": null,
+        "version": "1.7.0-fork.5"
+      },
+      "app_attached": false,
+      "app_running": false,
+      "bottle": "Steam",
+      "bottle_incomplete": null,
+      "bridge": false,
+      "client": "stopped",
+      "client_bottle": null,
+      "client_pinned": false,
+      "dump_rate_10m": 0,
+      "engine": "CrossOver 26.3",
+      "provisioning": null,
+      "services_up": null,
+      "signed_in_elsewhere": null,
+      "steam_installed": true
+    },
+    "verdict": "confirmed"
+  },
+  "game_started": false,
+  "cef_restored": true
+}

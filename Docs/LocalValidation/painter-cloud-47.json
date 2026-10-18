@@ -1,0 +1,23 @@
+{
+  "run_id": 39127977407,
+  "source": "c56e5e482f7135c0705746f5d9f9b545c2b6ee28",
+  "url": "https://github.com/TirededMaxer/sevoflurane/actions/runs/39127977407",
+  "conclusion": "success",
+  "probe_checks": [
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3152220Z test_attach_and_finish_leave_valve_files_identical (test_probe_session.SessionTests.test_attach_and_finish_leave_valve_files_identical) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3189780Z test_cpu_overlay_paint_required_for_arm (test_probe_session.SessionTests.test_cpu_overlay_paint_required_for_arm) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3226470Z test_finish_rejects_live_client (test_probe_session.SessionTests.test_finish_rejects_live_client) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3260160Z test_loader_failure_preserves_diagnostic_session (test_probe_session.SessionTests.test_loader_failure_preserves_diagnostic_session) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3278400Z test_stats_version_and_size_rejected (test_probe_session.SessionTests.test_stats_version_and_size_rejected) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3297960Z test_unknown_cef_rejected_before_attachment (test_probe_session.SessionTests.test_unknown_cef_rejected_before_attachment) ... ok",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:52.3307530Z Ran 6 tests in 0.020s",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:56.9275790Z paint frame validation passed",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:36:58.2860490Z {\"source\": \"c56e5e482f7135c0705746f5d9f9b545c2b6ee28\", \"original_cef_sha256\": \"c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3\", \"probe_sha256\": \"3c98b6c526f741d15df6ce547bb1c8fdac8fc44e96fc9ed99a2f02abd038c1c3\", \"attach_sha256\": \"4338fe940de8c329d3920b3acd2b59f4a3f518c934df548c9b5afff9ae946b0c\", \"native_fixture_sha256\": \"9860664058c60407e7af3fb45b37412d2d4e90e1f66ba3640e26f97c68e11bd1\", \"supported_iat_imports\": 2, \"experimental\": true, \"attachment\": \"post-bootstrap exact-path steamwebhelper only\", \"valve_disk_mutations\": false, \"webkit_fixture_rendered\": true, \"frame_validation\": \"passed\", \"real_steam_hook\": \"not run\", \"input\": \"original Steam path, unmodified\", \"gpu_replacement\": \"not implemented\", \"continuous_webkit_output\": \"not implemented\"}",
+    "release\tTest and build on a fresh Apple Silicon runner\t2026-10-18T12:39:26.1509630Z Cloud tests: 1199 passed; 0 failed; 0 skipped"
+  ],
+  "tests": {
+    "passedTests": 1199,
+    "failedTests": 0,
+    "skippedTests": 0
+  }
+}

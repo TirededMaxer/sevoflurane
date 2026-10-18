@@ -33,3 +33,5 @@
 ## 原版 painter 实验（构建 47）
 
 构建 46 启动时 Steam 恢复了磁盘代理，未观察到回调。已删除代理导出表和磁盘安装/恢复路线。新工具只在正常启动后对完整路径匹配的 x64 steamwebhelper 接入两个新建浏览器 IAT 导入；限定实际 CEF SHA/API 哈希及回调大小。统计 CPU/GPU 路径，保留定制十参数回调；显式单帧 WebKit 测试卡由原 CPU painter 消费。原合成、快捷键、焦点和输入不重建；无持续 snapshot 输出或 GPU 资源互操作。云端测试不代替真实接入和游戏验收，实验候选禁止公开发布。
+
+本机两次正常启动验证：四个 helper 均加载探针，每个接上一项实际存在的创建导入，ABI 拒绝为零；未观察到新建浏览器/绘制。好友创建检查当前上下文返回 friends unavailable；未启动游戏或替换帧。正常停止并清理后，Steam DLL/引擎 SHA 不变。完整画面替换仍待验证，详见 Docs/LocalValidation/painter-feasibility-47.md。

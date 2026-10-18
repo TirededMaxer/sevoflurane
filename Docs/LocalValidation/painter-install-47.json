@@ -1,0 +1,33 @@
+{
+  "installed_build": "47",
+  "installed_version": "1.7.0-fork.5",
+  "source": "c56e5e482f7135c0705746f5d9f9b545c2b6ee28",
+  "dmg_sha256": "d66fcf9dfd88a56b35114d18506716cba914cef6a088ebab0d7f5bed10de87dc",
+  "executable_sha256": "5dcf39302b9053f055281b5edd757a30d04afdf8140ad867144a00aebabb2164",
+  "signature": "verified",
+  "tests": {
+    "passedTests": 1199,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "probe": {
+    "source": "c56e5e482f7135c0705746f5d9f9b545c2b6ee28",
+    "original_cef_sha256": "c85bf94462b3c79baeac63823db52d15e116eead71ea414e5d3a112c59e434d3",
+    "probe_sha256": "3c98b6c526f741d15df6ce547bb1c8fdac8fc44e96fc9ed99a2f02abd038c1c3",
+    "attach_sha256": "4338fe940de8c329d3920b3acd2b59f4a3f518c934df548c9b5afff9ae946b0c",
+    "native_fixture_sha256": "a1149ca143b36a56944f90379ba3c637fbb70ac26b6038d7e115a33b4153a134",
+    "supported_iat_imports": 2,
+    "experimental": true,
+    "attachment": "post-bootstrap exact-path steamwebhelper only",
+    "valve_disk_mutations": false,
+    "webkit_fixture_rendered": true,
+    "frame_validation": "passed",
+    "real_steam_hook": "not run",
+    "input": "original Steam path, unmodified",
+    "gpu_replacement": "not implemented",
+    "continuous_webkit_output": "not implemented"
+  },
+  "real_steam_hook": "pending",
+  "game_runtime": "not run",
+  "published": false
+}

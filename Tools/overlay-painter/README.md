@@ -18,3 +18,7 @@ Tools reside in the installed app's `Contents/Resources/OverlayPainterProbe`. Al
 4. Normally stop Steam, then use `finish --session …` to collect counts and delete the experiment's temporary files. No DLL unload is attempted while Steam runs. Failed attachment retains the diagnostic session for inspection and the same stopped-client cleanup.
 
 No game runtime or visual acceptance is implied by cloud fixture checks. This experimental candidate cannot be published as the finished release.
+
+## Recorded build 47 boundary
+
+Two normal client bootstrap trials loaded the probe into four exact-path helpers each, with one present IAT import patched per helper and zero ABI rejections. No subsequently created browser or paint was observed. The original Friends opening call returned `friends unavailable` in the current SharedJSContext, so it did not test browser creation. Both clients stopped normally, all session files were removed, and original CEF/engine hashes stayed identical. No game or real frame replacement was tested. This confirms attachment only; it does not establish full rendering feasibility.
