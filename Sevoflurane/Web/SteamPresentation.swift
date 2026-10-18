@@ -69,14 +69,33 @@ nonisolated enum SteamPresentation {
     /// exact receiver, arguments and return value; decorate each returned page.
     /// No overlay state, hotkey, cursor, sound or notification function is replaced.
     static var originalClientScript: String {
-        let appearance = installationScript(kind: "game", controls: true)
+        let appearanceCSS = css + "\n" + gameControlsCSS
         return """
         (function () {
           if (window.__sevoOriginalAppearance) return "already installed";
           function style(win) {
             try {
               if (!win || win === window || win.closed) return;
-              win.eval(\(JSLiteral.string(appearance)));
+              var doc = win.document;
+              function apply() {
+                if (!doc.documentElement) return;
+                if (doc.documentElement.getAttribute("data-sevo-macos-ui") !== "game")
+                  doc.documentElement.setAttribute("data-sevo-macos-ui", "game");
+                if (doc.head && !doc.getElementById("sevo-macos-presentation")) {
+                  var node = doc.createElement("style");
+                  node.id = "sevo-macos-presentation";
+                  node.textContent = \(JSLiteral.string(appearanceCSS));
+                  doc.head.appendChild(node);
+                }
+                if (win.__sevoPresentationObserver && doc.head)
+                  win.__sevoPresentationObserver.observe(doc.head, {childList:true});
+              }
+              apply();
+              if (!win.__sevoPresentationObserver && doc.documentElement) {
+                win.__sevoPresentationObserver = new win.MutationObserver(apply);
+                win.__sevoPresentationObserver.observe(doc.documentElement, {childList:true});
+                if (doc.head) win.__sevoPresentationObserver.observe(doc.head, {childList:true});
+              }
             } catch (e) {}
           }
           function scan() {
