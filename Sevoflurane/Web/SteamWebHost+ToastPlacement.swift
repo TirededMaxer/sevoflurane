@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 extension SteamWebHost {
     /// The original toast code selects the OS work area on the desktop and
