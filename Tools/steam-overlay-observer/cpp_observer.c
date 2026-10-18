@@ -17,7 +17,9 @@ static int cpp_readable(const void *p,size_t n) { return cpp_test_readable(p,n);
 static uint64_t cpp_tick(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (uint64_t)t.tv_sec*1000+(uint64_t)t.tv_nsec/1000000; }
 #else
 #define WIN32_LEAN_AND_MEAN
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0601
+#endif
 #include <windows.h>
 #include <bcrypt.h>
 static SRWLOCK cpp_mutex=SRWLOCK_INIT;
