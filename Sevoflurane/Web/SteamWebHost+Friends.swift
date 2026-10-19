@@ -81,6 +81,9 @@ extension SteamWebHost {
         installInClient(SteamPresentation.originalClientScript,
                         describedAs: "restore original Steam page appearance",
                         settledAt: ["original"])
+        install(SteamPresentation.gameToastCornerScript,
+                describedAs: "WebKit game notifications at bottom-right",
+                settledAt: ["installed", "already installed"])
         installInClient(SteamPresentation.gameToastCornerScript,
                         describedAs: "original game notifications at bottom-right",
                         settledAt: ["installed", "already installed"])

@@ -170,4 +170,31 @@ struct NativeOverlayInputTests {
         #expect(Array(size.prefix(2)) == [400, 300])
     }
 
+    @Test
+    func offscreenPlaceholderIsResizedUsingSteamsOriginalDimensionsBeforeBinding() async throws {
+        let web = WKWebView()
+        web.loadHTMLString("""
+        <script>
+        window.name='desktopoverlay_uid42';window.width=1;window.height=1;window.resizeCalls=[];
+        Object.defineProperty(window,'innerWidth',{get:()=>width});
+        Object.defineProperty(window,'innerHeight',{get:()=>height});
+        window.SteamClient={Browser:{GetBrowserID:()=>71},Window:{ResizeTo:(w,h,scale)=>{
+          resizeCalls.push([w,h,scale]);window.width=w;window.height=h;
+        }}};window.ready=true;
+        </script>
+        """, baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let call = "(\(SteamWebKitOverlay.surfaceDetailsScript))('desktopoverlay_uid42',[1512,982])"
+        #expect(try await web.evaluateJavaScript(call) is NSNull)
+        #expect(try await web.evaluateJavaScript("JSON.stringify(resizeCalls)") as? String == "[[1512,982,true]]")
+        let raw = try #require(try await web.evaluateJavaScript(call) as? String)
+        let details = try #require(try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        let size = try #require(details["size"] as? [Double])
+        #expect(Array(size.prefix(2)) == [1512,982])
+        #expect(try await web.evaluateJavaScript("resizeCalls.length") as? Int == 1)
+    }
+
 }

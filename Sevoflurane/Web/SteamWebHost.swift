@@ -423,7 +423,6 @@ final class SteamWebHost {
         installToastPlacementObservers()
         applyUserStyles()
         createContextPage()
-        webKitOverlay.start()
     }
 
     /// Tears the context page down to nothing and boots a fresh one: a new web

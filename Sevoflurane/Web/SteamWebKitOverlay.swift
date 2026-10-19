@@ -39,7 +39,7 @@ final class SteamWebKitOverlay {
 
     init(host: SteamWebHost) { self.host = host }
 
-    func start() {
+    private func start() {
         guard task == nil else { return }
         for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] {
             if file.pathExtension == "live" || file.pathExtension == "path" {
@@ -83,6 +83,7 @@ final class SteamWebKitOverlay {
         creating[key] = pending
         defer { creating.removeValue(forKey: key) }
         try await pending.value
+        start()
     }
 
     private func createSurface(for popup: SteamWindow, parameters: String, features: String) async throws {
@@ -110,7 +111,7 @@ final class SteamWebKitOverlay {
                 let nameJSON = String(decoding: try JSONSerialization.data(withJSONObject: popup.name, options: .fragmentsAllowed), as: UTF8.self)
                 let raw: String?
                 do {
-                    raw = try await scoped.evaluate("(\(Self.surfaceDetailsScript))(\(nameJSON))")
+                    raw = try await scoped.evaluate("(\(Self.surfaceDetailsScript))(\(nameJSON),[\(popup.requestedSize.width),\(popup.requestedSize.height)])")
                 } catch {
                     await scoped.disconnect()
                     throw error
@@ -157,10 +158,16 @@ final class SteamWebKitOverlay {
     /// CEF can expose the popup before its native bindings or viewport exist.
     /// Match its identity first; popup-created waits for this readiness check.
     static let surfaceDetailsScript = """
-    function (name) {
+    function (name, requestedSize) {
       if (window.name !== name || !window.SteamClient || !SteamClient.Browser ||
           typeof SteamClient.Browser.GetBrowserID !== 'function' || innerWidth <= 0 || innerHeight <= 0)
         return null;
+      // Off-screen CEF starts at 1x1 even when window.open supplied a size.
+      // Apply the original Steam request before accepting this display surface.
+      if (innerWidth < 64 || innerHeight < 64) {
+        SteamClient.Window.ResizeTo(requestedSize[0],requestedSize[1],true);
+        return null;
+      }
       return JSON.stringify({id:SteamClient.Browser.GetBrowserID(),size:[innerWidth,innerHeight,devicePixelRatio]});
     }
     """
@@ -178,7 +185,7 @@ final class SteamWebKitOverlay {
             throw CDPClient.Failure.badReply("Steam window dimensions are unavailable")
         }
         let size = values.map { $0.doubleValue }
-        guard size.allSatisfy({ $0.isFinite && $0 > 0 }), size[0]*size[2] <= 8192, size[1]*size[2] <= 8192 else {
+        guard size.allSatisfy({ $0.isFinite && $0 > 0 }), size[0] >= 64, size[1] >= 64, size[0]*size[2] <= 8192, size[1]*size[2] <= 8192 else {
             throw CDPClient.Failure.badReply("Steam window dimensions are invalid")
         }
         return size
