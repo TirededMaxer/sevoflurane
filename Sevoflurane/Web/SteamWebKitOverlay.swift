@@ -28,10 +28,12 @@ final class SteamWebKitOverlay {
         let popup: SteamWindow
         var renderer: SevoNativeWebRenderer?
         let cefID: UInt32
+        let localBrowserID: UInt32
         let viewport: [Double]
         var receivedFrame = false
-        init(client: CDPClient, popup: SteamWindow, cefID: UInt32, viewport: [Double]) {
+        init(client: CDPClient, popup: SteamWindow, cefID: UInt32, localBrowserID: UInt32, viewport: [Double]) {
             self.client = client; self.popup = popup; self.cefID = cefID; self.viewport = viewport
+            self.localBrowserID = localBrowserID
         }
     }
 
@@ -77,6 +79,9 @@ final class SteamWebKitOverlay {
                 _ = await host.evaluateInContext("window.__sevoUpdateNativeOverlay?.(\(info));'mirrored'")
                 lastInfo = info
             }
+            let record = try JSONSerialization.jsonObject(with: Data(info.utf8)) as? [String: Any]
+            let browsers = record?["browsers"] as? [[String: Any]] ?? []
+            let gamePIDs = Set(browsers.compactMap { ($0["unPID"] as? NSNumber)?.intValue })
             let gameTargets = targets.filter { target in
                 guard let text = target["url"] as? String,
                       let query = URLComponents(string: text)?.queryItems,
@@ -85,7 +90,10 @@ final class SteamWebKitOverlay {
             }
             let live = Set(gameTargets.compactMap { $0["id"] as? String })
             for id in mirrors.keys where !live.contains(id) {
-                if let old = mirrors.removeValue(forKey: id) { old.renderer?.stop(); NativeOverlayInput.reset(old.popup.webView); await old.client.disconnect() }
+                if let old = mirrors.removeValue(forKey: id) {
+                    old.renderer?.stop(); NativeOverlayInput.reset(old.popup.webView)
+                    old.popup.close(); await old.client.disconnect()
+                }
             }
             for target in gameTargets {
                 guard let id = target["id"] as? String else { continue }
@@ -114,6 +122,7 @@ final class SteamWebKitOverlay {
                     }
                 } else { try await adopt(target, id: id) }
             }
+            try await synchronizePopupWindows(gamePIDs: gamePIDs, root: root)
             if mirrors.values.contains(where: { $0.renderer != nil }), !attached, !preparing { try await attach() }
         } catch {
             // Loss of the renderer stops its heartbeat; the original Steam
@@ -132,7 +141,7 @@ final class SteamWebKitOverlay {
               let popup = host.popups.values.first(where: { $0.name == name && $0.usesOriginalGameOverlay }),
               let cefID = values["id"] as? UInt32,
               let width = values["w"] as? Int, let height = values["h"] as? Int,
-              width >= 64, height >= 64 else { await scoped.disconnect(); return }
+              width > 0, height > 0 else { await scoped.disconnect(); return }
         let scale = (values["scale"] as? NSNumber)?.doubleValue ?? 1
         guard scale.isFinite, scale > 0, Double(width)*scale <= 8192, Double(height)*scale <= 8192 else {
             await scoped.disconnect(); return
@@ -143,12 +152,75 @@ final class SteamWebKitOverlay {
         SteamWebHost.setOcclusionDetection(false, on: view)
         prepareSource(for: popup)
         popup.window?.setContentSize(view.frame.size)
+        let localID = (try await view.evaluateJavaScript("window.__sevoBrowserID || 0") as? NSNumber)?.uint32Value ?? 0
         // Window queries are part of Steam's page initialization. Publish
         // this binding before waiting for that page to render any content.
-        mirrors[id] = Mirror(client: scoped, popup: popup, cefID: cefID,
+        mirrors[id] = Mirror(client: scoped, popup: popup, cefID: cefID, localBrowserID: localID,
                              viewport: [Double(width), Double(height), scale])
         EventLog.shared.log(.window, "Steam overlay window bound: \(name), \(width)×\(height)")
     }
+
+    /// Steam's page opens secondary windows locally after a WebKit click.
+    /// Give each one its original CEF window surface, using the exact native
+    /// creation query and features supplied by Steam's own popup manager.
+    private func synchronizePopupWindows(gamePIDs: Set<Int>, root: CDPClient) async throws {
+        guard let host else { return }
+        var windows: [[String: Any]] = []
+        for popup in Array(host.popups.values) where popup.usesOriginalGameOverlay {
+            let pid = SteamWindowRole.instanceUID(ofPopupNamed: popup.name)
+            guard pid > 0 else { continue }
+            guard gamePIDs.contains(pid) else { popup.close(); continue }
+            guard popup.role != .gameOverlay, popup.role != .toast,
+                  !popup.originalPopupQuery.isEmpty else { continue }
+            windows.append(["name": popup.name, "query": popup.originalPopupQuery,
+                            "features": popup.originalPopupFeatures,
+                            "bound": mirrors.values.contains(where: { $0.popup === popup })])
+        }
+        var ids: [String: UInt32] = [:]
+        for mirror in mirrors.values where mirror.localBrowserID > 0 {
+            ids[String(mirror.localBrowserID)] = mirror.cefID
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["windows": windows, "ids": ids])
+        let json = String(decoding: data, as: UTF8.self)
+        _ = try await root.evaluate("(\(Self.popupWindowsScript))(\(json))")
+    }
+
+    static let popupWindowsScript = """
+    function (request) {
+      var peers = window.__sevoOverlayWindows || (window.__sevoOverlayWindows = new Map());
+      var live = new Set(request.windows.map(function (item) { return item.name; }));
+      peers.forEach(function (peer, name) {
+        if (!live.has(name)) {
+          if (peer.owned && !peer.win.closed) peer.win.close();
+          peers.delete(name);
+        }
+      });
+      request.windows.forEach(function (item) {
+        var peer = peers.get(item.name);
+        if (peer && !peer.win.closed) return;
+        if (item.bound) return;
+        var existing = window.g_PopupManager && g_PopupManager.GetExistingPopup(item.name);
+        if (existing && existing.m_popup && !existing.m_popup.closed) {
+          peers.set(item.name, {win:existing.m_popup,owned:false}); return;
+        }
+        var query = new URLSearchParams(item.query), waiting = false;
+        ['openerid','parentcontainerpopupid','centerOnBrowserID'].forEach(function (key) {
+          var id = query.get(key);
+          if (id && Number(id)>0) {
+            if (request.ids[id] === undefined) waiting = true;
+            else query.set(key,String(request.ids[id]));
+          }
+        });
+        if (waiting) return;
+        var win = window.open('about:blank?'+query.toString(),item.name,item.features);
+        if (!win) throw new Error('Steam overlay popup could not be created: '+item.name);
+        win.document.documentElement.style.background = 'transparent';
+        win.document.body.style.cssText = 'margin:0;background:transparent';
+        peers.set(item.name,{win:win,owned:true});
+      });
+      return 'ready';
+    }
+    """
 
     /// A blank host cannot replace visible Steam pixels or take its input.
     /// Check generic rendered content, without branching on Steam's UI state.
@@ -268,6 +340,7 @@ final class SteamWebKitOverlay {
     }
 
     private func reset() async {
+        _ = try? await root?.evaluate("(\(Self.popupWindowsScript))({windows:[],ids:{}})")
         for mirror in mirrors.values {
             mirror.renderer?.stop(); NativeOverlayInput.reset(mirror.popup.webView)
             _ = try? await mirror.client.evaluate("window.__sevoOverlayInput?.stop();'stopped'")

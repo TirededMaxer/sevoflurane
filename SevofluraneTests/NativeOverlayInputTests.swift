@@ -124,4 +124,75 @@ struct NativeOverlayInputTests {
         _ = try await web.evaluateJavaScript("__sevoOverlayInput.stop()")
     }
 
+    @Test
+    func secondaryWindowsUseOriginalCreationParametersAndNativeParentIDs() async throws {
+        let web = WKWebView()
+        web.loadHTMLString("""
+        <script>
+        window.ready=true;window.opened=[];window.closedPeers=0;
+        window.open=(url,name,features)=>{
+          opened.push({url,name,features});
+          return {closed:false,document:document,close(){this.closed=true;closedPeers++}};
+        };
+        window.g_PopupManager={GetExistingPopup:()=>null};
+        </script>
+        """, baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let call = "(\(SteamWebKitOverlay.popupWindowsScript))"
+        let request = """
+        {windows:[{name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16',
+          features:'width=300,height=650,resizeable,status=0',bound:false}],ids:{16:4,17:7}}
+        """
+        _ = try await web.evaluateJavaScript("\(call)(\(request));\(call)(\(request))")
+        #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("opened[0].name") as? String == "friendslist_uid42")
+        #expect(try await web.evaluateJavaScript("opened[0].features") as? String == "width=300,height=650,resizeable,status=0")
+        #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('browser')") as? String == "196610")
+        #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('openerid')") as? String == "7")
+        #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('centerOnBrowserID')") as? String == "4")
+        _ = try await web.evaluateJavaScript("\(call)({windows:[],ids:{}})")
+        #expect(try await web.evaluateJavaScript("closedPeers") as? Int == 1)
+    }
+
+    @Test
+    func secondaryWindowWaitsForParentAndDoesNotCloseAnOriginalWindow() async throws {
+        let web = WKWebView()
+        web.loadHTMLString("""
+        <script>
+        window.ready=true;window.opens=0;window.closes=0;
+        window.original={closed:false,close(){closes++}};
+        window.open=()=>{opens++;return original};
+        window.g_PopupManager={GetExistingPopup:()=>null};
+        </script>
+        """, baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let call = "(\(SteamWebKitOverlay.popupWindowsScript))"
+        _ = try await web.evaluateJavaScript("\(call)({windows:[{name:'settings_uid42',query:'pid=42&openerid=16',features:'',bound:false}],ids:{}})")
+        #expect(try await web.evaluateJavaScript("opens") as? Int == 0)
+        _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:original});\(call)({windows:[{name:'settings_uid42',query:'pid=42',features:'',bound:false}],ids:{}})")
+        _ = try await web.evaluateJavaScript("\(call)({windows:[],ids:{}})")
+        #expect(try await web.evaluateJavaScript("opens") as? Int == 0)
+        #expect(try await web.evaluateJavaScript("closes") as? Int == 0)
+    }
+
+    @Test
+    func overlayAdoptionRetainsSteamsNativeWindowRequest() {
+        let host = SteamWebHost()
+        let popup = SteamWindow(webView: WKWebView(), role: .auxiliary, name: "",
+            size: CGSize(width: 300, height: 650), origin: nil, host: host)
+        popup.adopt(name: "friendslist_uid42", parameters: "createflags=18&pid=42&browser=196610",
+                    features: "width=300,height=650,resizeable,status=0")
+        defer { popup.close() }
+        #expect(popup.usesOriginalGameOverlay)
+        #expect(popup.originalPopupQuery == "createflags=18&pid=42&browser=196610")
+        #expect(popup.originalPopupFeatures == "width=300,height=650,resizeable,status=0")
+        #expect(popup.nsWindow?.alphaValue == 0)
+    }
+
 }

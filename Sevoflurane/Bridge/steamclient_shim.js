@@ -995,7 +995,7 @@
         if (handler) {
           handler.postMessage({
             fn: "__adopt",
-            args: [String(name || ""), String(url || "").split("?")[1] || ""],
+            args: [String(name || ""), String(url || "").split("?")[1] || "", String(arguments[2] || "")],
           });
         }
         win.SteamClient = popupSteamClient(win);
