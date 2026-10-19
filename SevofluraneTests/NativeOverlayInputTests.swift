@@ -27,6 +27,14 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("sent.length") as? Int == 1)
         #expect(try await web.evaluateJavaScript("sent[0].event") as? String == "mousedown")
         #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 0)
+        _ = try await web.evaluateJavaScript("(\(SteamWebKitOverlay.dragRegionsScript))([[140,0,200,30]])")
+        _ = try await web.evaluateJavaScript("""
+        var drag=document.querySelector('[data-sevo-webkit-drag]');
+        var press=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,clientX:150,clientY:10});
+        drag.dispatchEvent(press);window.dragPrevented=press.defaultPrevented;
+        """)
+        #expect(try await web.evaluateJavaScript("sent.length") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("dragPrevented") as? Bool == false)
         _ = try await web.evaluateJavaScript("window.__sevoOverlayInput.stop();button.click()")
         #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
         #expect(try await web.evaluateJavaScript("document.querySelectorAll('textarea,canvas').length") as? Int == 0)
@@ -61,17 +69,19 @@ struct NativeOverlayInputTests {
         }
     }
 
-    @Test
-    func nativeClickHitsTopButtonInInvisibleWebKitSource() async throws {
+    @Test(arguments: ["desktopoverlay_uid42", "friendslist_uid42", "chat_ChatWindow_1_uid42", "PopupWindow_warning_uid42"])
+    func nativeClickHitsTopButtonInInvisibleWebKitSource(name: String) async throws {
         let host = SteamWebHost()
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
-        let popup = SteamWindow(webView: web, role: .gameOverlay, name: "desktopoverlay_uid1",
+        let popup = SteamWindow(webView: web, role: SteamWindowRole(popupName: name), name: name,
             size: CGSize(width: 400, height: 300), origin: nil, host: host)
         popup.realize()
         defer { NativeOverlayInput.reset(web); popup.close() }
         web.loadHTMLString("""
         <button id="action" style="position:absolute;left:10px;top:10px;width:120px;height:40px"
-          onclick="window.clicks++">Original action</button><script>window.clicks=0;window.ready=true</script>
+          onclick="window.clicks++">Original action</button>
+        <input id="text" style="position:absolute;left:10px;top:100px;width:200px;height:40px">
+        <script>window.clicks=0;window.ready=true</script>
         """, baseURL: nil)
         for _ in 0..<100 {
             if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
@@ -85,6 +95,22 @@ struct NativeOverlayInputTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
+        NativeOverlayInput.deliver(["event":"mousedown","x":30,"y":120,"button":0], to: popup)
+        NativeOverlayInput.deliver(["event":"mouseup","x":30,"y":120,"button":0], to: popup)
+        for _ in 0..<50 {
+            if (try? await web.evaluateJavaScript("document.activeElement.id")) as? String == "text" { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        NativeOverlayInput.deliver(["event":"keydown","key":"a","code":"KeyA"], to: popup)
+        NativeOverlayInput.deliver(["event":"keyup","key":"a","code":"KeyA"], to: popup)
+        NativeOverlayInput.deliver(["event":"compositionstart","text":""], to: popup)
+        NativeOverlayInput.deliver(["event":"compositionupdate","text":"中文"], to: popup)
+        NativeOverlayInput.deliver(["event":"compositionend","text":"中文"], to: popup)
+        for _ in 0..<50 {
+            if (try? await web.evaluateJavaScript("text.value")) as? String == "a中文" { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await web.evaluateJavaScript("text.value") as? String == "a中文")
         #expect(popup.nsWindow?.canBecomeKey == false)
         #expect(popup.nsWindow?.alphaValue == 0)
     }
@@ -134,7 +160,7 @@ struct NativeOverlayInputTests {
         }
         let call = "(\(SteamWebKitOverlay.createWindowScript))"
         let request = """
-        {name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16',
+        {name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16&parentcontainerpopupid=17',
          features:'width=300,height=650,resizeable,status=0',ids:{16:4,17:7}}
         """
         #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "friendslist_uid42")
@@ -143,6 +169,7 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("opened[0].features") as? String == "width=300,height=650,resizeable,status=0")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('browser')") as? String == "196610")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('openerid')") as? String == "7")
+        #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('parentcontainerpopupid')") as? String == "7")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('centerOnBrowserID')") as? String == "4")
         _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:surface});'ready'")
         #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "friendslist_uid42")
@@ -195,6 +222,25 @@ struct NativeOverlayInputTests {
         let size = try #require(details["size"] as? [Double])
         #expect(Array(size.prefix(2)) == [1512,982])
         #expect(try await web.evaluateJavaScript("resizeCalls.length") as? Int == 1)
+    }
+
+    @Test
+    func aShortNativeMenuKeepsItsRealViewport() async throws {
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 180, height: 32))
+        web.loadHTMLString("""
+        <script>window.name='contextmenu_1_uid42';window.resizes=0;
+        window.SteamClient={Browser:{GetBrowserID:()=>72},Window:{ResizeTo:()=>resizes++}};
+        window.ready=true;</script>
+        """, baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let raw = try #require(try await web.evaluateJavaScript("(\(SteamWebKitOverlay.surfaceDetailsScript))('contextmenu_1_uid42',[180,32])") as? String)
+        let details = try #require(try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        let size = try #require(details["size"] as? [Double])
+        #expect(Array(size.prefix(2)) == [180,32])
+        #expect(try await web.evaluateJavaScript("resizes") as? Int == 0)
     }
 
 }

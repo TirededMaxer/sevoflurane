@@ -14,7 +14,7 @@ typedef struct {
 } SevoNativeFrame;
 _Static_assert(sizeof(SevoNativeFrame)==64,"Native frame header ABI");
 static inline size_t SevoNativeFrameSize(uint32_t width,uint32_t height) {
-    if(width<64||height<64||width>8192||height>8192||(uint64_t)width*height*4>128u*1024u*1024u)return 0;
+    if(!width||!height||width>8192||height>8192||(uint64_t)width*height*4>128u*1024u*1024u)return 0;
     return 64+(size_t)width*height*12;
 }
 static inline int SevoNativeFrameValid(const SevoNativeFrame *h,uint32_t id,int width,int height) {

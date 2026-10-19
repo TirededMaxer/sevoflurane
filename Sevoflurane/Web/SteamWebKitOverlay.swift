@@ -102,7 +102,7 @@ final class SteamWebKitOverlay {
             try Task.checkCancellation()
             let targets = try await CDPClient.discoverTargets(port: 8765)
             for target in targets {
-                guard let id = target["id"] as? String,
+                guard let id = target["id"] as? String, mirrors[id] == nil,
                       let text = target["url"] as? String,
                       text.hasPrefix("about:blank"),
                       let socket = target["webSocketDebuggerUrl"] as? String, let url = URL(string: socket) else { continue }
@@ -124,9 +124,11 @@ final class SteamWebKitOverlay {
                 }
                 let localID = (try await popup.webView.evaluateJavaScript("window.__sevoBrowserID || 0") as? NSNumber)?.uint32Value ?? 0
                 let size = try Self.validatedDimensions(numbers)
+                try Task.checkCancellation()
                 let mirror = Mirror(client: scoped, popup: popup, cefID: cefID, localBrowserID: localID, viewport: size)
                 mirrors[id] = mirror
                 resizeSource(mirror)
+                try await updateDragRegions(for: popup)
                 EventLog.shared.log(.window, "Steam window request bound to WebKit: \(popup.name), CEF \(cefID)")
                 return
             }
@@ -164,7 +166,7 @@ final class SteamWebKitOverlay {
         return null;
       // Off-screen CEF starts at 1x1 even when window.open supplied a size.
       // Apply the original Steam request before accepting this display surface.
-      if (innerWidth < 64 || innerHeight < 64) {
+      if (innerWidth === 1 && innerHeight === 1 && (requestedSize[0] !== 1 || requestedSize[1] !== 1)) {
         SteamClient.Window.ResizeTo(requestedSize[0],requestedSize[1],true);
         return null;
       }
@@ -185,7 +187,7 @@ final class SteamWebKitOverlay {
             throw CDPClient.Failure.badReply("Steam window dimensions are unavailable")
         }
         let size = values.map { $0.doubleValue }
-        guard size.allSatisfy({ $0.isFinite && $0 > 0 }), size[0] >= 64, size[1] >= 64, size[0]*size[2] <= 8192, size[1]*size[2] <= 8192 else {
+        guard size.allSatisfy({ $0.isFinite && $0 > 0 }), size[0]*size[2] <= 8192, size[1]*size[2] <= 8192 else {
             throw CDPClient.Failure.badReply("Steam window dimensions are invalid")
         }
         return size
@@ -211,27 +213,36 @@ final class SteamWebKitOverlay {
                 }
             }
             for mirror in Array(mirrors.values) {
-                let size = try await dimensions(mirror.client)
-                if size != mirror.viewport {
-                    mirror.renderer?.stop(); mirror.renderer = nil; mirror.viewport = size
-                    mirror.receivedFrame = false; resizeSource(mirror)
+                do {
+                    let size = try await dimensions(mirror.client)
+                    try Task.checkCancellation()
+                    if size != mirror.viewport {
+                        mirror.renderer?.stop(); mirror.renderer = nil; mirror.viewport = size
+                        mirror.receivedFrame = false; resizeSource(mirror)
+                    }
+                    if mirror.renderer == nil,
+                       try await mirror.popup.webView.evaluateJavaScript(Self.contentReadyScript) as? Bool == true {
+                        try startRendering(mirror)
+                    }
+                    guard let renderer = mirror.renderer, attached, renderer.frames > 0 else { continue }
+                    if !mirror.receivedFrame, renderer.consumedFrames > 0 {
+                        mirror.receivedFrame = true
+                        EventLog.shared.log(.window, "Steam consumed WebKit overlay frames: \(mirror.popup.name)")
+                    }
+                    let enabled = renderer.consumedFrames > 0 ? "true" : "false"
+                    _ = try await mirror.client.evaluate(inputScript + ";if(window.__sevoOverlayInput){__sevoOverlayInput.enabled=\(enabled)};'ready'")
+                } catch {
+                    if Task.isCancelled { return }
+                    // Closing one native child must not discard the root and all
+                    // other WebKit sources. Target discovery reaps closed windows.
+                    EventLog.shared.log(.window, "Steam window refresh failed: \(mirror.popup.name): \(error)")
                 }
-                if mirror.renderer == nil,
-                   try await mirror.popup.webView.evaluateJavaScript(Self.contentReadyScript) as? Bool == true {
-                    try startRendering(mirror)
-                }
-                guard let renderer = mirror.renderer, attached, renderer.frames > 0 else { continue }
-                if !mirror.receivedFrame, renderer.consumedFrames > 0 {
-                    mirror.receivedFrame = true
-                    EventLog.shared.log(.window, "Steam consumed WebKit overlay frames: \(mirror.popup.name)")
-                }
-                let enabled = renderer.consumedFrames > 0 ? "true" : "false"
-                _ = try await mirror.client.evaluate(inputScript + ";if(window.__sevoOverlayInput){__sevoOverlayInput.enabled=\(enabled)};'ready'")
             }
             if mirrors.values.contains(where: { $0.renderer != nil }), !attached, !preparing { try await attach() }
         } catch {
+            if Task.isCancelled { return }
             EventLog.shared.log(.window, "WebKit window adapter disconnected: \(error)")
-            await reset()
+            reset()
         }
     }
 
@@ -354,27 +365,68 @@ final class SteamWebKitOverlay {
         return value.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8), options: .fragmentsAllowed) }
     }
 
+    /// Mirror the page's existing draggable header into CEF's app-region
+    /// support. Steam continues to move its own in-game window.
+    func updateDragRegions(for popup: SteamWindow) async throws {
+        guard let mirror = mirrors.values.first(where: { $0.popup === popup }) else { return }
+        let json = String(decoding: try JSONSerialization.data(withJSONObject: popup.gameDragRegions), as: UTF8.self)
+        _ = try await mirror.client.evaluate("(\(Self.dragRegionsScript))(\(json))")
+    }
+
+    static let dragRegionsScript = """
+    function (regions) {
+      var root=document.getElementById('sevo-webkit-drag-regions');
+      if (!root) { root=document.createElement('div');root.id='sevo-webkit-drag-regions';document.body.appendChild(root); }
+      root.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+      root.replaceChildren();
+      regions.forEach(function(r) {
+        if (r.length!==4 || !r.every(Number.isFinite) || r[2]<=0 || r[3]<=0) return;
+        var node=document.createElement('div');node.setAttribute('data-sevo-webkit-drag','');
+        node.style.cssText='position:absolute;pointer-events:auto;-webkit-app-region:drag;left:'+r[0]+'px;top:'+r[1]+'px;width:'+r[2]+'px;height:'+r[3]+'px';
+        root.appendChild(node);
+      });
+      return 'ready';
+    }
+    """
+
+    /// Keep DOM screen coordinates relative to Steam's game surface rather
+    /// than the invisible backing NSPanel's desktop coordinates.
+    func windowFrame(for popup: SteamWindow) async throws -> CGRect? {
+        guard let mirror = mirrors.values.first(where: { $0.popup === popup }) else { return nil }
+        guard let raw = try await mirror.client.evaluate("JSON.stringify([screenX,screenY,outerWidth||innerWidth,outerHeight||innerHeight])"),
+              let values = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [Double],
+              values.count == 4, values.allSatisfy(\.isFinite), values[2] > 0, values[3] > 0 else { return nil }
+        let size = CGSize(width: values[2], height: values[3])
+        return CGRect(origin: SteamScreenSpace.appKitOrigin(steamX: values[0], steamY: values[1], size: size), size: size)
+    }
+
     private func receive(_ raw: String, id: String) {
         guard let event = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
               event["type"] as? String == "overlay-input", let popup = mirrors[id]?.popup else { return }
         NativeOverlayInput.deliver(event, to: popup)
     }
 
-    private func reset() async {
+    private func reset() {
         let old = Array(mirrors.values)
         mirrors.removeAll()
+        let oldRoot = rootTask
+        rootTask = nil; attached = false
         for mirror in old {
             mirror.renderer?.stop(); NativeOverlayInput.reset(mirror.popup.webView)
-            _ = try? await mirror.client.evaluate("window.__sevoOverlayInput?.stop();'stopped'")
-            await mirror.client.disconnect()
         }
-        if let rootTask { if let client = try? await rootTask.value { await client.disconnect() } }
-        rootTask = nil; attached = false
+        Task {
+            for mirror in old {
+                _ = try? await mirror.client.evaluate("window.__sevoOverlayInput?.stop();'stopped'")
+                await mirror.client.disconnect()
+            }
+            if let client = try? await oldRoot?.value { await client.disconnect() }
+        }
     }
 
     func invalidate() {
         task?.cancel(); task = nil
         for pending in creating.values { pending.cancel() }
-        Task { await reset() }
+        creating.removeAll()
+        reset()
     }
 }

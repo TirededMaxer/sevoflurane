@@ -123,7 +123,13 @@ nonisolated enum SteamWindowRole {
     /// Steam renders these pages inside the game. They must never acquire a
     /// second NSWindow or be hidden/closed by the desktop mirror.
     static func usesOriginalGameOverlay(popupName: String) -> Bool {
-        Self(popupName: popupName) == .gameOverlay
+        let role = Self(popupName: popupName)
+        if role == .gameOverlay { return true }
+        // Game child windows belong to Steam's compositor, not desktop panels.
+        // Keep the already verified corner-toast presentation unchanged.
+        return instanceUID(ofPopupNamed: popupName) != 0
+            && role != .desktop && role != .login && role != .bigPicture
+            && role != .context && role != .toast
     }
 
     var hasNativeFrame: Bool {

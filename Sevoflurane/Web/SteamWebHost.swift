@@ -517,7 +517,7 @@ final class SteamWebHost {
         // A Steam window on screen comes back on screen: the reload rebuilds it,
         // and the adoption shows it again.
         let wasShowingDesktop = desktop?.nsWindow?.isVisible == true || desktopShowIsPending
-        detachPopups(reason: .pageTeardown)
+        detachPopups(reason: .pageTeardown, deferringDisposal: true)
         desktop = nil
         desktopShowIsPending = wasShowingDesktop
         status = "reloading"
@@ -547,14 +547,30 @@ final class SteamWebHost {
 
     /// Drops every adopted popup, telling each why. One writer for all three
     /// teardowns, so none of them can forget the guard.
-    private func detachPopups(reason: SteamWindow.DetachReason) {
+    private func detachPopups(reason: SteamWindow.DetachReason, deferringDisposal: Bool = false) {
         webKitOverlay.invalidate()
+        let old = Array(popups.values)
+        popups.removeAll()
+        if deferringDisposal {
+            for popup in old { popup.concealForPageTeardown() }
+            // Commit the login window's disappearance before WebKit teardown.
+            // Each retired popup belongs to the old page, never the new one.
+            DispatchQueue.main.async {
+                Task { @MainActor in
+                    for popup in old {
+                        popup.detach(reason: reason)
+                        await Task.yield()
+                    }
+                }
+            }
+            refreshLoginWindowState()
+            return
+        }
         isTearingDownPage = true
         defer { isTearingDownPage = false }
-        for popup in popups.values {
+        for popup in old {
             popup.detach(reason: reason)
         }
-        popups.removeAll()
     }
 
     /// Clears the windows a dead client left on screen — its library is frozen
@@ -717,7 +733,12 @@ final class SteamWebHost {
         defer { logWindowInventory("adopting \(window.name)") }
         // The original renderer owns this popup's input and lifetime. Keeping
         // the mirror passive must not close Steam's saved game UI windows.
-        guard !window.usesOriginalGameOverlay else { return }
+        if window.usesOriginalGameOverlay {
+            if window.role.hasPopupChrome {
+                window.webView.evaluateJavaScript(SteamDesktopChrome.gamePopupScript)
+            }
+            return
+        }
         window.webView.evaluateJavaScript(SteamPresentation.cleanupScript)
         // Every adoption is a chance the root menus now exist — they are
         // created after the desktop window, so anchoring on the desktop alone

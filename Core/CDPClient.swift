@@ -79,7 +79,9 @@ actor CDPClient {
     }
 
     func connectInputMirror(socketURL: URL) async throws {
-        try await connect(socketURL: socketURL, consumingBindings: true)
+        // Each game window has a persistent input connection. Keep those
+        // sockets out of the root bridge's six-connection HTTP pool.
+        try await connect(socketURL: socketURL, consumingBindings: true, independentSession: true)
         _ = try await send(method: "Runtime.addBinding", params: ["name": "__sevo"])
     }
 
@@ -95,10 +97,10 @@ actor CDPClient {
     /// bridge's persistent connection needs: `Runtime.bindingCalled` is what
     /// carries the client's callbacks back, and `Runtime.evaluate` answers
     /// without the domain enabled; one-shot sessions leave it off.
-    func connect(socketURL: URL, consumingBindings: Bool) async throws {
+    func connect(socketURL: URL, consumingBindings: Bool, independentSession: Bool = false) async throws {
         do {
             try await withDeadline(Self.connectBudget) {
-                try await self.handshake(socketURL: socketURL, consumingBindings: consumingBindings)
+                try await self.handshake(socketURL: socketURL, consumingBindings: consumingBindings, independentSession: independentSession)
             }
         } catch {
             markClosed()
@@ -112,9 +114,9 @@ actor CDPClient {
     /// host, and a cancelled task can sit in that pool.
     private var ephemeralSession: URLSession?
 
-    private func handshake(socketURL: URL, consumingBindings: Bool) async throws {
+    private func handshake(socketURL: URL, consumingBindings: Bool, independentSession: Bool) async throws {
         let session: URLSession
-        if consumingBindings {
+        if consumingBindings && !independentSession {
             session = .shared
         } else {
             session = URLSession(configuration: .ephemeral)

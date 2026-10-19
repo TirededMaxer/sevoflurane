@@ -16,6 +16,7 @@ static void *write_frames(void *unused) {
 }
 int main(void) {
     size_t size=SevoNativeFrameSize(64,64);assert(size==64+64*64*12);
+    assert(SevoNativeFrameSize(91,24)==64+91*24*12); /* Short game menus are real surfaces. */
     assert(!SevoNativeFrameSize(0,64)&&!SevoNativeFrameSize(8192,8192));
     shared=calloc(1,size);assert(shared);memcpy(shared->magic,"SEVOLV01",8);
     shared->width=shared->height=64;shared->bytes=64*64*4;shared->cef_id=4;shared->middle=1;

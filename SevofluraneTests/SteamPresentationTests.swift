@@ -25,20 +25,78 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func overlayChildWindowsUseNativeNonActivatingFrames() throws {
-        for name in ["friendslist_uid730", "chat_1_uid730", "PopupWindow_warning_uid730", "browser_uid730"] {
+    func overlayChildrenUseBorderlessWebKitSourcesInsideTheGame() throws {
+        let host = SteamWebHost()
+        for name in ["friendslist_uid730", "chat_1_uid730", "PopupWindow_warning_uid730", "browser_uid730", "contextmenu_1_uid730"] {
             let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
-                                    name: name, size: CGSize(width: 400, height: 300), origin: nil, host: nil)
+                                    name: name, size: CGSize(width: 400, height: 300), origin: nil, host: host)
             popup.realize()
             defer { popup.detach(reason: .pageTeardown) }
             let window = try #require(popup.nsWindow as? NSPanel)
-            #expect(!popup.usesOriginalGameOverlay)
-            #expect(window.styleMask.contains(.titled))
+            popup.show(activating: true)
+            #expect(popup.usesOriginalGameOverlay)
+            #expect(!window.styleMask.contains(.titled))
             #expect(window.styleMask.contains(.nonactivatingPanel))
-            #expect(window.standardWindowButton(.closeButton) != nil)
-            #expect(window.level == .popUpMenu)
-            #expect(window.collectionBehavior.contains(.fullScreenAuxiliary))
+            #expect(window.standardWindowButton(.closeButton) == nil)
+            #expect(window.alphaValue == 0)
+            #expect(!window.canBecomeKey && !window.canBecomeMain)
+            #expect(window.ignoresMouseEvents)
+            #expect(!popup.isWindowVisible)
+            #expect(window.contentView === popup.webView)
+            #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
         }
+    }
+
+    @Test
+    func gamePopupRetainsOriginalHeaderAndControlsWhileReportingDragRegions() async throws {
+        let reports = DragReports()
+        let controller = WKUserContentController()
+        controller.add(reports, name: SteamWebCoordinator.handlerName)
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController = controller
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300), configuration: configuration)
+        web.loadHTMLString("""
+        <style>body{margin:0}.title-area{height:30px;width:400px;position:relative}
+        .title-bar-actions{position:absolute;right:0;top:0;width:90px;height:30px}</style>
+        <div class="TitleBar title-area">Original title<div class="title-bar-actions"><button onclick="calls++">Close</button></div></div>
+        <script>window.calls=0;window.ready=true</script>
+        """, baseURL: nil)
+        try await ready(web)
+        let before = try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.gamePopupScript)
+        for _ in 0..<80 {
+            if reports.last != nil { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String == before)
+        #expect(reports.last == [[0,0,310,30]])
+        _ = try await web.evaluateJavaScript("document.querySelector('button').click()")
+        #expect(try await web.evaluateJavaScript("calls") as? Int == 1)
+    }
+
+    @Test
+    func sessionReloadConcealsOldWindowsBeforeDeferredDisposalAndKeepsNewWindows() async throws {
+        let host = SteamWebHost()
+        let old = SteamWindow(webView: WKWebView(), role: .login, name: "SP DesktopLoginWindow_uid0",
+                              size: CGSize(width: 400, height: 300), origin: nil, host: host)
+        host.popups[ObjectIdentifier(old.webView)] = old
+        old.realize()
+        old.nsWindow?.orderFront(nil)
+        host.reload()
+        #expect(host.popups.isEmpty)
+        #expect(old.nsWindow?.isVisible == false)
+        // WebKit disposal happens after the window has left the screen.
+        #expect(old.nsWindow != nil)
+        let new = SteamWindow(webView: WKWebView(), role: .desktop, name: "SP Desktop_uid0",
+                              size: CGSize(width: 400, height: 300), origin: nil, host: host)
+        host.popups[ObjectIdentifier(new.webView)] = new
+        defer { new.detach(reason: .pageTeardown) }
+        for _ in 0..<100 {
+            if old.nsWindow == nil { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(old.nsWindow == nil)
+        #expect(host.popups[ObjectIdentifier(new.webView)] === new)
     }
 
     @Test

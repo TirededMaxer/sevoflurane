@@ -16,6 +16,7 @@
   }
   function send(e) {
     if (!state.enabled) return;
+    if (e.target.closest && e.target.closest('[data-sevo-webkit-drag]')) return;
     if (e.key === "Tab" && e.shiftKey) return; // Steam owns the opening/closing chord.
     if (e.type === "keydown" && (e.isComposing || e.key === "Process")) return;
     var kind = {pointerdown:"mousedown",pointerup:"mouseup",pointermove:"mousemove"}[e.type] || e.type;
@@ -29,7 +30,10 @@
   }
   function listen(name) { window.addEventListener(name,send,{capture:true,passive:false}); listeners.push(name); }
   ["pointerdown","pointerup","pointermove","wheel","keydown","keyup","compositionstart","compositionupdate","compositionend"].forEach(listen);
-  function suppress(e) { if (state.enabled) { e.preventDefault(); e.stopImmediatePropagation(); } }
+  function suppress(e) {
+    if (e.target.closest && e.target.closest('[data-sevo-webkit-drag]')) return;
+    if (state.enabled) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }
   var suppressed = ["mousedown","mouseup","mousemove","click","dblclick","contextmenu"];
   suppressed.forEach(function (n) { window.addEventListener(n,suppress,true); });
   function stop() {

@@ -23,7 +23,7 @@ final class SteamWindow: NSObject {
     private var desktopShowActivating = false
 
     var window: NSWindow?
-    var usesOriginalGameOverlay: Bool { role == .gameOverlay }
+    var usesOriginalGameOverlay: Bool { SteamWindowRole.usesOriginalGameOverlay(popupName: name) }
     var isGamePopup: Bool {
         SteamWindowRole.instanceUID(ofPopupNamed: name) != 0
             && role != .desktop && role != .login && role != .bigPicture && role != .context
@@ -68,6 +68,9 @@ final class SteamWindow: NSObject {
     /// with the origin at the top-left of the content. Steam marks them with
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
+    var gameDragRegions: [[Double]] {
+        dragRegions.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] }
+    }
     private var mouseMonitor: Any?
     private var pendingKeyboardPress: (() -> Void)?
     private var keyboardActivationObserver: (any NSObjectProtocol)?
@@ -828,6 +831,17 @@ final class SteamWindow: NSObject {
         case pageTeardown
         /// The app is on its way out.
         case appQuitting
+    }
+
+    /// Remove the old page from the screen before disposing its WebKit views.
+    /// A session reload can otherwise hold the login window on screen while
+    /// several embedded web processes are being detached on the main thread.
+    func concealForPageTeardown() {
+        desktopShowWanted = false
+        desktopShowActivating = false
+        cancelPendingKeyboardPress()
+        window?.ignoresMouseEvents = true
+        window?.orderOut(nil)
     }
 
     /// Drops the window and the page without asking the page to close itself.

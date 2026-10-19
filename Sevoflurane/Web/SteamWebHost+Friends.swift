@@ -12,7 +12,7 @@ extension SteamWebHost {
     /// The unread badge reports waiting conversations; this button always
     /// opens the friends list. Chat rows open individual conversations.
     func openFriends() {
-        if let existing = popups.values.first(where: { $0.role == .friends }) {
+        if let existing = popups.values.first(where: { $0.role == .friends && !$0.usesOriginalGameOverlay }) {
             existing.show(activating: true)
             return
         }
@@ -28,7 +28,7 @@ extension SteamWebHost {
 
     static let onlineFriendCountScript = """
     (function () {
-      var store = window.friendStore;
+      var store = window.friendStore && window.friendStore.m_FriendsUIFriendStore;
       if (!store || !store.friends_list_ready || typeof store.GetOnlineFriendCount !== "function") return null;
       return String(store.GetOnlineFriendCount());
     })()
