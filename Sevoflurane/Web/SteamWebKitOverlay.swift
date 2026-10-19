@@ -111,9 +111,14 @@ final class SteamWebKitOverlay {
               let cefID = values["id"] as? UInt32,
               let width = values["w"] as? Int, let height = values["h"] as? Int,
               width >= 64, height >= 64 else { await scoped.disconnect(); return }
+        let scale = (values["scale"] as? NSNumber)?.doubleValue ?? 1
+        guard scale.isFinite, scale > 0, Double(width)*scale <= 8192, Double(height)*scale <= 8192 else {
+            await scoped.disconnect(); return
+        }
+        let pixelWidth = Int((Double(width)*scale).rounded()), pixelHeight = Int((Double(height)*scale).rounded())
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                               attributes: [.posixPermissions: 0o700])
-        let frame = directory.appendingPathComponent("\(UUID().uuidString)-\(cefID)-\(width)x\(height).live")
+        let frame = directory.appendingPathComponent("\(UUID().uuidString)-\(cefID)-\(pixelWidth)x\(pixelHeight).live")
         let view = popup.webView
         view.frame = NSRect(x: 0, y: 0, width: width, height: height)
         view.wantsLayer = true
@@ -125,10 +130,10 @@ final class SteamWebKitOverlay {
             window.collectionBehavior = [.stationary, .ignoresCycle]
             window.contentView = view; window.orderBack(nil); popup.window = window
         }
-        guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(width), height: UInt32(height), framePath: frame.path, cefID: cefID)
+        guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(pixelWidth), height: UInt32(pixelHeight), framePath: frame.path, cefID: cefID)
         else { try? FileManager.default.removeItem(at: frame); await scoped.disconnect(); return }
         let path = SteamBottle.windowsPath(for: frame)
-        try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(width)x\(height).path"), options: .atomic)
+        try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(pixelWidth)x\(pixelHeight).path"), options: .atomic)
         mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer)
         EventLog.shared.log(.window, "WebKit overlay connected: \(name), \(width)×\(height)")
     }
