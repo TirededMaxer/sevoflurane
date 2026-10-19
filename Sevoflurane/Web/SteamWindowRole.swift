@@ -145,7 +145,7 @@ nonisolated enum SteamWindowRole {
     /// document keeps its own title, controls, fonts and layout.
     var hasPopupChrome: Bool {
         switch self {
-        case .auxiliary, .controllerConfig, .chat, .friends, .dialog: true
+        case .auxiliary, .controllerConfig, .chat, .friends, .dialog, .bigPicture: true
         default: false
         }
     }

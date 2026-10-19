@@ -2,8 +2,8 @@ import AppKit
 import ObjectiveC
 
 /// Manual diagnostics and cancellation for AppKit's menu tracking session.
-/// The former mirrored-menu watchdog has no production owner after the
-/// duplicate menu strip was removed; only these recovery actions remain.
+/// The native menu mirror uses these explicit recovery actions; it does not
+/// install the retired automatic watchdog.
 @MainActor
 enum MenuTrackingRecovery {
     /// The private dismissal repair applies only to the macOS 27 menu-bar implementation.

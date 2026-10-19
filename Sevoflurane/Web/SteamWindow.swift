@@ -179,7 +179,7 @@ final class SteamWindow: NSObject {
             return SteamToastPanel(contentRect: content, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         }
         var style: NSWindow.StyleMask = role.hasNativeFrame ? [.titled, .closable, .miniaturizable, .resizable] : [.borderless]
-        if role.hasNativeFrame, role != .bigPicture, role != .dialog { style.insert(.fullSizeContentView) }
+        if role.hasNativeFrame, role != .bigPicture { style.insert(.fullSizeContentView) }
         if role.isPanel || isGamePopup {
             style.insert(.nonactivatingPanel)
             return SteamPanel(contentRect: content, styleMask: style)

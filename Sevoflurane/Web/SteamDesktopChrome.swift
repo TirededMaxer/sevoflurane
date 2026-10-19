@@ -5,20 +5,25 @@ import Foundation
 enum SteamDesktopChrome {
     static let script = dragScript(desktop: true)
     static let popupScript = dragScript(desktop: false)
-    static let popupChromeScript = dragScript(desktop: false)
+    static let popupChromeScript = dragScript(desktop: false, popupHeader: true)
 
-    private static func dragScript(desktop: Bool) -> String {
+    private static func dragScript(desktop: Bool, popupHeader: Bool = false) -> String {
         """
         (function () {
           if (window.__sevoOriginalDrag) { window.__sevoOriginalDrag(); return "reapplied"; }
           var desktop = \(desktop ? "true" : "false");
+          var popupHeader = \(popupHeader ? "true" : "false");
           function restyle() {
             if (!document.head || document.getElementById("sevo-macos-chrome")) return;
             var style = document.createElement("style"); style.id = "sevo-macos-chrome";
-            style.textContent = ".TitleBar.title-area .title-bar-actions{display:none!important}";
+            style.textContent = ".TitleBar.title-area .title-bar-actions,.title-bar-actions.window-controls{display:none!important}";
             if (desktop) style.textContent +=
               "div:has(> .TitleBar.title-area){display:none!important}"+
               "div:has(> div > .TitleBar.title-area)>:first-child{display:none!important}";
+            else if (popupHeader) style.textContent +=
+              ".TitleBar.title-area{display:block!important}"+
+              ".title-area-highlight,.singleWindowFocusBar{display:none!important}"+
+              "div:has(> .TitleBar.title-area){box-sizing:content-box!important;padding-top:28px!important}";
             else style.textContent += ".TitleBar.title-area{padding-inline-start:80px!important}";
             document.head.appendChild(style);
           }

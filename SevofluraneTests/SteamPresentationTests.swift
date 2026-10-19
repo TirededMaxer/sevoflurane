@@ -172,6 +172,23 @@ struct SteamPresentationTests {
     }
 
     @Test
+    func popupChromeReservesNativeTitlebarSpaceWithoutReplacingContentActions() async throws {
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 500, height: 300))
+        web.loadHTMLString("""
+        <div id="header"><div class="TitleBar title-area"></div><button id="status">Online</button>
+        <div class="title-bar-actions window-controls"><button id="windowsClose">Close</button></div></div>
+        <script>window.ready=true;window.clicks=0;document.getElementById('status').onclick=()=>clicks++;</script>
+        """, baseURL: nil)
+        try await ready(web)
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupChromeScript)
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.window-controls')).display") as? String == "none")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.getElementById('header')).paddingTop") as? String == "28px")
+        _ = try await web.evaluateJavaScript("document.getElementById('status').click();'clicked'")
+        #expect(try await web.evaluateJavaScript("clicks") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("document.getElementById('status').textContent") as? String == "Online")
+    }
+
+    @Test
     func userWindowsHaveNativeControlsAndToastsStayBorderless() throws {
         for role in [SteamWindowRole.desktop, .login, .friends, .chat, .auxiliary, .bigPicture, .toast, .dialog] {
             let popup = SteamWindow(webView: WKWebView(), role: role, name: "source-ui-test",
@@ -183,7 +200,8 @@ struct SteamPresentationTests {
             #expect((window.standardWindowButton(.closeButton) != nil) == role.hasNativeFrame)
             #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == false)
             if role != .toast { #expect(window.canBecomeKey) }
-            if !role.isPanel { #expect(window.canBecomeMain) }
+            // Standard AppKit windows become main only after they are visible.
+            if !role.isPanel { #expect(!window.isVisible && !window.canBecomeMain) }
         }
     }
 
@@ -196,6 +214,7 @@ struct SteamPresentationTests {
         window.isReleasedWhenClosed = false
         window.delegate = delegate
         defer { window.delegate = nil; window.close() }
+        window.orderFront(nil)
         window.performClose(nil)
         #expect(delegate.calls == 1)
         #expect(window.standardWindowButton(.closeButton) != nil)
