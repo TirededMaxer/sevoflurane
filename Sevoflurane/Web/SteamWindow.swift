@@ -400,8 +400,10 @@ final class SteamWindow: NSObject {
     /// opens; it carries the size limits and creation flags that the standard
     /// window-features string has no room for.
     func adopt(name: String, parameters: String, features: String = "") {
-        originalPopupQuery = parameters
-        originalPopupFeatures = features
+        if !parameters.isEmpty {
+            originalPopupQuery = parameters
+            originalPopupFeatures = features
+        }
         guard window == nil else {
             // The 400ms orphan fallback won the race against Steam's real
             // adoption: the window is built, but the identity should still

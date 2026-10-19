@@ -188,6 +188,8 @@ struct NativeOverlayInputTests {
             size: CGSize(width: 300, height: 650), origin: nil, host: host)
         popup.adopt(name: "friendslist_uid42", parameters: "createflags=18&pid=42&browser=196610",
                     features: "width=300,height=650,resizeable,status=0")
+        // The host's delayed orphan callback also runs for an already adopted window.
+        popup.adopt(name: "", parameters: "")
         defer { popup.close() }
         #expect(popup.usesOriginalGameOverlay)
         #expect(popup.originalPopupQuery == "createflags=18&pid=42&browser=196610")
