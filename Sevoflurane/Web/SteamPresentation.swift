@@ -41,36 +41,4 @@ nonisolated enum SteamPresentation {
         })()
         """
     }
-
-    /// Keep Steam's real in-game toast page and queue. Only the corner is a
-    /// host presentation preference: games can request another corner through
-    /// ISteamUtils, including the Shift+Tab introduction shown on game launch.
-    static let gameToastCornerScript = """
-    (function () {
-      if (window.__sevoGameToastCorner) return "already installed";
-      var store = window.overlayStore;
-      var windows = window.SteamUIStore && SteamUIStore.WindowStore;
-      if (!store || !windows || !windows.m_mapOverlayPopupByPID
-          || typeof store.RegisterForBrowserCreated !== "function"
-          || typeof store.RegisterForNotificationPositionChanged !== "function") return "unavailable";
-      function place() {
-        windows.m_mapOverlayPopupByPID.forEach(function (instance) {
-          if (!instance || typeof instance.SetNotificationPosition !== "function") return;
-          var position = instance.NotificationPosition;
-          if (!position) return;
-          instance.SetNotificationPosition(3, position.horizontalInset, position.verticalInset);
-        });
-      }
-      // Store-level observers preserve Steam's existing native callback slot.
-      // They see no notification text and never push or replay a toast.
-      window.__sevoGameToastCorner = {
-        created: store.RegisterForBrowserCreated(place),
-        position: store.RegisterForNotificationPositionChanged(place)
-      };
-      place();
-      return "installed";
-    })()
-    """
-
-
 }

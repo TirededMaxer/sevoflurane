@@ -105,35 +105,6 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func gameToastsUseOriginalInstanceAndKeepInsetsAndCallbacks() async throws {
-        let web = WKWebView()
-        web.loadHTMLString("""
-        <script>
-        window.registrations=0;window.nativeRegistrations=0;window.originalQueue=[{id:10001}];
-        window.created=[];window.positions=[];
-        window.overlayStore={
-          RegisterForBrowserCreated:function(fn){created.push(fn);registrations++;return {unregister:function(){}};},
-          RegisterForNotificationPositionChanged:function(fn){positions.push(fn);registrations++;return {unregister:function(){}};}
-        };
-        window.first={NotificationPosition:{position:2,horizontalInset:18,verticalInset:24},
-          SetNotificationPosition:function(p,x,y){this.NotificationPosition={position:p,horizontalInset:x,verticalInset:y};}};
-        window.SteamUIStore={WindowStore:{m_mapOverlayPopupByPID:new Map([[1,first]])}};
-        window.SteamClient={Overlay:{RegisterForNotificationPositionChanged:function(){nativeRegistrations++;}}};
-        window.ready=true;
-        </script>
-        """, baseURL: nil)
-        try await ready(web)
-        #expect(try await web.evaluateJavaScript(SteamPresentation.gameToastCornerScript) as? String == "installed")
-        #expect(try await web.evaluateJavaScript("JSON.stringify(first.NotificationPosition)") as? String == #"{"position":3,"horizontalInset":18,"verticalInset":24}"#)
-        _ = try await web.evaluateJavaScript("first.NotificationPosition.position=2;positions[0](730,2,18,24)")
-        #expect(try await web.evaluateJavaScript("first.NotificationPosition.position") as? Int == 3)
-        #expect(try await web.evaluateJavaScript("originalQueue.length") as? Int == 1)
-        #expect(try await web.evaluateJavaScript("nativeRegistrations") as? Int == 0)
-        #expect(try await web.evaluateJavaScript(SteamPresentation.gameToastCornerScript) as? String == "already installed")
-        #expect(try await web.evaluateJavaScript("registrations") as? Int == 2)
-    }
-
-    @Test
     func originalClientMigrationNeverWrapsWindowOpenOrInstallsStyles() async throws {
         let web = WKWebView()
         web.loadHTMLString("""

@@ -81,9 +81,6 @@ extension SteamWebHost {
         installInClient(SteamPresentation.originalClientScript,
                         describedAs: "restore original Steam page appearance",
                         settledAt: ["original"])
-        installInClient(SteamPresentation.gameToastCornerScript,
-                        describedAs: "original game notifications at bottom-right",
-                        settledAt: ["installed", "already installed"])
     }
 
     private func installInClient(
