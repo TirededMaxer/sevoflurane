@@ -296,51 +296,57 @@ struct SteamClientShapeTests {
     }
 
     @Test
-    func gameBrowserSubscriptionsStayWithOriginalSteam() async throws {
-        let messages = BrowserViewReports()
-        let web = try await load(shape: #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1}}"#, messages: messages)
+    func overlayCallsAndCallbacksUseTheSameBridgeAsTheRestOfSteam() async throws {
+        let shape = #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1},"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#
+        let web = try await load(shape: shape, messages: BrowserViewReports())
         let result = try await web.callAsyncJavaScript("""
-          var a=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(function(){throw Error('wrong renderer')});
-          var b=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(function(){throw Error('wrong renderer')});
-          a.unregister();b.unregister();
+          fixtureSocket.send=function(value){
+            var message=JSON.parse(value);sentCommands.push(message);
+            if(message.cmd==='sc' && message.path.indexOf('.Get')>=0) {
+              var value=message.path==='SteamClient.Overlay.GetOverlayBrowserInfo'?[{unPID:42,nBrowserID:12}]:[{chatBrowserID:13}];
+              queueMicrotask(()=>this.onmessage({data:JSON.stringify({type:'sc_result',id:message.id,value:JSON.stringify(value)})}));
+            }
+          };
+          var focus=[];var changed=0;
+          var a=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(()=>changed++);
+          var b=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(()=>changed++);
+          var c=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged((app,pid)=>focus.push([app,pid]));
+          var registrations=sentCommands.filter(m=>m.cmd==='sc');
+          registrations.forEach((m,i)=>fixtureSocket.onmessage({data:JSON.stringify({type:'sc_callback',cb:m.args[0].__sevoCb,args:i===2?[730,42]:[]})}));
           var info=await SteamClient.Overlay.GetOverlayBrowserInfo();
           var chats=await SteamClient.WebChat.GetOverlayChatBrowserInfo();
-          return JSON.stringify({info:info,chats:chats,forwarded:window.sentCommands});
+          a.unregister();b.unregister();c.unregister();
+          return JSON.stringify({changed,focus,info,chats,
+            calls:sentCommands.filter(m=>m.cmd==='sc').map(m=>m.path),
+            unregisters:sentCommands.filter(m=>m.cmd==='sc_unregister').length,
+            snapshot:typeof __sevoUpdateNativeOverlay});
         """, arguments: [:], in: nil, contentWorld: .page) as? String
-        #expect(result == #"{"info":[],"chats":[],"forwarded":[]}"#)
+        #expect(result == #"{"changed":2,"focus":[[730,42]],"info":[{"unPID":42,"nBrowserID":12}],"chats":[{"chatBrowserID":13}],"calls":["SteamClient.Overlay.RegisterOverlayBrowserInfoChanged","SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged","SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged","SteamClient.Overlay.GetOverlayBrowserInfo","SteamClient.WebChat.GetOverlayChatBrowserInfo"],"unregisters":3,"snapshot":"undefined"}"#)
     }
 
     @Test
-    func desktopToastContextNeverRegistersForNativeGameFocus() async throws {
-        let messages = BrowserViewReports()
-        let web = try await load(shape: #"{"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#, messages: messages)
-        let result = try await web.callAsyncJavaScript("""
-          var focus=[];
-          var a=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(app,pid){focus.push([app,pid]);});
-          var b=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged(function(){throw Error('unregistered callback')});
-          b.unregister();await Promise.resolve();a.unregister();
-          return JSON.stringify({focus:focus,forwarded:window.sentCommands});
-        """, arguments: [:], in: nil, contentWorld: .page) as? String
-        #expect(result == #"{"focus":[[0,0]],"forwarded":[]}"#)
+    func popupCreatedWaitsForTheNativeWindowAcknowledgement() async throws {
+        let setup = """
+        window.created=[];window.requests=[];
+        window.open=function(){return {closed:false,
+          webkit:{messageHandlers:{sevoWindow:{postMessage:function(request){
+            requests.push(request);return new Promise(resolve=>window.acknowledge=resolve);
+          }}}},postMessage:function(message){created.push(message);},addEventListener:function(){}};};
+        """
+        let web = try await load(shape: "{}", beforeShim: setup)
+        _ = try await web.evaluateJavaScript("window.open('about:blank?pid=42&createflags=18','friendslist_uid42','width=300,height=650')")
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(try await web.evaluateJavaScript("created.length") as? Int == 0)
+        #expect(try await web.evaluateJavaScript("JSON.stringify(requests[0].args)") as? String == #"["friendslist_uid42","pid=42&createflags=18","width=300,height=650"]"#)
+        _ = try await web.evaluateJavaScript("acknowledge(null)")
+        for _ in 0..<40 {
+            if (try? await web.evaluateJavaScript("created.length")) as? Int == 1 { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(try await web.evaluateJavaScript("JSON.stringify(created)") as? String == #"["popup-created"]"#)
     }
 
-    @Test
-    func gameBrowserSnapshotsKeepIndependentShapesAndLocalSubscriptions() async throws {
-        let web = try await load(shape: #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1}}"#, messages: BrowserViewReports())
-        let result = try await web.callAsyncJavaScript("""
-          var a=0,b=0;
-          var first=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(()=>a++);
-          var second=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(()=>b++);
-          var snapshot={browsers:[{unPID:42,nBrowserID:12}],chats:[{chatBrowserID:13}],app:730,pid:42};
-          __sevoUpdateNativeOverlay(snapshot);__sevoUpdateNativeOverlay(snapshot);
-          first.unregister();snapshot.browsers=[];__sevoUpdateNativeOverlay(snapshot);second.unregister();
-          return JSON.stringify({a:a,b:b,info:await SteamClient.Overlay.GetOverlayBrowserInfo(),
-            chats:await SteamClient.WebChat.GetOverlayChatBrowserInfo(),forwarded:sentCommands});
-        """, arguments: [:], in: nil, contentWorld: .page) as? String
-        #expect(result == #"{"a":1,"b":1,"info":[],"chats":[{"chatBrowserID":13}],"forwarded":[]}"#)
-    }
-
-    private func load(shape: String, messages: BrowserViewReports? = nil) async throws -> WKWebView {
+    private func load(shape: String, messages: BrowserViewReports? = nil, beforeShim: String = "") async throws -> WKWebView {
         let url = try #require(Bundle.main.url(forResource: "steamclient_shim", withExtension: "js"))
         let shim = try String(contentsOf: url, encoding: .utf8)
             .replacingOccurrences(of: "%PAGE_PORT%", with: "8761")
@@ -355,10 +361,11 @@ struct SteamClientShapeTests {
         window.collectionStore={allAppsCollection:{}};
         window.sentCommands=[];
         window.WebSocket=class {
-          constructor(){this.readyState=1;this.bufferedAmount=0;}
+          constructor(){this.readyState=1;this.bufferedAmount=0;window.fixtureSocket=this;}
           send(value){window.sentCommands.push(JSON.parse(value));} close(){this.readyState=3;} addEventListener(){} removeEventListener(){}
         };
         WebSocket.CONNECTING=0;WebSocket.OPEN=1;WebSocket.CLOSING=2;WebSocket.CLOSED=3;
+        \(beforeShim)
         \(shim)
         window.fixtureReady=true;
         </script>

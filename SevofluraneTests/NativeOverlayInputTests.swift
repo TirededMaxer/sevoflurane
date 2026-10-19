@@ -48,25 +48,18 @@ struct NativeOverlayInputTests {
     }
 
     @Test
-    func earlyWindowQueryWaitsForBindingAndHonorsCancellation() async throws {
+    func unboundWindowCannotPretendToAnswerANativeQuery() async throws {
         let host = SteamWebHost()
         let overlay = SteamWebKitOverlay(host: host)
         let popup = SteamWindow(webView: WKWebView(), role: .gameOverlay,
             name: "desktopoverlay_uid1", size: CGSize(width: 400, height: 300), origin: nil, host: host)
-        var completed = false
-        let query = Task { @MainActor in
-            defer { completed = true }
-            _ = try await overlay.windowCall("GetWindowDetails", args: [], popup: popup)
-        }
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(!completed)
-        query.cancel()
         do {
-            _ = try await query.value
-            Issue.record("An unavailable binding cannot answer a window query with nil")
-        } catch is CancellationError {} catch { Issue.record("Unexpected failure: \(error)") }
+            _ = try await overlay.windowCall("GetWindowDetails", args: [], popup: popup)
+            Issue.record("An unbound window cannot return a fabricated native answer")
+        } catch let error as CDPClient.Failure {
+            #expect(error == .unreachable("Steam window is not bound"))
+        }
     }
-
 
     @Test
     func nativeClickHitsTopButtonInInvisibleWebKitSource() async throws {
@@ -125,15 +118,13 @@ struct NativeOverlayInputTests {
     }
 
     @Test
-    func secondaryWindowsUseOriginalCreationParametersAndNativeParentIDs() async throws {
+    func nativeAdapterUsesTheOriginalRequestWithoutManagingPopupState() async throws {
         let web = WKWebView()
         web.loadHTMLString("""
         <script>
-        window.ready=true;window.opened=[];window.closedPeers=0;
-        window.open=(url,name,features)=>{
-          opened.push({url,name,features});
-          return {closed:false,document:document,close(){this.closed=true;closedPeers++}};
-        };
+        window.ready=true;window.opened=[];window.nativeCloses=0;
+        window.surface={SteamClient:{Browser:{GetBrowserID:()=>71}},closed:false,close(){nativeCloses++}};
+        window.open=(url,name,features)=>{opened.push({url,name,features});return surface};
         window.g_PopupManager={GetExistingPopup:()=>null};
         </script>
         """, baseURL: nil)
@@ -141,60 +132,22 @@ struct NativeOverlayInputTests {
             if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
             try await Task.sleep(for: .milliseconds(20))
         }
-        let call = "(\(SteamWebKitOverlay.popupWindowsScript))"
+        let call = "(\(SteamWebKitOverlay.createWindowScript))"
         let request = """
-        {windows:[{name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16',
-          features:'width=300,height=650,resizeable,status=0',bound:false}],ids:{16:4,17:7}}
+        {name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16',
+         features:'width=300,height=650,resizeable,status=0',ids:{16:4,17:7}}
         """
-        _ = try await web.evaluateJavaScript("\(call)(\(request));\(call)(\(request))")
+        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "71")
         #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
         #expect(try await web.evaluateJavaScript("opened[0].name") as? String == "friendslist_uid42")
         #expect(try await web.evaluateJavaScript("opened[0].features") as? String == "width=300,height=650,resizeable,status=0")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('browser')") as? String == "196610")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('openerid')") as? String == "7")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('centerOnBrowserID')") as? String == "4")
-        _ = try await web.evaluateJavaScript("\(call)({windows:[],ids:{}})")
-        #expect(try await web.evaluateJavaScript("closedPeers") as? Int == 1)
+        _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:surface})")
+        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "71")
+        #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("nativeCloses") as? Int == 0)
+        #expect(try await web.evaluateJavaScript("typeof __sevoOverlayWindows") as? String == "undefined")
     }
-
-    @Test
-    func secondaryWindowWaitsForParentAndDoesNotCloseAnOriginalWindow() async throws {
-        let web = WKWebView()
-        web.loadHTMLString("""
-        <script>
-        window.ready=true;window.opens=0;window.closes=0;
-        window.original={closed:false,close(){closes++}};
-        window.open=()=>{opens++;return original};
-        window.g_PopupManager={GetExistingPopup:()=>null};
-        </script>
-        """, baseURL: nil)
-        for _ in 0..<100 {
-            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        let call = "(\(SteamWebKitOverlay.popupWindowsScript))"
-        _ = try await web.evaluateJavaScript("\(call)({windows:[{name:'settings_uid42',query:'pid=42&openerid=16',features:'',bound:false}],ids:{}})")
-        #expect(try await web.evaluateJavaScript("opens") as? Int == 0)
-        _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:original});\(call)({windows:[{name:'settings_uid42',query:'pid=42',features:'',bound:false}],ids:{}})")
-        _ = try await web.evaluateJavaScript("\(call)({windows:[],ids:{}})")
-        #expect(try await web.evaluateJavaScript("opens") as? Int == 0)
-        #expect(try await web.evaluateJavaScript("closes") as? Int == 0)
-    }
-
-    @Test
-    func overlayAdoptionRetainsSteamsNativeWindowRequest() {
-        let host = SteamWebHost()
-        let popup = SteamWindow(webView: WKWebView(), role: .auxiliary, name: "",
-            size: CGSize(width: 300, height: 650), origin: nil, host: host)
-        popup.adopt(name: "friendslist_uid42", parameters: "createflags=18&pid=42&browser=196610",
-                    features: "width=300,height=650,resizeable,status=0")
-        // The host's delayed orphan callback also runs for an already adopted window.
-        popup.adopt(name: "", parameters: "")
-        defer { popup.close() }
-        #expect(popup.usesOriginalGameOverlay)
-        #expect(popup.originalPopupQuery == "createflags=18&pid=42&browser=196610")
-        #expect(popup.originalPopupFeatures == "width=300,height=650,resizeable,status=0")
-        #expect(popup.nsWindow?.alphaValue == 0)
-    }
-
 }

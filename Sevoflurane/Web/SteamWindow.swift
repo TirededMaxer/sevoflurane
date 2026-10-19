@@ -57,8 +57,6 @@ final class SteamWindow: NSObject {
 
     var requestedSize: CGSize
     var requestedOrigin: CGPoint?
-    private(set) var originalPopupQuery = ""
-    private(set) var originalPopupFeatures = ""
     private var minimumSize: CGSize?
     private var maximumSize: CGSize?
     private(set) var requestsInitialFullScreen = false
@@ -306,7 +304,7 @@ final class SteamWindow: NSObject {
             // geometry from it is AppKit's job, through frame autosave.
             return name
         case "__adopt":
-            adopt(name: string(args, 0), parameters: string(args, 1), features: string(args, 2))
+            adopt(name: string(args, 0), parameters: string(args, 1))
         case "__dragRegions":
             dragRegions = rects(args.first)
         case "__openLocalDirectory":
@@ -399,11 +397,7 @@ final class SteamWindow: NSObject {
     /// `parameters` is the query of the `about:blank?…` URL the popup manager
     /// opens; it carries the size limits and creation flags that the standard
     /// window-features string has no room for.
-    func adopt(name: String, parameters: String, features: String = "") {
-        if !parameters.isEmpty {
-            originalPopupQuery = parameters
-            originalPopupFeatures = features
-        }
+    func adopt(name: String, parameters: String) {
         guard window == nil else {
             // The 400ms orphan fallback won the race against Steam's real
             // adoption: the window is built, but the identity should still

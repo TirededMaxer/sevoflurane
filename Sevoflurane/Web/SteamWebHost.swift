@@ -769,6 +769,7 @@ final class SteamWebHost {
     @ObservationIgnored var menuDismissalMonitor: Any?
 
     func windowDidClose(_ window: SteamWindow, reason: SteamWindow.DetachReason) {
+        if window.usesOriginalGameOverlay { webKitOverlay.release(window) }
         popups.removeValue(forKey: ObjectIdentifier(window.webView))
         refreshLoginWindowState()
         defer { logWindowInventory("closing \(window.name)") }

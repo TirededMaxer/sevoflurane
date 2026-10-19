@@ -46,7 +46,9 @@ extension SteamWebCoordinator: WKUIDelegate {
     }
 
     func webViewDidClose(_ webView: WKWebView) {
-        host?.window(for: webView)?.detach(reason: .steamClosedIt)
+        if let popup = host?.window(for: webView) {
+            popup.detach(reason: .steamClosedIt)
+        }
     }
 
     /// WebKit's source of truth for `window.screenX/screenY/outer*` — without
@@ -146,7 +148,14 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
             do { return (try await host?.webKitOverlay.windowCall(function, args: args, popup: window), nil) }
             catch { return (nil, String(describing: error)) }
         }
-        return (window.perform(function, args), nil)
+        let result = window.perform(function, args)
+        if function == "__adopt", window.usesOriginalGameOverlay, !(args.first as? String ?? "").isEmpty {
+            do {
+                try await host?.webKitOverlay.adopt(window, parameters: args.count > 1 ? args[1] as? String ?? "" : "",
+                                                   features: args.count > 2 ? args[2] as? String ?? "" : "")
+            } catch { return (nil, String(describing: error)) }
+        }
+        return (result, nil)
     }
 
     /// Whether a message comes from Steam's UI: the top document of one of
