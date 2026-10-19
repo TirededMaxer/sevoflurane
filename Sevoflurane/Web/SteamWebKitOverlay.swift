@@ -29,7 +29,6 @@ final class SteamWebKitOverlay {
         var renderer: SevoNativeWebRenderer?
         let cefID: UInt32
         let viewport: [Double]
-        var inputInstalled = false
         var receivedFrame = false
         init(client: CDPClient, popup: SteamWindow, cefID: UInt32, viewport: [Double]) {
             self.client = client; self.popup = popup; self.cefID = cefID; self.viewport = viewport
@@ -108,13 +107,10 @@ final class SteamWebKitOverlay {
                             mirror.receivedFrame = true
                             EventLog.shared.log(.window, "Steam consumed WebKit overlay frames: \(mirror.popup.name)")
                         }
-                        if !mirror.inputInstalled {
-                            _ = try await mirror.client.evaluate(inputScript)
-                            mirror.inputInstalled = true
-                        } else {
-                            let enabled = renderer.consumedFrames > 0 ? "true" : "false"
-                            _ = try await mirror.client.evaluate("if(window.__sevoOverlayInput){__sevoOverlayInput.ping=Date.now();__sevoOverlayInput.enabled=\(enabled)};'ping'")
-                        }
+                        // Installation is idempotent. Recreate the local bridge
+                        // if its watchdog cleaned it up during a stalled refresh.
+                        let enabled = renderer.consumedFrames > 0 ? "true" : "false"
+                        _ = try await mirror.client.evaluate(inputScript + ";if(window.__sevoOverlayInput){__sevoOverlayInput.enabled=\(enabled)};'ready'")
                     }
                 } else { try await adopt(target, id: id) }
             }

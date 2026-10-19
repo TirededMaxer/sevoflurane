@@ -3,6 +3,7 @@ import Testing
 import WebKit
 @testable import Sevoflurane
 
+@Suite(.serialized)
 @MainActor
 struct NativeOverlayInputTests {
     @Test
@@ -15,8 +16,9 @@ struct NativeOverlayInputTests {
         }
         let url = try #require(Bundle.main.url(forResource: "native_overlay_input", withExtension: "js"))
         let script = try String(contentsOf: url, encoding: .utf8)
-        #expect(try await web.evaluateJavaScript(script) as? String == "ready")
-        _ = try await web.evaluateJavaScript("window.__sevoOverlayInput.enabled=true")
+        // Model the host heartbeat while unrelated AppKit tests occupy the run loop.
+        let liveScript = script + ";__sevoOverlayInput.ping=Date.now()+60000;__sevoOverlayInput.enabled=true;'ready'"
+        #expect(try await web.evaluateJavaScript(liveScript) as? String == "ready")
         _ = try await web.evaluateJavaScript("""
         button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,clientX:10,clientY:20}));
         button.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
@@ -92,6 +94,34 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
         #expect(popup.nsWindow?.canBecomeKey == false)
         #expect(popup.nsWindow?.alphaValue == 0)
+    }
+
+
+    @Test
+    func expiredBridgeCanBeReinstalledWithoutDuplicateHandlers() async throws {
+        let web = WKWebView()
+        web.loadHTMLString("<button id='button'>Original</button><script>window.ready=true;window.sent=[];window.__sevo=x=>sent.push(JSON.parse(x));window.clicks=0;button.onclick=()=>clicks++</script>", baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let url = try #require(Bundle.main.url(forResource: "native_overlay_input", withExtension: "js"))
+        let script = try String(contentsOf: url, encoding: .utf8)
+        _ = try await web.evaluateJavaScript(script + ";__sevoOverlayInput.ping=0")
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("typeof __sevoOverlayInput==='undefined'")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(try await web.evaluateJavaScript("typeof __sevoOverlayInput==='undefined'") as? Bool == true)
+        _ = try await web.evaluateJavaScript("button.click()")
+        #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
+        let liveScript = script + ";__sevoOverlayInput.ping=Date.now()+60000;__sevoOverlayInput.enabled=true;'ready'"
+        _ = try await web.evaluateJavaScript(liveScript)
+        _ = try await web.evaluateJavaScript(liveScript)
+        _ = try await web.evaluateJavaScript("button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true}));button.click()")
+        #expect(try await web.evaluateJavaScript("sent.length") as? Int == 1)
+        #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
+        _ = try await web.evaluateJavaScript("__sevoOverlayInput.stop()")
     }
 
 }
