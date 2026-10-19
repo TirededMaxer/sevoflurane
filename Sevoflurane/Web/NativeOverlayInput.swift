@@ -81,19 +81,19 @@ enum NativeOverlayInput {
 
     private static func controlCharacter(_ code: String) -> String {
         switch code {
-        case "Enter", "NumpadEnter": "\r"
-        case "Backspace": "\u{7f}"
-        case "Tab": "\t"
-        case "Escape": "\u{1b}"
-        case "ArrowUp": "\u{f700}"
-        case "ArrowDown": "\u{f701}"
-        case "ArrowLeft": "\u{f702}"
-        case "ArrowRight": "\u{f703}"
-        case "Delete": "\u{f728}"
-        case "Home": "\u{f729}"
-        case "End": "\u{f72b}"
-        case "PageUp": "\u{f72c}"
-        case "PageDown": "\u{f72d}"
+        case "Enter", "NumpadEnter": return "\r"
+        case "Backspace": return "\u{7f}"
+        case "Tab": return "\t"
+        case "Escape": return "\u{1b}"
+        case "ArrowUp": return "\u{f700}"
+        case "ArrowDown": return "\u{f701}"
+        case "ArrowLeft": return "\u{f702}"
+        case "ArrowRight": return "\u{f703}"
+        case "Delete": return "\u{f728}"
+        case "Home": return "\u{f729}"
+        case "End": return "\u{f72b}"
+        case "PageUp": return "\u{f72c}"
+        case "PageDown": return "\u{f72d}"
         default:
             if code.hasPrefix("F"), let n = Int(code.dropFirst()), (1...20).contains(n),
                let scalar = Unicode.Scalar(0xf703+n) { return String(scalar) }
