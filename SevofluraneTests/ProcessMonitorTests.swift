@@ -28,28 +28,28 @@ struct ProcessMonitorTests {
     // MARK: - The windows lay out
 
     @Test
-    func `the process monitor lays out over the watchdog's samples`() {
+    func `the process monitor lays out over the watchdog's samples`() async throws {
         let watch = StallWatch()
         let window = Self.window(around: ProcessMonitorView(watch: watch))
         defer { window.close() }
-        settle(window)
+        try await settle(window)
         #expect(window.contentView?.subviews.isEmpty == false)
     }
 
     @Test
-    func `the report window lays out with whatever runs this Mac has`() {
+    func `the report window lays out with whatever runs this Mac has`() async throws {
         let window = Self.window(around: ReportView())
         defer { window.close() }
-        settle(window)
+        try await settle(window)
         #expect(window.contentView?.subviews.isEmpty == false)
     }
 
     @Test
-    func `the diagnostics pane lays out at every level`() {
+    func `the diagnostics pane lays out at every level`() async throws {
         for anchor in [SettingsAnchor.diagnosticsLevel, .diagnosticsGuide, .diagnosticsReports, .diagnosticsCaps] {
             let window = Self.window(around: DiagnosticsSettings(highlighted: anchor))
             defer { window.close() }
-            settle(window)
+            try await settle(window)
             #expect(window.contentView?.subviews.isEmpty == false)
         }
     }
@@ -77,10 +77,10 @@ struct ProcessMonitorTests {
     }
 
     /// Runs the main loop until SwiftUI has laid the view out.
-    private func settle(_ window: NSWindow) {
+    private func settle(_ window: NSWindow) async throws {
         for _ in 0 ..< 8 {
             window.contentView?.layoutSubtreeIfNeeded()
-            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            try await Task.sleep(for: .milliseconds(10))
         }
     }
 }

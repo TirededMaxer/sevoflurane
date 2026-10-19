@@ -44,7 +44,7 @@ struct SettingsSidebarTests {
     }
 
     @Test
-    func `search cycles with a selection set leave the list standing`() {
+    func `search cycles with a selection set leave the list standing`() async throws {
         let bindings = Bindings()
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 240, height: 420),
@@ -59,26 +59,26 @@ struct SettingsSidebarTests {
             // Every pane matches a bare "e", so the list swings between six
             // rows and every row the app has.
             bindings.searchText = "e"
-            settle(window)
+            try await settle(window)
             // Picking a result moves the selection while the widest set of
             // rows is on screen.
             bindings.category = cycle.isMultiple(of: 2) ? .engine : .games
             bindings.highlighted = .engineWindows
-            settle(window)
+            try await settle(window)
             bindings.searchText = "en"
-            settle(window)
+            try await settle(window)
             bindings.searchText = ""
             bindings.category = .general
             bindings.highlighted = nil
-            settle(window)
+            try await settle(window)
         }
         #expect(bindings.searchText.isEmpty)
     }
 
     /// One display cycle: SwiftUI applies the update, AppKit lays the table
     /// out, and Core Animation commits.
-    private func settle(_ window: NSWindow) {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+    private func settle(_ window: NSWindow) async throws {
+        try await Task.sleep(for: .milliseconds(10))
         window.layoutIfNeeded()
         CATransaction.flush()
     }
