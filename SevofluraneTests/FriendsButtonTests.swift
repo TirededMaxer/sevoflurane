@@ -19,4 +19,17 @@ struct FriendsButtonTests {
         #expect(context.exception == nil)
         #expect(context.evaluateScript("JSON.stringify(calls)")?.toString() == "[[0,false,true]]")
     }
+    @Test
+    func onlineCountUsesTheOriginalSteamCounterAndWaitsForItsList() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript("var window=this, reads=0;window.friendStore={friends_list_ready:false,GetOnlineFriendCount:()=>{reads++;return 4}};")
+        #expect(context.evaluateScript(SteamWebHost.onlineFriendCountScript)?.isNull == true)
+        #expect(context.evaluateScript("reads")?.toInt32() == 0)
+        context.evaluateScript("friendStore.friends_list_ready=true")
+        #expect(context.evaluateScript(SteamWebHost.onlineFriendCountScript)?.toString() == "4")
+        context.evaluateScript("friendStore.GetOnlineFriendCount=()=>0")
+        #expect(context.evaluateScript(SteamWebHost.onlineFriendCountScript)?.toString() == "0")
+        #expect(context.exception == nil)
+    }
+
 }
