@@ -16,6 +16,8 @@
 
 ## 覆盖边界与验收
 
+构建 50 的原生读帧计数达到 60 FPS，但用户确认游戏内无法点击，显示来源也未获得视觉确认，故该候选未通过。构建 51 调整窗口绑定、原网页就绪、输出画面和开启输入的顺序；实际显示和交互仍须验证，不能用传输计数替代验收。
+
 标准 Win32 Steam 对话框通过 Tools/steam-ui 协议读取原 HWND 和标准控件，由 WebKit 按原坐标、字体与颜色绘制，按钮、编辑、默认/取消和关闭交回原进程。自绘 VGUI、复杂列表/树和其他非标准控件仍未完整覆盖。字体从现有 Steam 容器读取，不安装字体，也不放出 CrossOver 原窗口。
 
 通知使用 Steam 原有 notificationtoasts 页面及 NotificationStore：不替换 DispatchNextToast、PopNextToastNotification 或 PlayNotificationSound，不清空或复制其通知队列。游戏焦点与浏览器列表来自原版只读快照，供原网页选择通知呈现场所；位置绑定遵循此前验收的右下角贴底行为。旧的通知队列所有权补丁已删除。

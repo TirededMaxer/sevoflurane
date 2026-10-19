@@ -143,7 +143,8 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
         }
         let args = body["args"] as? [Any] ?? []
         if window.usesOriginalGameOverlay, !function.hasPrefix("__") {
-            return (await host?.webKitOverlay.windowCall(function, args: args, popup: window), nil)
+            do { return (try await host?.webKitOverlay.windowCall(function, args: args, popup: window), nil) }
+            catch { return (nil, String(describing: error)) }
         }
         return (window.perform(function, args), nil)
     }

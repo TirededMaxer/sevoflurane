@@ -26,12 +26,13 @@ final class SteamWebKitOverlay {
     private final class Mirror {
         let client: CDPClient
         let popup: SteamWindow
-        let renderer: SevoNativeWebRenderer
+        var renderer: SevoNativeWebRenderer?
+        let cefID: UInt32
         let viewport: [Double]
         var inputInstalled = false
         var receivedFrame = false
-        init(client: CDPClient, popup: SteamWindow, renderer: SevoNativeWebRenderer, viewport: [Double]) {
-            self.client = client; self.popup = popup; self.renderer = renderer; self.viewport = viewport
+        init(client: CDPClient, popup: SteamWindow, cefID: UInt32, viewport: [Double]) {
+            self.client = client; self.popup = popup; self.cefID = cefID; self.viewport = viewport
         }
     }
 
@@ -85,7 +86,7 @@ final class SteamWebKitOverlay {
             }
             let live = Set(gameTargets.compactMap { $0["id"] as? String })
             for id in mirrors.keys where !live.contains(id) {
-                if let old = mirrors.removeValue(forKey: id) { old.renderer.stop(); NativeOverlayInput.reset(old.popup.webView); await old.client.disconnect() }
+                if let old = mirrors.removeValue(forKey: id) { old.renderer?.stop(); NativeOverlayInput.reset(old.popup.webView); await old.client.disconnect() }
             }
             for target in gameTargets {
                 guard let id = target["id"] as? String else { continue }
@@ -93,12 +94,17 @@ final class SteamWebKitOverlay {
                     let size = try await mirror.client.evaluate("JSON.stringify([innerWidth,innerHeight,devicePixelRatio])") ?? "[]"
                     let dimensions = (try? JSONSerialization.jsonObject(with: Data(size.utf8)) as? [NSNumber])?.map { $0.doubleValue }
                     if dimensions != mirror.viewport {
-                        mirror.renderer.stop(); NativeOverlayInput.reset(mirror.popup.webView); await mirror.client.disconnect(); mirrors.removeValue(forKey: id)
+                        mirror.renderer?.stop(); NativeOverlayInput.reset(mirror.popup.webView); await mirror.client.disconnect(); mirrors.removeValue(forKey: id)
                         try await adopt(target, id: id)
                         continue
                     }
-                    if attached, mirror.renderer.frames > 0 {
-                        if !mirror.receivedFrame, mirror.renderer.consumedFrames > 0 {
+                    if mirror.renderer == nil,
+                       try await mirror.popup.webView.evaluateJavaScript(Self.contentReadyScript) as? Bool == true {
+                        try startRendering(mirror)
+                    }
+                    guard let renderer = mirror.renderer else { continue }
+                    if attached, renderer.frames > 0 {
+                        if !mirror.receivedFrame, renderer.consumedFrames > 0 {
                             mirror.receivedFrame = true
                             EventLog.shared.log(.window, "Steam consumed WebKit overlay frames: \(mirror.popup.name)")
                         }
@@ -106,13 +112,13 @@ final class SteamWebKitOverlay {
                             _ = try await mirror.client.evaluate(inputScript)
                             mirror.inputInstalled = true
                         } else {
-                            let enabled = mirror.renderer.consumedFrames > 0 ? "true" : "false"
+                            let enabled = renderer.consumedFrames > 0 ? "true" : "false"
                             _ = try await mirror.client.evaluate("if(window.__sevoOverlayInput){__sevoOverlayInput.ping=Date.now();__sevoOverlayInput.enabled=\(enabled)};'ping'")
                         }
                     }
                 } else { try await adopt(target, id: id) }
             }
-            if !mirrors.isEmpty, !attached, !preparing { try await attach() }
+            if mirrors.values.contains(where: { $0.renderer != nil }), !attached, !preparing { try await attach() }
         } catch {
             // Loss of the renderer stops its heartbeat; the original Steam
             // document and pixels resume automatically on the Windows side.
@@ -135,22 +141,47 @@ final class SteamWebKitOverlay {
         guard scale.isFinite, scale > 0, Double(width)*scale <= 8192, Double(height)*scale <= 8192 else {
             await scoped.disconnect(); return
         }
-        let pixelWidth = Int((Double(width)*scale).rounded()), pixelHeight = Int((Double(height)*scale).rounded())
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-                                              attributes: [.posixPermissions: 0o700])
-        let frame = directory.appendingPathComponent("\(UUID().uuidString)-\(cefID)-\(pixelWidth)x\(pixelHeight).live")
         let view = popup.webView
         view.frame = NSRect(x: 0, y: 0, width: width, height: height)
         view.wantsLayer = true
         SteamWebHost.setOcclusionDetection(false, on: view)
         prepareSource(for: popup)
         popup.window?.setContentSize(view.frame.size)
-        guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(pixelWidth), height: UInt32(pixelHeight), framePath: frame.path, cefID: cefID)
-        else { try? FileManager.default.removeItem(at: frame); await scoped.disconnect(); return }
-        let path = SteamBottle.windowsPath(for: frame)
-        try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(pixelWidth)x\(pixelHeight).path"), options: .atomic)
-        mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer, viewport: [Double(width), Double(height), scale])
-        EventLog.shared.log(.window, "WebKit overlay connected: \(name), \(width)×\(height)")
+        // Window queries are part of Steam's page initialization. Publish
+        // this binding before waiting for that page to render any content.
+        mirrors[id] = Mirror(client: scoped, popup: popup, cefID: cefID,
+                             viewport: [Double(width), Double(height), scale])
+        EventLog.shared.log(.window, "Steam overlay window bound: \(name), \(width)×\(height)")
+    }
+
+    /// A blank host cannot replace visible Steam pixels or take its input.
+    /// Check generic rendered content, without branching on Steam's UI state.
+    static let contentReadyScript = """
+    (function () {
+      if (!document.body) return false;
+      return Array.from(document.body.querySelectorAll('button,a,input,textarea,img,svg,canvas,div,p,span')).some(function (node) {
+        if (/^(DIV|P|SPAN)$/.test(node.tagName) && (node.children.length || !node.textContent.trim())) return false;
+        var rect=node.getBoundingClientRect(), style=getComputedStyle(node);
+        return rect.width>0 && rect.height>0 && style.display!=='none' && style.visibility!=='hidden';
+      });
+    })()
+    """
+
+    private func startRendering(_ mirror: Mirror) throws {
+        let width = UInt32((mirror.viewport[0]*mirror.viewport[2]).rounded())
+        let height = UInt32((mirror.viewport[1]*mirror.viewport[2]).rounded())
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                              attributes: [.posixPermissions: 0o700])
+        let frame = directory.appendingPathComponent("\(UUID().uuidString)-\(mirror.cefID)-\(width)x\(height).live")
+        guard let renderer = SevoNativeWebRenderer(webView: mirror.popup.webView, width: width, height: height,
+                                                 framePath: frame.path, cefID: mirror.cefID) else {
+            try? FileManager.default.removeItem(at: frame)
+            throw CocoaError(.executableLoad)
+        }
+        mirror.renderer = renderer
+        try Data(SteamBottle.windowsPath(for: frame).utf8)
+            .write(to: directory.appendingPathComponent("stream-\(mirror.cefID)-\(width)x\(height).path"), options: .atomic)
+        EventLog.shared.log(.window, "WebKit overlay content ready: \(mirror.popup.name)")
     }
 
     /// Make the invisible backing available before Steam creates embedded
@@ -217,12 +248,21 @@ final class SteamWebKitOverlay {
         throw CocoaError(.executableLoad)
     }
 
-    func windowCall(_ function: String, args: [Any], popup: SteamWindow) async -> Any? {
-        guard let mirror = mirrors.values.first(where: { $0.popup === popup }),
-              function.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || $0 == "_" }),
-              let data = try? JSONSerialization.data(withJSONObject: args), let json = String(data: data, encoding: .utf8) else { return nil }
-        let value = try? await mirror.client.evaluate("(async()=>JSON.stringify(await SteamClient.Window.\(function)(...\(json))))()")
-        return value.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8), options: .fragmentsAllowed) }
+    func windowCall(_ function: String, args: [Any], popup: SteamWindow) async throws -> Any? {
+        guard function.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || $0 == "_" }),
+              let data = try? JSONSerialization.data(withJSONObject: args),
+              let json = String(data: data, encoding: .utf8) else { throw CocoaError(.coderInvalidValue) }
+        // Keep early initialization calls pending until the corresponding
+        // original CEF window has been discovered; nil is not its answer.
+        for _ in 0..<50 {
+            try Task.checkCancellation()
+            if let mirror = mirrors.values.first(where: { $0.popup === popup }) {
+                let value = try await mirror.client.evaluate("(async()=>JSON.stringify(await SteamClient.Window.\(function)(...\(json))))()")
+                return value.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8), options: .fragmentsAllowed) }
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        throw CDPClient.Failure.unreachable("Steam overlay window binding is not ready")
     }
 
     private func receive(_ raw: String, id: String) {
@@ -233,7 +273,7 @@ final class SteamWebKitOverlay {
 
     private func reset() async {
         for mirror in mirrors.values {
-            mirror.renderer.stop(); NativeOverlayInput.reset(mirror.popup.webView)
+            mirror.renderer?.stop(); NativeOverlayInput.reset(mirror.popup.webView)
             _ = try? await mirror.client.evaluate("window.__sevoOverlayInput?.stop();'stopped'")
             await mirror.client.disconnect()
         }

@@ -29,4 +29,40 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
         #expect(try await web.evaluateJavaScript("document.querySelectorAll('textarea,canvas').length") as? Int == 0)
     }
+
+    @Test
+    func emptyOrHiddenContentCannotStartInputHandoff() async throws {
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        web.loadHTMLString("<div id='empty' style='width:400px;height:300px'></div><script>window.ready=true</script>", baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await web.evaluateJavaScript(SteamWebKitOverlay.contentReadyScript) as? Bool == false)
+        _ = try await web.evaluateJavaScript("empty.innerHTML='<button style=\"display:none\">Return to game</button>'")
+        #expect(try await web.evaluateJavaScript(SteamWebKitOverlay.contentReadyScript) as? Bool == false)
+        _ = try await web.evaluateJavaScript("empty.firstChild.style.display='block'")
+        #expect(try await web.evaluateJavaScript(SteamWebKitOverlay.contentReadyScript) as? Bool == true)
+    }
+
+    @Test
+    func earlyWindowQueryWaitsForBindingAndHonorsCancellation() async throws {
+        let host = SteamWebHost()
+        let overlay = SteamWebKitOverlay(host: host)
+        let popup = SteamWindow(webView: WKWebView(), role: .gameOverlay,
+            name: "desktopoverlay_uid1", size: CGSize(width: 400, height: 300), origin: nil, host: host)
+        var completed = false
+        let query = Task { @MainActor in
+            defer { completed = true }
+            _ = try await overlay.windowCall("GetWindowDetails", args: [], popup: popup)
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!completed)
+        query.cancel()
+        do {
+            _ = try await query.value
+            Issue.record("An unavailable binding cannot answer a window query with nil")
+        } catch is CancellationError {} catch { Issue.record("Unexpected failure: \(error)") }
+    }
+
 }
