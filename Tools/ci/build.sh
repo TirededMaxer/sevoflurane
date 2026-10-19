@@ -7,37 +7,58 @@ work="$RUNNER_TEMP/sevo-build"
 out="$RUNNER_TEMP/sevo-output"
 mkdir -p "$work" "$out"
 export SEVO_EMBED_ENGINE=0
-bash Tools/steam-ui/build-cloud.sh
-bash Tools/steam-overlay/build.sh
-xcodebuild -version | tee "$out/toolchain.txt"
-sw_vers >> "$out/toolchain.txt"
+stage="${1:-all}"
 common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
     -destination 'platform=macOS,arch=arm64'
     -clonedSourcePackagesDirPath "$work/SourcePackages"
     -onlyUsePackageVersionsFromResolvedFile
     DEVELOPMENT_TEAM= ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO)
-test_status=0
-xcodebuild "${common[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
-    CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO \
-    -testLanguage en -testRegion US -resultBundlePath "$work/Tests.xcresult" test \
-    > "$out/tests.log" 2>&1 || test_status=$?
-xcrun xcresulttool get test-results summary --path "$work/Tests.xcresult" > "$out/test-summary.json"
-python3 - "$out/test-summary.json" <<'PY_SUMMARY'
-import json,sys
-s=json.load(open(sys.argv[1]))
-print(f"Cloud tests: {s['passedTests']} passed; {s['failedTests']} failed; {s['skippedTests']} skipped")
-PY_SUMMARY
-if [[ "$test_status" != 0 ]]; then
-    python3 - "$out/tests.log" <<'PY_FAILURES'
+if [[ "$stage" == test || "$stage" == all ]]; then
+    bash Tools/steam-ui/build-cloud.sh
+    bash Tools/steam-overlay/build.sh
+    xcodebuild -version | tee "$out/toolchain.txt"
+    sw_vers >> "$out/toolchain.txt"
+    # Real fullscreen/modal checks need a process without other UI fixtures
+    # changing NSApplication's window, activation and modal state underneath.
+    for group in regular appkit; do
+        if [[ "$group" == regular ]]; then
+            filter=(-skip-testing:SevofluraneTests/AppKitPresentationTests)
+        else
+            filter=(-only-testing:SevofluraneTests/AppKitPresentationTests)
+        fi
+        echo "Testing $group suites in a separate app process"
+        test_status=0
+        xcodebuild "${common[@]}" "${filter[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
+            CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO \
+            -testLanguage en -testRegion US -resultBundlePath "$work/$group.xcresult" test \
+            > "$out/$group-tests.log" 2>&1 || test_status=$?
+        xcrun xcresulttool get test-results summary --path "$work/$group.xcresult" > "$out/$group-test-summary.json"
+        if [[ "$test_status" != 0 ]]; then
+            python3 - "$out/$group-tests.log" <<'PY_FAILURES'
 import sys
 from pathlib import Path
 for line in Path(sys.argv[1]).read_text(errors="replace").splitlines():
-    if "error:" in line or "✘" in line or "Expectation failed:" in line:
+    if "✘" in line or "Expectation failed:" in line or ("error:" in line and ".swift:" in line):
         print(line)
 PY_FAILURES
-    tail -30 "$out/tests.log"
-    exit "$test_status"
+            tail -30 "$out/$group-tests.log"
+            exit "$test_status"
+        fi
+    done
+    python3 - "$out" <<'PY_SUMMARY'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+runs={name:json.loads((root/f"{name}-test-summary.json").read_text()) for name in ("regular","appkit")}
+assert all(s["passedTests"]>0 for s in runs.values()), "Both test groups must run"
+summary={key:sum(s[key] for s in runs.values()) for key in ("passedTests","failedTests","skippedTests")}
+summary["runs"]=runs
+(root/"test-summary.json").write_text(json.dumps(summary,indent=2)+"\n")
+print(f"Cloud tests: {summary['passedTests']} passed; {summary['failedTests']} failed; {summary['skippedTests']} skipped")
+PY_SUMMARY
 fi
-xcodebuild "${common[@]}" -configuration Release -derivedDataPath "$work/Release" \
-    CODE_SIGNING_ALLOWED=NO ENABLE_HARDENED_RUNTIME=YES ENABLE_TESTABILITY=NO build \
-    > "$out/build.log" 2>&1 || { tail -100 "$out/build.log"; exit 1; }
+if [[ "$stage" == release || "$stage" == all ]]; then
+    xcodebuild "${common[@]}" -configuration Release -derivedDataPath "$work/Release" \
+        CODE_SIGNING_ALLOWED=NO ENABLE_HARDENED_RUNTIME=YES ENABLE_TESTABILITY=NO build \
+        > "$out/build.log" 2>&1 || { tail -100 "$out/build.log"; exit 1; }
+fi

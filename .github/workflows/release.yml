@@ -39,9 +39,14 @@ jobs:
           pattern: sevoflurane-*
           merge-multiple: true
           path: ${{ runner.temp }}/sevo-output/
-      - name: Test and build on a fresh Apple Silicon runner
+      - name: Test on a fresh Apple Silicon runner
         if: inputs.build_run_id == ''
-        run: bash Tools/ci/build.sh
+        timeout-minutes: 12
+        run: bash Tools/ci/build.sh test
+      - name: Build the Release application
+        if: inputs.build_run_id == ''
+        timeout-minutes: 20
+        run: bash Tools/ci/build.sh release
       - name: Sign, verify and package
         if: inputs.build_run_id == ''
         run: python3 Tools/ci/package.py
