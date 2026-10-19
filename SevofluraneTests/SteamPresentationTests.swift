@@ -206,18 +206,20 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func nativeWindowUsesTheDelegateForTheSystemCloseCommand() {
-        let delegate = DocumentClose()
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
-                                         styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                                         backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        window.delegate = delegate
-        defer { window.delegate = nil; window.close() }
-        window.orderFront(nil)
-        window.performClose(nil)
-        #expect(delegate.calls == 1)
+    func nativeWindowDelegateKeepsSteamsHideAndCloseDecisions() throws {
+        let popup = SteamWindow(webView: WKWebView(), role: .friends, name: "native-close-test",
+                                size: CGSize(width: 500, height: 300), origin: nil, host: nil)
+        popup.realize()
+        defer { popup.detach(reason: .pageTeardown) }
+        let window = try #require(popup.nsWindow)
+        #expect(window.delegate === popup)
         #expect(window.standardWindowButton(.closeButton) != nil)
+        _ = popup.perform("SetHideOnClose", [true])
+        #expect(!popup.windowShouldClose(window))
+        #expect(popup.nsWindow === window)
+        _ = popup.perform("SetHideOnClose", [false])
+        #expect(!popup.windowShouldClose(window))
+        #expect(popup.nsWindow == nil)
     }
 
     @Test
@@ -272,12 +274,6 @@ private final class DragReports: NSObject, WKScriptMessageHandler {
         let args = body?["args"] as? [Any]
         last = args?.first as? [[Double]]
     }
-}
-
-@MainActor
-private final class DocumentClose: NSObject, NSWindowDelegate {
-    var calls = 0
-    func windowShouldClose(_: NSWindow) -> Bool { calls += 1; return false }
 }
 
 @MainActor
