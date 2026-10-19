@@ -23,3 +23,7 @@ void SevoNativeFrameClose(void *map) {
     __atomic_store_n(&p->header->active,0,__ATOMIC_RELEASE);
     munmap(p->header,p->size);free(p);
 }
+uint64_t SevoNativeFrameReadCount(void *map) {
+    NativeProducer *p=map;
+    return p?__atomic_load_n(&p->header->read,__ATOMIC_ACQUIRE):0;
+}

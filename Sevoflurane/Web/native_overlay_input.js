@@ -2,7 +2,7 @@
  * events delivered to this original CEF document are passed to its WK twin. */
 (function () {
   if (window.__sevoOverlayInput) { window.__sevoOverlayInput.ping = Date.now(); return "ready"; }
-  var state = {ping: Date.now()}, listeners = [], frame = 0, tick = 0;
+  var state = {ping: Date.now(), enabled:false}, listeners = [], frame = 0, tick = 0;
   var proxy = document.createElement("textarea");
   proxy.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
   proxy.setAttribute("aria-hidden", "true"); document.body.appendChild(proxy);
@@ -15,6 +15,7 @@
     frame = requestAnimationFrame(paint);
   }
   function send(e) {
+    if (!state.enabled) return;
     if (e.key === "Tab" && e.shiftKey) return; // Steam owns the opening/closing chord.
     if (e.type === "keydown" && (e.isComposing || e.key === "Process")) return;
     var kind = {pointerdown:"mousedown",pointerup:"mouseup",pointermove:"mousemove"}[e.type] || e.type;
@@ -28,7 +29,7 @@
   }
   function listen(name) { window.addEventListener(name,send,{capture:true,passive:false}); listeners.push(name); }
   ["pointerdown","pointerup","pointermove","wheel","keydown","keyup","compositionstart","compositionupdate","compositionend"].forEach(listen);
-  function suppress(e) { e.preventDefault(); e.stopImmediatePropagation(); }
+  function suppress(e) { if (state.enabled) { e.preventDefault(); e.stopImmediatePropagation(); } }
   var suppressed = ["mousedown","mouseup","mousemove","click","dblclick","contextmenu"];
   suppressed.forEach(function (n) { window.addEventListener(n,suppress,true); });
   function stop() {

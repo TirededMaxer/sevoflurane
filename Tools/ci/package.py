@@ -24,8 +24,8 @@ legacy_stage.mkdir(exist_ok=True)
 shutil.copy2(legacy_source, legacy_stage / "sevo-steam-ui.exe")
 overlay_stage = stage / "Contents/Resources/NativeOverlay"
 overlay_stage.mkdir(exist_ok=True)
-overlay_build = Path(os.environ["RUNNER_TEMP"]) / "steam-overlay-observer"
-for name in ("sevo-overlay-cpp-observer.dll", "sevo-overlay-observer-attach.exe", "manifest.json"):
+overlay_build = Path(os.environ["RUNNER_TEMP"]) / "steam-overlay"
+for name in ("sevo-overlay-webkit.dll", "sevo-overlay-attach.exe", "manifest.json"):
     shutil.copy2(overlay_build / name, overlay_stage / name)
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]

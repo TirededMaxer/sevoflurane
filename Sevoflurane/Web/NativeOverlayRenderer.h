@@ -5,5 +5,6 @@ NS_ASSUME_NONNULL_BEGIN
                                framePath:(NSString *)path cefID:(uint32_t)cefID;
 - (void)stop;
 @property(nonatomic,readonly) uint64_t frames;
+@property(nonatomic,readonly) uint64_t consumedFrames;
 @end
 NS_ASSUME_NONNULL_END

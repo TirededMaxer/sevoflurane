@@ -41,5 +41,6 @@ static inline const void *SevoNativeFrameRead(SevoNativeFrame *h,uint32_t *front
 void *SevoNativeFrameCreate(const char *path,uint32_t width,uint32_t height,uint32_t cef_id);
 void SevoNativeFrameWrite(void *map,const void *pixels,uint64_t now);
 void SevoNativeFrameClose(void *map);
+uint64_t SevoNativeFrameReadCount(void *map);
 #endif
 #endif

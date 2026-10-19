@@ -42,6 +42,7 @@ final class SteamWindow: NSObject {
     /// A menu counts as visible only when faded in — it stays ordered in for
     /// its whole life at alpha 0.
     var isWindowVisible: Bool {
+        if usesOriginalGameOverlay { return false }
         guard let window, window.isVisible else { return false }
         // Menus stay ordered in at alpha 0 so their pages keep rendering;
         // they count as visible only once faded in.

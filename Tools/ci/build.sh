@@ -8,7 +8,7 @@ out="$RUNNER_TEMP/sevo-output"
 mkdir -p "$work" "$out"
 export SEVO_EMBED_ENGINE=0
 bash Tools/steam-ui/build-cloud.sh
-bash Tools/steam-overlay-observer/build.sh
+bash Tools/steam-overlay/build.sh
 xcodebuild -version | tee "$out/toolchain.txt"
 sw_vers >> "$out/toolchain.txt"
 common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane

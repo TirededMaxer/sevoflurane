@@ -16,6 +16,7 @@ struct NativeOverlayInputTests {
         let url = try #require(Bundle.main.url(forResource: "native_overlay_input", withExtension: "js"))
         let script = try String(contentsOf: url, encoding: .utf8)
         #expect(try await web.evaluateJavaScript(script) as? String == "ready")
+        _ = try await web.evaluateJavaScript("window.__sevoOverlayInput.enabled=true")
         _ = try await web.evaluateJavaScript("""
         button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,clientX:10,clientY:20}));
         button.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));

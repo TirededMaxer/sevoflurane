@@ -1,4 +1,4 @@
-/* Windows x64 only: attach the opt-in metadata observer to an exact helper path. */
+/* Load the WebKit paint adapter into the exact installed Steam helper. */
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0601
 #include <windows.h>
@@ -56,8 +56,7 @@ static uintptr_t remote_module(DWORD pid, const wchar_t *name, int full, DWORD *
     CloseHandle(snapshot); return base;
 }
 static int allowed_observer_leaf(const wchar_t *leaf) {
-    return same_path(leaf, L"sevo-overlay-observer.dll") ||
-           same_path(leaf, L"sevo-overlay-cpp-observer.dll");
+    return same_path(leaf, L"sevo-overlay-webkit.dll");
 }
 static result attach(DWORD pid, const wchar_t *target, const wchar_t *dll, const wchar_t *leaf) {
     result r = {"open_failed", 0, WAIT_FAILED, 0, 0, 0, 0};

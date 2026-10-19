@@ -99,6 +99,7 @@
     }
     if(!self.inFlight&&self.producer){SevoNativeFrameClose(self.producer);self.producer=NULL;}
 }
+- (uint64_t)consumedFrames { return SevoNativeFrameReadCount(self.producer); }
 - (void)dealloc {
     [_timer invalidate];if(_producer)SevoNativeFrameClose(_producer);
     if(_surface)CFRelease(_surface);free(_pixels);

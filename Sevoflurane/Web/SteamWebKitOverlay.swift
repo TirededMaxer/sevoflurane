@@ -2,6 +2,11 @@ import AppKit
 import CryptoKit
 import WebKit
 
+private final class NativeOverlaySourceWindow: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
+
 /// Hosts Steam's existing overlay documents in WK; the game's original Steam
 /// renderer still owns composition, visibility, focus, cursor and hotkeys.
 @MainActor
@@ -85,7 +90,8 @@ final class SteamWebKitOverlay {
                             _ = try await mirror.client.evaluate(inputScript)
                             mirror.inputInstalled = true
                         } else {
-                            _ = try await mirror.client.evaluate("window.__sevoOverlayInput&&(window.__sevoOverlayInput.ping=Date.now()),'ping'")
+                            let enabled = mirror.renderer.consumedFrames > 0 ? "true" : "false"
+                            _ = try await mirror.client.evaluate("if(window.__sevoOverlayInput){__sevoOverlayInput.ping=Date.now();__sevoOverlayInput.enabled=\(enabled)};'ping'")
                         }
                     }
                 } else { try await adopt(target, id: id) }
@@ -117,14 +123,14 @@ final class SteamWebKitOverlay {
         view.wantsLayer = true
         SteamWebHost.setOcclusionDetection(false, on: view)
         if popup.window == nil {
-            let window = NSPanel(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            let window = NativeOverlaySourceWindow(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             window.alphaValue = 0; window.isOpaque = false; window.backgroundColor = .clear
             window.ignoresMouseEvents = true; window.hidesOnDeactivate = false
             window.collectionBehavior = [.stationary, .ignoresCycle]
             window.contentView = view; window.orderBack(nil); popup.window = window
         }
         guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(width), height: UInt32(height), framePath: frame.path, cefID: cefID)
-        else { await scoped.disconnect(); return }
+        else { try? FileManager.default.removeItem(at: frame); await scoped.disconnect(); return }
         let path = SteamBottle.windowsPath(for: frame)
         try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(width)x\(height).path"), options: .atomic)
         mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer)
@@ -142,19 +148,19 @@ final class SteamWebKitOverlay {
                 .map { String(format: "%02x", $0) }.joined()
             guard digest == record?[key] as? String else { throw CocoaError(.fileReadCorruptFile) }
         }
-        for name in ["sevo-overlay-cpp-observer.dll", "sevo-overlay-observer-attach.exe"] {
+        for name in ["sevo-overlay-webkit.dll", "sevo-overlay-attach.exe"] {
             let destination = directory.appendingPathComponent(name)
             let bytes = try Data(contentsOf: resources.appendingPathComponent(name))
             if (try? Data(contentsOf: destination)) != bytes { try bytes.write(to: destination, options: .atomic) }
         }
         try Data((SteamBottle.windowsPath(for: directory)+"\n").utf8)
-            .write(to: directory.appendingPathComponent("cpp-observer.cfg"), options: .atomic)
+            .write(to: directory.appendingPathComponent("overlay.cfg"), options: .atomic)
         let result = directory.appendingPathComponent("attach-result.json")
         try? FileManager.default.removeItem(at: result)
         let invocation = Engine.active.wineInvocation(bottle: SteamBottle.name, wait: .none, program: [
-            directory.appendingPathComponent("sevo-overlay-observer-attach.exe").path,
+            directory.appendingPathComponent("sevo-overlay-attach.exe").path,
             SteamBottle.windowsPath(for: cef.appendingPathComponent("steamwebhelper.exe")),
-            SteamBottle.windowsPath(for: directory.appendingPathComponent("sevo-overlay-cpp-observer.dll")),
+            SteamBottle.windowsPath(for: directory.appendingPathComponent("sevo-overlay-webkit.dll")),
             SteamBottle.windowsPath(for: result),
         ])
         _ = await Subprocess.run(invocation.executable.path, invocation.arguments, environment: invocation.environment, capture: .none, timeout: .seconds(10))
@@ -163,7 +169,14 @@ final class SteamWebKitOverlay {
                let report = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let matched = report["matched"] as? Int, matched > 0,
                report["loaded"] as? Int == matched, report["error"] as? Int == 0 {
-                attached = true; return
+                let processes = report["results"] as? [[String: Any]] ?? []
+                if processes.contains(where: { process in
+                    guard let pid = process["pid"] as? Int else { return false }
+                    return (try? String(contentsOf: directory.appendingPathComponent("ready-\(pid).status"), encoding: .utf8)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)) == "0"
+                }) {
+                    attached = true; return
+                }
             }
             try await Task.sleep(for: .milliseconds(100))
         }
