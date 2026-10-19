@@ -20,8 +20,8 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `actual menu and dialog panels retain the original document frame`() throws {
-        for role in [SteamWindowRole.menu, .dialog, .keyboard] {
+    func `menus and on screen keyboard remain borderless panels`() throws {
+        for role in [SteamWindowRole.menu, .keyboard] {
             let owner = popup(role: role)
             owner.realize()
             defer { owner.detach(reason: .pageTeardown) }
@@ -76,7 +76,7 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `game chat instance is left to the original renderer`() {
+    func `game chat follows original show requests through the native window adapter`() {
         let host = SteamWebHost()
 
         let owner = chat(named: "chat_ChatWindow_5_uid1320", host: host)
@@ -84,7 +84,7 @@ struct OverlayPopupChromeTests {
         owner.window = window
 
         owner.show(activating: false)
-        #expect(window.orderCount == 0)
+        #expect(window.orderCount == 1)
     }
 
     @Test

@@ -18,8 +18,9 @@ struct SteamDialogRoleTests {
         let role = SteamWindowRole.dialog
         // Never activates the app: the desktop must not become key on a quit.
         #expect(role.isPanel)
-        // Steam draws its own frame.
-        #expect(!role.hasPopupChrome)
+        // AppKit supplies the frame and hides duplicate webpage controls.
+        #expect(role.hasPopupChrome)
+        #expect(role.hasNativeFrame)
         #expect(role.isShowable)
         // Genuinely on screen, so it may stop rendering when covered.
         #expect(role.allowsOcclusionDetection)

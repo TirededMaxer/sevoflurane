@@ -8,9 +8,7 @@ struct SteamPresentationTests {
     @Test
     func originalGamePagesOnlyUseInvisibleNonActivatingSources() {
         let host = SteamWebHost()
-        for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730", "friendslist_uid730",
-                     "chat_ChatWindow_1_uid730", "contextmenu_4_uid730", "PopupWindow_warning_uid730",
-                     "new_steam_game_panel_uid730", "notificationtoasts_1_gameoverlay", "notificationtoasts_uid730-123"] {
+        for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730"] {
             let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
                                     name: name, size: CGSize(width: 400, height: 300), origin: nil, host: host)
             host.windowDidAdopt(popup)
@@ -22,11 +20,24 @@ struct SteamPresentationTests {
             #expect(popup.nsWindow?.canBecomeMain == false, "\(name)")
             #expect(popup.nsWindow?.ignoresMouseEvents == true, "\(name)")
             #expect(!popup.isWindowVisible, "\(name)")
-            if name == "new_steam_game_panel_uid730" {
-                _ = popup.perform("__bv", [91, "create"])
-                #expect(popup.browserViewStatuses.map(\.id) == [91])
-            }
             popup.close()
+        }
+    }
+
+    @Test
+    func overlayChildWindowsUseNativeNonActivatingFrames() throws {
+        for name in ["friendslist_uid730", "chat_1_uid730", "PopupWindow_warning_uid730", "browser_uid730"] {
+            let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
+                                    name: name, size: CGSize(width: 400, height: 300), origin: nil, host: nil)
+            popup.realize()
+            defer { popup.detach(reason: .pageTeardown) }
+            let window = try #require(popup.nsWindow as? NSPanel)
+            #expect(!popup.usesOriginalGameOverlay)
+            #expect(window.styleMask.contains(.titled))
+            #expect(window.styleMask.contains(.nonactivatingPanel))
+            #expect(window.standardWindowButton(.closeButton) != nil)
+            #expect(window.level == .popUpMenu)
+            #expect(window.collectionBehavior.contains(.fullScreenAuxiliary))
         }
     }
 
@@ -134,7 +145,7 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func originalTitleStripRemainsVisibleAndInteractiveWhileReportingEmptyDragRegions() async throws {
+    func nativeChromeHidesOnlyTheDuplicateStripAndKeepsOriginalCommands() async throws {
         let configuration = WKWebViewConfiguration()
         let messages = DragReports()
         configuration.userContentController.add(messages, name: "sevoWindow")
@@ -147,31 +158,29 @@ struct SteamPresentationTests {
         <script>window.calls=[];document.querySelectorAll('button').forEach(function(b){b.onclick=function(){calls.push(b.id)}});window.ready=true;</script>
         """, baseURL: nil)
         try await ready(web)
-        let before = try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String
         _ = try await web.evaluateJavaScript(SteamDesktopChrome.script)
-        #expect(try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String == before)
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.menus')).display") as? String == "none")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.controls')).display") as? String == "none")
         for _ in 0..<80 {
             if messages.last != nil { break }
             try await Task.sleep(for: .milliseconds(25))
         }
         let regions = try #require(messages.last)
-        #expect(regions == [[140, 0, 661, 32]])
+        #expect(regions == [[80, 0, 820, 32]])
         _ = try await web.evaluateJavaScript("document.querySelectorAll('button').forEach(function(b){b.click()})")
         #expect(try await web.evaluateJavaScript("JSON.stringify(calls)") as? String == #"["menu","min","max","close"]"#)
     }
 
     @Test
-    func sourceWindowControlsNeedNoMacTitlebarAndToastsHaveNoAddedMaterial() throws {
+    func userWindowsHaveNativeControlsAndToastsStayBorderless() throws {
         for role in [SteamWindowRole.desktop, .login, .friends, .chat, .auxiliary, .bigPicture, .toast, .dialog] {
             let popup = SteamWindow(webView: WKWebView(), role: role, name: "source-ui-test",
                                     size: CGSize(width: 500, height: 300), origin: nil, host: nil)
             popup.realize()
             defer { popup.detach(reason: .pageTeardown) }
             let window = try #require(popup.nsWindow)
-            #expect(!window.styleMask.contains(.titled))
-            #expect(window.toolbar == nil)
-            #expect(window.standardWindowButton(.closeButton) == nil)
-            #expect(window.contentView?.bounds.size == CGSize(width: 500, height: 300))
+            #expect(window.styleMask.contains(.titled) == role.hasNativeFrame)
+            #expect((window.standardWindowButton(.closeButton) != nil) == role.hasNativeFrame)
             #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == false)
             if role != .toast { #expect(window.canBecomeKey) }
             if !role.isPanel { #expect(window.canBecomeMain) }
@@ -179,25 +188,25 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func borderlessDocumentStillSupportsTheSystemCloseCommand() {
+    func nativeWindowUsesTheDelegateForTheSystemCloseCommand() {
         let delegate = DocumentClose()
-        let window = SteamDocumentWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
-                                         styleMask: [.borderless, .closable, .miniaturizable, .resizable],
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
+                                         styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                          backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.delegate = delegate
         defer { window.delegate = nil; window.close() }
         window.performClose(nil)
         #expect(delegate.calls == 1)
-        #expect(window.standardWindowButton(.closeButton) == nil)
+        #expect(window.standardWindowButton(.closeButton) != nil)
     }
 
     @Test
     func originalMaximizeUsesTheNativeWindowAndRestoresItsGeometry() throws {
         let screen = try #require(NSScreen.main)
         let delegate = DocumentZoom(frame: screen.visibleFrame.insetBy(dx: 50, dy: 20))
-        let window = SteamDocumentWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 300),
-                                         styleMask: [.borderless, .closable, .miniaturizable, .resizable],
+        let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 500, height: 300),
+                                         styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                          backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.delegate = delegate

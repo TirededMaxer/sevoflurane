@@ -16,10 +16,10 @@ struct SteamMenuMirrorTests {
 @MainActor
 struct SevofluraneMainMenuTests {
     @Test
-    func removedTopLevelMenusKeepHiddenEditingShortcuts() async throws {
-        let menu = SevofluraneMainMenu.makeMenu()
-        #expect(menu.items.filter { !$0.isHidden }.map(\.title) == ["Sevoflurane"])
-        let application = try #require(menu.items.first?.submenu)
+    func steamMenusAndNativeEditingShortcutsShareTheMenuBar() async throws {
+        let menu = SevofluraneMainMenu.makeMenu(mirror: SteamMenuMirror(host: SteamWebHost()))
+        #expect(menu.items.filter { !$0.isHidden }.map(\.title) == ["Sevoflurane", "Steam", "View", "Friends", "Games", "Edit", "Window", "Help"])
+        let application = try #require(menu.item(withTitle: "Edit")?.submenu)
         application.autoenablesItems = false
         let recorder = ShortcutRecorder()
         let shortcuts: [(String, UInt16)] = [("x", 7), ("c", 8), ("v", 9), ("a", 0), ("z", 6)]
@@ -27,7 +27,7 @@ struct SevofluraneMainMenuTests {
         // AppKit validate/cache the initial Cut command against the real responder.
         for (key, _) in shortcuts {
             let item = try #require(application.items.first { $0.keyEquivalent == key })
-            #expect(item.isHidden && item.allowsKeyEquivalentWhenHidden)
+            #expect(!item.isHidden)
             item.target = recorder
             item.action = #selector(ShortcutRecorder.command(_:))
             item.isEnabled = true

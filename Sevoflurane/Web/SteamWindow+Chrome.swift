@@ -60,6 +60,20 @@ extension SteamWindow {
         case .context:
             break
         }
+        if role.hasNativeFrame, role != .desktop, role != .bigPicture {
+            window.title = webView.title ?? "Steam"
+            titleObservation = webView.observe(\.title) { [weak window] view, _ in
+                onMainThread {
+                    guard let title = view.title, !title.isEmpty else { return }
+                    window?.title = title
+                }
+            }
+        }
+        if isGamePopup, !usesOriginalGameOverlay {
+            window.level = .popUpMenu
+            window.hidesOnDeactivate = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        }
     }
 
     /// A popup that carries its own header: the macOS title bar is
@@ -76,17 +90,12 @@ extension SteamWindow {
         window.title = webView.title ?? "Steam"
         window.backgroundColor = Self.steamBackground
         window.collectionBehavior.insert(.fullScreenPrimary)
-        titleObservation = webView.observe(\.title) { [weak window] view, _ in
-            onMainThread {
-                guard let title = view.title, !title.isEmpty else { return }
-                window?.title = title
-            }
-        }
+
     }
 
     /// The desktop and sign-in windows, whose title bar Steam draws itself.
     private func applyDesktopChrome(to window: NSWindow) {
-        // The original document supplies its titlebar and all its buttons.
+        // The AppKit titlebar supplies native controls over Steam's top strip.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = Self.steamBackground
@@ -97,6 +106,8 @@ extension SteamWindow {
         window.collectionBehavior = [.primary, .managed, .fullScreenPrimary]
         if role == .desktop {
             window.title = "Steam"
+            window.toolbar = NSToolbar()
+            window.toolbarStyle = .unifiedCompact
         }
     }
 

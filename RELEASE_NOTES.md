@@ -1,4 +1,8 @@
-# Sevoflurane 1.7.0-fork.5 — 构建 54
+# Sevoflurane 1.7.0-fork.5 — 构建 55
+
+带窗口控制的登录、账号选择、主界面、好友聊天、辅助窗口及网页警告改用 AppKit 原生窗框和红黄绿按钮，隐藏网页里重复的 Windows 窗口按钮。叠加层主画布继续接入原游戏显示路径；叠加层子窗口使用不激活游戏外应用的 AppKit 面板。菜单、通知和提示不加标题栏。标准 Win32 对话框保留原控件和 HWND 操作，仅将自绘标题栏替换为 AppKit 标题栏。
+
+恢复 Steam、View、Friends、Games、Help 五项 macOS 菜单，读取原菜单项与勾选/禁用状态，选择项目仍触发原网页命令。保留原生 Edit 和 Window 菜单快捷键。登录成功后停留后台，不自动显示主界面；明确点击“打开 Steam”才打开。
 
 游戏网页沿用主界面的接入方式：加载 Steam 原有 HTML、CSS、JavaScript，Overlay、WebChat 和游戏焦点的查询与注册直接通过现有 SteamClient 桥接，不再维护叠加层状态快照和本地订阅。
 

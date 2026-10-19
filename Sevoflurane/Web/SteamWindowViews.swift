@@ -1,34 +1,16 @@
 import AppKit
 import WebKit
 
-/// Steam supplies its original Windows frame in the document. AppKit must
-/// still allow that borderless document to become the main keyboard window.
-final class SteamDocumentWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-
-    // NSWindow's perform* methods click standard titlebar buttons. This
-    // document has no such buttons: preserve the same delegate/OS operations
-    // for menu commands while Steam keeps painting its own controls.
-    override func performClose(_ sender: Any?) {
-        guard delegate?.windowShouldClose?(self) != false else { return }
-        close()
-    }
-
-    override func performMiniaturize(_ sender: Any?) { miniaturize(sender) }
-    override func performZoom(_ sender: Any?) { zoom(sender) }
-}
-
 /// A panel that can take key focus while borderless.
 ///
 /// Steam's menus dismiss themselves when their window loses focus, which only
 /// happens if it could hold focus in the first place — a plain borderless
 /// `NSWindow` never becomes key, so every menu would stay on screen forever.
 final class SteamPanel: NSPanel {
-    init(contentRect: NSRect) {
+    init(contentRect: NSRect, styleMask: NSWindow.StyleMask = [.borderless, .nonactivatingPanel]) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false,
         )

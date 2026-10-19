@@ -1,35 +1,26 @@
 import AppKit
 
-/// Steam keeps its own menu strip inside its original document. Only the
-/// Sevoflurane application menu belongs in the macOS menu bar.
+/// Native macOS menus dispatch the original Steam webpage commands.
 enum SevofluraneMainMenu {
-    static func install() {
-        NSApp.mainMenu = makeMenu()
-        NSApp.windowsMenu = nil
-        NSApp.helpMenu = nil
+    static func install(mirror: SteamMenuMirror) {
+        NSApp.mainMenu = makeMenu(mirror: mirror)
+        NSApp.windowsMenu = NSApp.mainMenu?.item(withTitle: "Window")?.submenu
+        NSApp.helpMenu = mirror.menu(for: "Help")
     }
 
-    static func makeMenu() -> NSMenu {
+    static func makeMenu(mirror: SteamMenuMirror) -> NSMenu {
         let main = NSMenu()
-        let application = appMenu()
-        // WebKit uses AppKit's responder-chain commands for macOS editing
-        // shortcuts. Hidden items keep that routing without a visible Edit menu.
-        let editing = editMenu()
-        for item in editing.items where !item.isSeparatorItem {
-            editing.removeItem(item)
-            item.isHidden = true
-            item.allowsKeyEquivalentWhenHidden = true
-            application.addItem(item)
+        main.addItem(submenu(appMenu(), title: "Sevoflurane"))
+        for title in SteamMenuMirror.rootTitles where title != "Help" {
+            main.addItem(submenu(mirror.menu(for: title), title: title))
         }
-        for (title, action, key) in [
-            ("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
-            ("Close", #selector(NSWindow.performClose(_:)), "w"),
-        ] {
-            let item = application.addItem(withTitle: title, action: action, keyEquivalent: key)
-            item.isHidden = true
-            item.allowsKeyEquivalentWhenHidden = true
-        }
-        main.addItem(submenu(application, title: "Sevoflurane"))
+        main.addItem(submenu(editMenu(), title: "Edit"))
+        let windows = NSMenu()
+        windows.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windows.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windows.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        main.addItem(submenu(windows, title: "Window"))
+        main.addItem(submenu(mirror.menu(for: "Help"), title: "Help"))
         return main
     }
 

@@ -26,9 +26,8 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
         configuration.setURLSchemeHandler(fontHandler, forURLScheme: OriginalDialogFonts.scheme)
         webView = OriginalDialogWebView(frame: .zero, configuration: configuration)
         window = OriginalSteamDialogPanel(
-            contentRect: NSRect(x: 0, y: 0, width: width + dialog.frameLeft + dialog.frameRight,
-                                height: height + dialog.frameTop + dialog.frameBottom),
-            styleMask: [.borderless], backing: .buffered, defer: false
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false
         )
         super.init()
         window.isReleasedWhenClosed = false
@@ -44,8 +43,7 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
         webView.navigationDelegate = self
         webView.isInspectable = true
         webView.loadHTMLString(Self.document, baseURL: URL(string: "about:blank"))
-        (webView as? OriginalDialogWebView)?.captionHeight = dialog.frameTop
-        (webView as? OriginalDialogWebView)?.hasClose = dialog.canClose == true
+        window.standardWindowButton(.closeButton)?.isEnabled = dialog.canClose == true
         window.center()
     }
 
@@ -79,11 +77,9 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
     func update(_ snapshot: SteamNativeDialog) {
         dialog = snapshot
         window.title = snapshot.title
-        (webView as? OriginalDialogWebView)?.captionHeight = snapshot.frameTop
-        (webView as? OriginalDialogWebView)?.hasClose = snapshot.canClose == true
+        window.standardWindowButton(.closeButton)?.isEnabled = snapshot.canClose == true
         if let width = snapshot.clientWidth, let height = snapshot.clientHeight {
-            let size = NSSize(width: width + snapshot.frameLeft + snapshot.frameRight,
-                              height: height + snapshot.frameTop + snapshot.frameBottom)
+            let size = NSSize(width: width, height: height)
             if window.contentView?.frame.size != size { window.setContentSize(size) }
         }
         guard ready else { return }
@@ -109,10 +105,6 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
         guard !originalClosed, message.frameInfo.isMainFrame, message.webView === webView,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         if action == "close" { requestClose(); return }
-        if action == "drag", let event = NSApp.currentEvent, event.type == .leftMouseDown {
-            window.performDrag(with: event)
-            return
-        }
         guard let handleText = body["handle"] as? String, let handle = UInt64(handleText),
               let control = dialog.controls?.first(where: { $0.handle == handle }), control.enabled else { return }
         let args = ["control", String(dialog.handle), String(dialog.pid), String(handle)]
@@ -143,10 +135,6 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
     <style>
     *{box-sizing:border-box}html,body{margin:0;overflow:hidden;width:100%;height:100%}
     body{background:var(--face);color:var(--windowText);font-family:sans-serif}
-    #caption{position:absolute;inset:0 0 auto 0;display:flex;align-items:center;background:var(--caption);color:var(--captionText);user-select:none;overflow:hidden}
-    #title{padding-left:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
-    #close{appearance:none;border:0;background:transparent;color:inherit;padding:0;align-self:stretch;min-width:26px;font:inherit;line-height:1;flex:none}
-    #close:hover{background:var(--highlight);color:var(--highlightText)}
     #client{position:absolute;background:var(--face);overflow:hidden}
     .control{position:absolute;margin:0;line-height:normal;white-space:pre-wrap}
     .button{appearance:none;color:var(--buttonText);background:var(--face);border:1px solid var(--shadow);border-top-color:var(--light);border-left-color:var(--light);border-radius:0;padding:1px 4px;overflow:hidden;text-align:center}
@@ -164,7 +152,7 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
     progress{appearance:none;border:1px inset var(--shadow);background:var(--face)}progress::-webkit-progress-bar{background:var(--face)}progress::-webkit-progress-value{background:var(--highlight)}
     img.control{object-fit:contain}::selection{background:var(--highlight);color:var(--highlightText)}
     </style><style id="fonts"></style></head><body>
-    <div id="caption"><span id="title"></span><button id="close" tabindex="-1">×</button></div><main id="client"></main>
+    <main id="client"></main>
     <script>
     'use strict';
     let original=null;const elements=new Map();const client=document.getElementById('client');
@@ -207,16 +195,12 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
       original=snapshot;
       document.getElementById('fonts').textContent=Object.entries(fontSources).map(([family,url])=>'@font-face{font-family:'+JSON.stringify(family)+';src:url('+JSON.stringify(url)+')}').join('\n');
       for(const key of ['face','buttonText','window','windowText','highlight','highlightText','shadow','light','grayText','caption','captionText']){const value=rgb(snapshot[key]);if(value)document.documentElement.style.setProperty('--'+key,value)}
-      document.getElementById('title').textContent=snapshot.title;applyFont(document.getElementById('caption'),snapshot.font);
-      const top=snapshot.frameTop||0;document.getElementById('caption').style.height=top+'px';document.getElementById('caption').hidden=!top;document.getElementById('close').hidden=!snapshot.canClose;
-      Object.assign(client.style,{left:snapshot.frameLeft+'px',top:top+'px',width:snapshot.clientWidth+'px',height:snapshot.clientHeight+'px'});
+      Object.assign(client.style,{left:'0px',top:'0px',width:snapshot.clientWidth+'px',height:snapshot.clientHeight+'px'});
       const current=new Set(snapshot.controls.map(c=>String(c.handle)));for(const [key,el]of elements)if(!current.has(key)){el.remove();elements.delete(key)}
       for(const c of snapshot.controls){const key=String(c.handle);let el=elements.get(key);if(el&&(el.dataset.kind!==c.className.toLowerCase()||el.dataset.type!==String(c.style))){el.remove();elements.delete(key);el=null}if(!el){el=make(c);elements.set(key,el);client.append(el)}update(c,el)}
       // Preserve original enumeration/Tab order while retaining live IME nodes.
       const live=document.activeElement;if(!live||live===document.body){const first=client.querySelector('[tabindex="0"]');if(first)first.focus()}
     };
-    document.getElementById('close').addEventListener('click',()=>send('close'));
-    document.getElementById('caption').addEventListener('mousedown',e=>{if(e.button===0&&!e.target.closest('button'))send('drag')});
     document.addEventListener('keydown',e=>{
       if(!original||e.isComposing)return;
       if(e.key==='Tab'){
@@ -241,20 +225,12 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
 
 @MainActor
 private final class OriginalDialogWebView: WKWebView {
-    var captionHeight: CGFloat = 0
-    var hasClose = false
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) {
         Activation().bringAppForward()
         window?.makeKeyAndOrderFront(nil)
-        let point = convert(event.locationInWindow, from: nil)
-        let y = isFlipped ? point.y : bounds.height - point.y
-        if y < captionHeight, !hasClose || point.x < bounds.width - 26 {
-            window?.performDrag(with: event)
-        } else {
-            window?.makeFirstResponder(self)
-            super.mouseDown(with: event)
-        }
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
     }
 }
 

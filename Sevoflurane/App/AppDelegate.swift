@@ -163,14 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
             if bootedOnFixtures() { return }
         #endif
-        // A person opened the app — the Dock, the Finder, `open` — rather
-        // than the system opening it as a login item or to handle a file.
-        // The window is what they came for, so it comes up as soon as the
-        // client is healthy; a login-item launch stays a menu-bar app.
-        if note.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool == true {
-            EventLog.shared.log(.window, "opened by hand — Steam's window follows the client up")
-            supervisor.showLibraryWhenHealthy()
-        }
+        // Signing in leaves Steam in the background. An explicit Open Steam
+        // request is the only reason to raise the library after launch.
         startServices()
         nativeSteamDialogs.modalityDidChange = { [weak host = host] blocked in
             host?.setNativeDialogModal(blocked)
@@ -209,7 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mirror = SteamMenuMirror(host: host)
         menuMirror = mirror
         host.menuMirror = mirror
-        SevofluraneMainMenu.install()
+        SevofluraneMainMenu.install(mirror: mirror)
         // Before the gallery and dry-run gates return: setting the delegate
         // is what lets a click on a notification that woke the app be
         // delivered at all, and reading the permission raises no prompt.

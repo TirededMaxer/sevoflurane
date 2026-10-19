@@ -23,8 +23,10 @@ final class SteamWindow: NSObject {
     private var desktopShowActivating = false
 
     var window: NSWindow?
-    var usesOriginalGameOverlay: Bool {
-        role == .gameOverlay || SteamWindowRole.usesOriginalGameOverlay(popupName: name)
+    var usesOriginalGameOverlay: Bool { role == .gameOverlay }
+    var isGamePopup: Bool {
+        SteamWindowRole.instanceUID(ofPopupNamed: name) != 0
+            && role != .desktop && role != .login && role != .bigPicture && role != .context
     }
     /// The backing window, for app-level policy decisions that must exclude
     /// it (a hiding window still reads as visible for a beat).
@@ -173,22 +175,16 @@ final class SteamWindow: NSObject {
 
     /// The bare `NSWindow` for this popup's role, before any dressing.
     private func makeWindow(content: NSRect) -> NSWindow {
-        return switch role {
-        case .menu, .keyboard, .dialog:
-            SteamPanel(contentRect: content)
-        case .toast:
-            SteamToastPanel(contentRect: content, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        default:
-            // Steam already paints its complete frame and window controls.
-            // An activating borderless window hosts the unmodified document;
-            // adding an AppKit titlebar would cover or move source controls.
-            SteamDocumentWindow(
-                contentRect: content,
-                styleMask: [.borderless, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false,
-            )
+        if role == .toast {
+            return SteamToastPanel(contentRect: content, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         }
+        var style: NSWindow.StyleMask = role.hasNativeFrame ? [.titled, .closable, .miniaturizable, .resizable] : [.borderless]
+        if role.hasNativeFrame, role != .bigPicture, role != .dialog { style.insert(.fullSizeContentView) }
+        if role.isPanel || isGamePopup {
+            style.insert(.nonactivatingPanel)
+            return SteamPanel(contentRect: content, styleMask: style)
+        }
+        return NSWindow(contentRect: content, styleMask: style, backing: .buffered, defer: false)
     }
 
     /// The view the page is hosted in.
@@ -515,7 +511,7 @@ final class SteamWindow: NSObject {
     }
 
     private func completeShow(_ window: NSWindow, activating: Bool) {
-        let becameRegular = !role.isPanel && NSApp.activationPolicy() != .regular
+        let becameRegular = !window.styleMask.contains(.nonactivatingPanel) && NSApp.activationPolicy() != .regular
         if becameRegular {
             NSApp.setActivationPolicy(.regular)
         }
@@ -614,7 +610,7 @@ final class SteamWindow: NSObject {
 
     /// Brings the app and this window forward.
     private func activate(_ window: NSWindow) {
-        if !role.isPanel {
+        if !window.styleMask.contains(.nonactivatingPanel) {
             Activation().bringAppForward()
         }
         window.makeKeyAndOrderFront(nil)

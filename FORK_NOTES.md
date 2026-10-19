@@ -4,9 +4,9 @@
 
 ## 当前实现
 
-- Steam 页面沿用其原有 HTML、CSS、脚本、字体、布局、标题按钮和动画，由 WebKit/AppKit 承载桌面窗口。macOS 顶部只保留 Sevoflurane 应用菜单，隐藏的快捷键命令继续支持文本编辑。大屏幕模式读取 Steam 的 FullScreen 创建标记，不重写 Steam 的模式切换。
+- Steam 页面沿用其原有 HTML、CSS、脚本、字体和内容布局，由 WebKit/AppKit 承载。带窗口控制的界面使用 AppKit 原生窗框与红黄绿按钮，网页重复按钮隐藏。Steam、View、Friends、Games、Help 五项菜单映射回 macOS 菜单栏，选择仍交给原网页命令，Edit 与 Window 提供系统快捷键。登录成功后停留后台，仅明确请求打开 Steam 才显示主界面。大屏幕模式读取 Steam 的 FullScreen 创建标记，不重写 Steam 的模式切换。
 - 嵌入网页的 alert/confirm 通过原版 BrowserView 事件及回答接口交回 Steam 原有弹窗组件。
-- 游戏叠加层中的原 Steam 页面由 WebKit 运行，画面接回原 CEF 绘制入口；原注入、窗口合成、Shift+Tab、焦点、光标及开关动画仍由 Steam 控制。页面输入在原 CEF 显示窗口与对应 WebKit 文档之间做平台转换。Overlay、WebChat 和游戏焦点调用与注册通过既有 SteamClient 桥接直通，不维护第二套状态快照和本地订阅。
+- 游戏叠加层中的原 Steam 页面由 WebKit 运行，画面接回原 CEF 绘制入口；原注入、窗口合成、Shift+Tab、焦点、光标及开关动画仍由 Steam 控制。主画布输入在原 CEF 显示窗口与对应 WebKit 文档之间做平台转换；叠加层子窗口使用不激活游戏外应用的 AppKit 面板，直接接收原生输入。Overlay、WebChat 和游戏焦点调用与注册通过既有 SteamClient 桥接直通，不维护第二套状态快照和本地订阅。
 - 桌面通知使用 Steam 原有 notificationtoasts 网页与动画，由不抢焦点的窗口承载并显示在全屏游戏之上。macOS 通知中心模块已移除。
 - 首次点击获取焦点；主窗口空白标题区支持拖动、双击缩放；登录与主窗口进入普通桌面空间；窗口首次居中，此后记住位置和大小。菜单保留原版悬浮规则并清除离开后的残留状态。
 - 游戏名称下方复用原有状态行显示云存档上传中/失败；上传完成即恢复原状。只读取本地 cloud_log.txt，上传中阻止启动该游戏。
@@ -16,9 +16,9 @@
 
 ## 覆盖边界与验收
 
-构建 50–53 均未通过用户游戏内验收；构建 51 后按钮可交互，但子窗口不可见且点击卡顿，构建 53 仍无有效改善。构建 54 去掉状态快照/订阅分支和定时补建/回收原生子窗口的管理器，改为原网页 window.open 直接完成窗口适配，原生绑定完成后再交付 popup-created。保留图像、窗口 API 与输入协议转换；不重写 Steam 的通知队列、页面动作、动画、Shift+Tab 或光标规则。尚待用户实际验收，不把云端夹具检查或传输计数当作游戏测试。按用户要求安装后关闭，不自动启动 CS2。
+构建 50–53 均未通过用户游戏内验收；构建 51 后按钮可交互，但子窗口不可见且点击卡顿，构建 53 仍无有效改善。构建 54/55 去掉状态快照/订阅分支和定时补建/回收原生子窗口的管理器，改为原网页 window.open 直接完成窗口适配，原生绑定完成后再交付 popup-created。保留图像、窗口 API 与输入协议转换；不重写 Steam 的通知队列、页面动作、动画、Shift+Tab 或光标规则。尚待用户实际验收，不把云端夹具检查或传输计数当作游戏测试。按用户要求安装后关闭，不自动启动 CS2。
 
-标准 Win32 Steam 对话框通过 Tools/steam-ui 协议读取原 HWND 和标准控件，由 WebKit 按原坐标、字体与颜色绘制，按钮、编辑、默认/取消和关闭交回原进程。自绘 VGUI、复杂列表/树和其他非标准控件仍未完整覆盖。字体从现有 Steam 容器读取，不安装字体，也不放出 CrossOver 原窗口。
+标准 Win32 Steam 对话框通过 Tools/steam-ui 协议读取原 HWND 和标准控件，由 WebKit 按原坐标、字体与颜色绘制客户区，标题栏使用 AppKit；按钮、编辑、默认/取消和关闭交回原进程。自绘 VGUI、复杂列表/树和其他非标准控件仍未完整覆盖。字体从现有 Steam 容器读取，不安装字体，也不放出 CrossOver 原窗口。
 
 通知使用 Steam 原有 notificationtoasts 页面及 NotificationStore：不替换 DispatchNextToast、PopNextToastNotification 或 PlayNotificationSound，不清空或复制其通知队列。游戏焦点与浏览器列表通过现有 SteamClient 查询和注册取得，供原网页选择通知呈现场所；位置绑定遵循此前验收的右下角贴底行为。旧的通知队列所有权补丁已删除。
 

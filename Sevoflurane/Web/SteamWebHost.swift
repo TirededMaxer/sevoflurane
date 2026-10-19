@@ -725,6 +725,7 @@ final class SteamWebHost {
         // reads an empty strip. Re-reading an unchanged strip is a no-op.
         menuMirror?.refresh()
         if window.role == .login {
+            desktopShowIsPending = false
             window.webView.evaluateJavaScript(SteamDesktopChrome.popupScript)
         } else if window.role.hasPopupChrome {
             window.webView.evaluateJavaScript(SteamDesktopChrome.popupChromeScript)

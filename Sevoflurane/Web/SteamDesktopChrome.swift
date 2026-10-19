@@ -1,8 +1,7 @@
 import Foundation
 
-/// WebKit has no CEF app-region window dragging. Read the original title
-/// strip's empty rectangles and pass them to AppKit; never restyle that strip,
-/// hide its controls, reserve traffic-light space or rewrite its handlers.
+/// Presentation only: AppKit supplies window controls and the native menu bar.
+/// Steam's original page handlers and menu commands remain in place.
 enum SteamDesktopChrome {
     static let script = dragScript(desktop: true)
     static let popupScript = dragScript(desktop: false)
@@ -13,13 +12,23 @@ enum SteamDesktopChrome {
         (function () {
           if (window.__sevoOriginalDrag) { window.__sevoOriginalDrag(); return "reapplied"; }
           var desktop = \(desktop ? "true" : "false");
+          function restyle() {
+            if (!document.head || document.getElementById("sevo-macos-chrome")) return;
+            var style = document.createElement("style"); style.id = "sevo-macos-chrome";
+            style.textContent = ".TitleBar.title-area .title-bar-actions{display:none!important}";
+            if (desktop) style.textContent +=
+              "div:has(> .TitleBar.title-area){display:none!important}"+
+              "div:has(> div > .TitleBar.title-area)>:first-child{display:none!important}";
+            else style.textContent += ".TitleBar.title-area{padding-inline-start:80px!important}";
+            document.head.appendChild(style);
+          }
           function regions() {
             var area = document.querySelector(".TitleBar.title-area");
             var row = desktop ? area && area.parentElement && area.parentElement.parentElement : area;
             if (!row) return [];
             var r = row.getBoundingClientRect();
             if (!r.width || !r.height) return [];
-            var spans = [[r.left, r.right]];
+            var spans = [[Math.max(r.left, 80), r.right]];
             var controls = Array.from(row.querySelectorAll(
               'button,a,input,select,textarea,[role="button"],[role="menuitem"],[tabindex],.title-bar-actions,.title-area-icon,[class*="Button"],[class*="button"],[class*="Account"],[class*="account"]'));
             if (desktop) Array.from(row.children).forEach(function (node) {
@@ -40,6 +49,7 @@ enum SteamDesktopChrome {
               .map(function (span) { return [span[0], r.top, span[1] - span[0], r.height]; });
           }
           function report() {
+            restyle();
             var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.sevoWindow;
             if (handler) handler.postMessage({fn:"__dragRegions", args:[regions()]});
           }
@@ -49,7 +59,7 @@ enum SteamDesktopChrome {
             pending = true;
             requestAnimationFrame(function () { pending = false; report(); });
           }
-          new MutationObserver(schedule).observe(document, {childList:true, subtree:true, attributes:true});
+          new MutationObserver(function () { restyle(); schedule(); }).observe(document, {childList:true, subtree:true, attributes:true});
           window.addEventListener("resize", schedule);
           window.__sevoOriginalDrag = report;
           report();

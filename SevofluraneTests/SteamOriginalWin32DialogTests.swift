@@ -13,15 +13,16 @@ struct SteamOriginalWin32DialogTests {
         defer { host.originalDidClose() }
         host.window.orderFront(nil)
         try await settle(host)
-        let text = try await host.webView.evaluateJavaScript("document.getElementById('title').textContent") as? String
-        #expect(text == dialog.title)
+        #expect(host.window.title == dialog.title)
+        #expect(try await host.webView.evaluateJavaScript("document.getElementById('caption')===null") as? Bool == true)
         let dimensions = try await host.webView.evaluateJavaScript("(()=>{const e=document.querySelector('[data-handle=\"101\"]'),s=getComputedStyle(e);return [s.left,s.top,s.width,s.height,s.fontSize,s.fontWeight,e.textContent]})()") as? [String]
         #expect(dimensions == ["16px", "14px", "300px", "40px", "15px", "400", "连接失败：原始内容 <script> & Unicode"])
         #expect(try await host.webView.evaluateJavaScript("document.querySelector('[data-handle=\"104\"]').disabled") as? Bool == true)
         #expect(host.window.contentView === host.webView)
         #expect(host.webView.acceptsFirstMouse(for: nil))
         #expect(host.window.canBecomeKey)
-        #expect(host.window.styleMask.isEmpty)
+        #expect(host.window.styleMask.contains(.titled))
+        #expect(host.window.standardWindowButton(.closeButton)?.isEnabled == true)
         var literal = dialog
         literal.controls?[0].style = 0x80 // SS_NOPREFIX preserves literal ampersands.
         literal.controls?[0].text = "A&B"
