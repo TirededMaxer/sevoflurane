@@ -123,7 +123,7 @@ struct NativeOverlayInputTests {
         web.loadHTMLString("""
         <script>
         window.ready=true;window.opened=[];window.nativeCloses=0;
-        window.surface={SteamClient:{Browser:{GetBrowserID:()=>71}},closed:false,close(){nativeCloses++}};
+        window.surface={closed:false,close(){nativeCloses++}};
         window.open=(url,name,features)=>{opened.push({url,name,features});return surface};
         window.g_PopupManager={GetExistingPopup:()=>null};
         </script>
@@ -137,7 +137,7 @@ struct NativeOverlayInputTests {
         {name:'friendslist_uid42',query:'createflags=18&pid=42&browser=196610&openerid=17&centerOnBrowserID=16',
          features:'width=300,height=650,resizeable,status=0',ids:{16:4,17:7}}
         """
-        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "71")
+        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "friendslist_uid42")
         #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
         #expect(try await web.evaluateJavaScript("opened[0].name") as? String == "friendslist_uid42")
         #expect(try await web.evaluateJavaScript("opened[0].features") as? String == "width=300,height=650,resizeable,status=0")
@@ -145,9 +145,29 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('openerid')") as? String == "7")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('centerOnBrowserID')") as? String == "4")
         _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:surface});'ready'")
-        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "71")
+        #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "friendslist_uid42")
         #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
         #expect(try await web.evaluateJavaScript("nativeCloses") as? Int == 0)
         #expect(try await web.evaluateJavaScript("typeof __sevoOverlayWindows") as? String == "undefined")
     }
+
+    @Test
+    func surfaceReadinessWaitsForTheNamedWindowAndItsNativeBindings() async throws {
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        web.loadHTMLString("<script>window.ready=true;window.name='desktopoverlay_uid42'</script>", baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let call = "(\(SteamWebKitOverlay.surfaceDetailsScript))"
+        #expect(try await web.evaluateJavaScript("\(call)('desktopoverlay_uid42')") is NSNull)
+        _ = try await web.evaluateJavaScript("window.SteamClient={Browser:{GetBrowserID:()=>71}};'ready'")
+        #expect(try await web.evaluateJavaScript("\(call)('other-window')") is NSNull)
+        let raw = try #require(try await web.evaluateJavaScript("\(call)('desktopoverlay_uid42')") as? String)
+        let details = try #require(try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        #expect(details["id"] as? Int == 71)
+        let size = try #require(details["size"] as? [Double])
+        #expect(Array(size.prefix(2)) == [400, 300])
+    }
+
 }

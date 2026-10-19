@@ -153,7 +153,10 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
             do {
                 try await host?.webKitOverlay.adopt(window, parameters: args.count > 1 ? args[1] as? String ?? "" : "",
                                                    features: args.count > 2 ? args[2] as? String ?? "" : "")
-            } catch { return (nil, String(describing: error)) }
+            } catch {
+                EventLog.shared.log(.window, "Steam surface creation failed: \(window.name): \(error)")
+                return (nil, String(describing: error))
+            }
         }
         return (result, nil)
     }

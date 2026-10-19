@@ -93,7 +93,7 @@ final class SteamWebKitOverlay {
         let request: [String: Any] = ["name": popup.name, "query": parameters, "features": features, "ids": ids]
         let data = try JSONSerialization.data(withJSONObject: request)
         let json = String(decoding: data, as: UTF8.self)
-        guard let cefID = try await root.evaluate("(\(Self.createWindowScript))(\(json))").flatMap(UInt32.init) else {
+        guard try await root.evaluate("(\(Self.createWindowScript))(\(json))") == popup.name else {
             throw CDPClient.Failure.badReply("Steam did not create the requested window")
         }
         // Target discovery supplies the rendering endpoint, not window policy.
@@ -103,14 +103,26 @@ final class SteamWebKitOverlay {
             for target in targets {
                 guard let id = target["id"] as? String,
                       let text = target["url"] as? String,
-                      text.hasPrefix("about:blank?"),
+                      text.hasPrefix("about:blank"),
                       let socket = target["webSocketDebuggerUrl"] as? String, let url = URL(string: socket) else { continue }
                 let scoped = CDPClient(onPush: { [weak self] raw in await self?.receive(raw, id: id) })
                 try await scoped.connectInputMirror(socketURL: url)
-                let actualID = try await scoped.evaluate("SteamClient.Browser.GetBrowserID()").flatMap(UInt32.init)
-                guard actualID == cefID else { await scoped.disconnect(); continue }
+                let nameJSON = String(decoding: try JSONSerialization.data(withJSONObject: popup.name, options: .fragmentsAllowed), as: UTF8.self)
+                let raw: String?
+                do {
+                    raw = try await scoped.evaluate("(\(Self.surfaceDetailsScript))(\(nameJSON))")
+                } catch {
+                    await scoped.disconnect()
+                    throw error
+                }
+                guard let raw, let details = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
+                      let cefID = (details["id"] as? NSNumber)?.uint32Value,
+                      let numbers = details["size"] as? [NSNumber] else {
+                    await scoped.disconnect()
+                    continue
+                }
                 let localID = (try await popup.webView.evaluateJavaScript("window.__sevoBrowserID || 0") as? NSNumber)?.uint32Value ?? 0
-                let size = try await dimensions(scoped)
+                let size = try Self.validatedDimensions(numbers)
                 let mirror = Mirror(client: scoped, popup: popup, cefID: cefID, localBrowserID: localID, viewport: size)
                 mirrors[id] = mirror
                 resizeSource(mirror)
@@ -138,13 +150,31 @@ final class SteamWebKitOverlay {
       var win = existing && existing.m_popup && !existing.m_popup.closed ? existing.m_popup
         : window.open('about:blank?'+query.toString(),request.name,request.features);
       if (!win) throw new Error('Steam refused window.open: '+request.name);
-      return String(win.SteamClient.Browser.GetBrowserID());
+      return request.name;
+    }
+    """
+
+    /// CEF can expose the popup before its native bindings or viewport exist.
+    /// Match its identity first; popup-created waits for this readiness check.
+    static let surfaceDetailsScript = """
+    function (name) {
+      if (window.name !== name || !window.SteamClient || !SteamClient.Browser ||
+          typeof SteamClient.Browser.GetBrowserID !== 'function' || innerWidth <= 0 || innerHeight <= 0)
+        return null;
+      return JSON.stringify({id:SteamClient.Browser.GetBrowserID(),size:[innerWidth,innerHeight,devicePixelRatio]});
     }
     """
 
     private func dimensions(_ client: CDPClient) async throws -> [Double] {
         let raw = try await client.evaluate("JSON.stringify([innerWidth,innerHeight,devicePixelRatio])") ?? "[]"
-        guard let values = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [NSNumber], values.count == 3 else {
+        guard let values = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [NSNumber] else {
+            throw CDPClient.Failure.badReply("Steam window dimensions are unavailable")
+        }
+        return try Self.validatedDimensions(values)
+    }
+
+    private static func validatedDimensions(_ values: [NSNumber]) throws -> [Double] {
+        guard values.count == 3 else {
             throw CDPClient.Failure.badReply("Steam window dimensions are unavailable")
         }
         let size = values.map { $0.doubleValue }

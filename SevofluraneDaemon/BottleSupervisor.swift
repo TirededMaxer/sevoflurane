@@ -311,29 +311,12 @@ final class BottleSupervisor {
     /// with the services still down is the "the user just signed in" edge,
     /// which needs the page reloaded rather than waited out.
     private var wasAwaitingSignIn = false
-    /// Why the library is to open by itself the moment everything is healthy,
-    /// or nil when it is not. The reason picks the line the log gets: a person
-    /// who opened Sevoflurane and a sign-in that just finished are different
-    /// stories and only one of them mentions signing in.
-    private var showLibraryOnHealthy: LibraryOpening?
-    /// What armed the automatic library opening.
-    enum LibraryOpening: Equatable, Sendable {
-        /// A person opened Sevoflurane and came for the window.
-        case theUserOpenedTheApp
-        /// Sign-in completed; ending in silence reads as a crash.
-        case signInFinished
+    /// An explicit request to open Steam after its services become ready.
+    /// Completing sign-in does not arm this request.
+    private var showLibraryOnHealthy = false
 
-        var note: String {
-            switch self {
-            case .theUserOpenedTheApp: "the client is up — opening Steam's window"
-            case .signInFinished: "sign-in finished — opening the library"
-            }
-        }
-    }
-
-    /// Puts Steam's window on screen as soon as the client is healthy.
-    func showLibraryWhenHealthy(_ reason: LibraryOpening = .theUserOpenedTheApp) {
-        showLibraryOnHealthy = reason
+    func showLibraryWhenHealthy() {
+        showLibraryOnHealthy = true
     }
 
     /// Dedupes the "Wine window visible" log line across probe cycles.
@@ -732,9 +715,9 @@ final class BottleSupervisor {
                         + "from launch to healthy",
                 )
             }
-            if becameHealthy, let opening = showLibraryOnHealthy {
-                showLibraryOnHealthy = nil
-                log.log(.supervisor, opening.note)
+            if becameHealthy, showLibraryOnHealthy {
+                showLibraryOnHealthy = false
+                log.log(.supervisor, "the client is up — opening Steam's window")
                 await app.send(.showLibrary)
             }
             // Window and tray identity are suppressed by the driver; processes remain alive.
@@ -961,9 +944,6 @@ final class BottleSupervisor {
             wasAwaitingSignIn = false
             lastPageRecovery = .now
             pageFailures = 0
-            // The library opens by itself once everything is up: sign-in
-            // ending in silence reads as a crash.
-            showLibraryOnHealthy = .signInFinished
             log.log(.page, "signed in — reloading the UI so the page boots with a session")
             await app.send(.reload)
             enterBoot(.pageBooting)
