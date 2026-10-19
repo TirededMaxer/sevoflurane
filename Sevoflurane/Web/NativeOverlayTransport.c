@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-typedef struct { SevoNativeFrame *header;size_t size;uint32_t back; } NativeProducer;
+typedef struct { SevoNativeFrame *header;size_t size;uint32_t back;char *path; } NativeProducer;
 void *SevoNativeFrameCreate(const char *path,uint32_t width,uint32_t height,uint32_t cef_id) {
     size_t size=SevoNativeFrameSize(width,height);if(!size||!cef_id)return NULL;
     int fd=open(path,O_CREAT|O_TRUNC|O_RDWR|O_NOFOLLOW,0600);if(fd<0)return NULL;
@@ -13,6 +13,8 @@ void *SevoNativeFrameCreate(const char *path,uint32_t width,uint32_t height,uint
     NativeProducer *p=calloc(1,sizeof(*p));if(!p){munmap(h,size);return NULL;}
     memset(h,0,64);memcpy(h->magic,"SEVOLV01",8);h->width=width;h->height=height;
     h->bytes=width*height*4;h->cef_id=cef_id;h->middle=1;
+    p->path=strdup(path);
+    if(!p->path){munmap(h,size);free(p);unlink(path);return NULL;}
     p->header=h;p->size=size;p->back=2;return p;
 }
 void SevoNativeFrameWrite(void *map,const void *pixels,uint64_t now) {
@@ -21,7 +23,7 @@ void SevoNativeFrameWrite(void *map,const void *pixels,uint64_t now) {
 void SevoNativeFrameClose(void *map) {
     NativeProducer *p=map;if(!p)return;
     __atomic_store_n(&p->header->active,0,__ATOMIC_RELEASE);
-    munmap(p->header,p->size);free(p);
+    munmap(p->header,p->size);unlink(p->path);free(p->path);free(p);
 }
 uint64_t SevoNativeFrameReadCount(void *map) {
     NativeProducer *p=map;

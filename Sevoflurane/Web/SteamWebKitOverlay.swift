@@ -39,6 +39,13 @@ final class SteamWebKitOverlay {
 
     func start() {
         guard task == nil else { return }
+        // This directory contains only this adapter's transient frame files.
+        // Clear leftovers from an interrupted previous app session.
+        for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] {
+            if file.pathExtension == "live" || file.pathExtension == "path" {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
         task = Task { [weak self] in
             while !Task.isCancelled {
                 if self == nil { return }
