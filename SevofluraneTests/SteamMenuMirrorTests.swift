@@ -19,20 +19,23 @@ struct SevofluraneMainMenuTests {
     func removedTopLevelMenusKeepHiddenEditingShortcuts() async throws {
         let menu = SevofluraneMainMenu.makeMenu()
         #expect(menu.items.filter { !$0.isHidden }.map(\.title) == ["Sevoflurane"])
-        let previous = NSApp.mainMenu
-        NSApp.mainMenu = menu
-        defer { NSApp.mainMenu = previous }
         let application = try #require(menu.items.first?.submenu)
         application.autoenablesItems = false
         let recorder = ShortcutRecorder()
-        for (key, code) in [("x", UInt16(7)), ("c", 8), ("v", 9), ("a", 0), ("z", 6)] {
+        let shortcuts: [(String, UInt16)] = [("x", 7), ("c", 8), ("v", 9), ("a", 0), ("z", 6)]
+        // Install a fully configured fixture. Publishing the menu first lets
+        // AppKit validate/cache the initial Cut command against the real responder.
+        for (key, _) in shortcuts {
             let item = try #require(application.items.first { $0.keyEquivalent == key })
             #expect(item.isHidden && item.allowsKeyEquivalentWhenHidden)
             item.target = recorder
             item.action = #selector(ShortcutRecorder.command(_:))
-            // The fixture replaces responder validation with its recorder.
-            // Cut may have been disabled before the action was rebound.
             item.isEnabled = true
+        }
+        let previous = NSApp.mainMenu
+        NSApp.mainMenu = menu
+        defer { NSApp.mainMenu = previous }
+        for (key, code) in shortcuts {
             menu.update()
             application.update()
             let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero,
