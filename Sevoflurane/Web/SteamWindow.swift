@@ -68,9 +68,6 @@ final class SteamWindow: NSObject {
     /// with the origin at the top-left of the content. Steam marks them with
     /// `-webkit-app-region: drag`; the desktop chrome script reports them here.
     private var dragRegions: [CGRect] = []
-    var gameDragRegions: [[Double]] {
-        dragRegions.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] }
-    }
     private var mouseMonitor: Any?
     private var pendingKeyboardPress: (() -> Void)?
     private var keyboardActivationObserver: (any NSObjectProtocol)?
@@ -126,10 +123,7 @@ final class SteamWindow: NSObject {
     /// frame before the UI paints.
     func realize() {
         guard window == nil, role != .context else { return }
-        if usesOriginalGameOverlay {
-            host?.webKitOverlay.prepareSource(for: self)
-            return
-        }
+        guard !usesOriginalGameOverlay else { return }
 
         if role == .toast { host?.refreshToastViewport() }
         let content = NSRect(origin: .zero, size: requestedSize)
@@ -663,6 +657,7 @@ final class SteamWindow: NSObject {
             window.parent?.removeChildWindow(window)
             window.orderOut(nil)
         }
+        host?.windowDidHide(self)
     }
 
     /// Hides a menu the way Steam hides one itself: through the menu instance

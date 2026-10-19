@@ -17,7 +17,6 @@ import WebKit
 @MainActor
 @Observable
 final class SteamWebHost {
-    @ObservationIgnored lazy var webKitOverlay = SteamWebKitOverlay(host: self)
     /// Steam's own `steamui` bundle, served with the `SteamClient` shim
     /// injected and proxied to the client running in the bottle.
     static let uiURL = URL(string: "http://127.0.0.1:\(BridgePorts.steamUI)/")!
@@ -548,11 +547,11 @@ final class SteamWebHost {
     /// Drops every adopted popup, telling each why. One writer for all three
     /// teardowns, so none of them can forget the guard.
     private func detachPopups(reason: SteamWindow.DetachReason, deferringDisposal: Bool = false) {
-        webKitOverlay.invalidate()
         let old = Array(popups.values)
         popups.removeAll()
         if deferringDisposal {
             for popup in old { popup.concealForPageTeardown() }
+            ActivationPolicy.recedeIfLastWindow(closing: nil)
             // Commit the login window's disappearance before WebKit teardown.
             // Each retired popup belongs to the old page, never the new one.
             DispatchQueue.main.async {
@@ -733,12 +732,7 @@ final class SteamWebHost {
         defer { logWindowInventory("adopting \(window.name)") }
         // The original renderer owns this popup's input and lifetime. Keeping
         // the mirror passive must not close Steam's saved game UI windows.
-        if window.usesOriginalGameOverlay {
-            if window.role.hasPopupChrome {
-                window.webView.evaluateJavaScript(SteamDesktopChrome.gamePopupScript)
-            }
-            return
-        }
+        guard !window.usesOriginalGameOverlay else { return }
         window.webView.evaluateJavaScript(SteamPresentation.cleanupScript)
         // Every adoption is a chance the root menus now exist — they are
         // created after the desktop window, so anchoring on the desktop alone
@@ -790,10 +784,12 @@ final class SteamWebHost {
     @ObservationIgnored var menuDismissalMonitor: Any?
 
     func windowDidClose(_ window: SteamWindow, reason: SteamWindow.DetachReason) {
-        if window.usesOriginalGameOverlay { webKitOverlay.release(window) }
         popups.removeValue(forKey: ObjectIdentifier(window.webView))
         refreshLoginWindowState()
-        defer { logWindowInventory("closing \(window.name)") }
+        defer {
+            ActivationPolicy.recedeIfLastWindow(closing: nil)
+            logWindowInventory("closing \(window.name)")
+        }
         // Steam learns a popup is gone from its document's `unload`, which
         // WebKit ties to the page's teardown rather than to the window
         // closing. Only a popup that went on its own is owed that word: a
@@ -826,7 +822,6 @@ final class SteamWebHost {
         menuMirror?.refresh()
         status = "Steam window closed"
         EventLog.shared.log(.window, "desktop window closed — its page is gone")
-        ActivationPolicy.recedeIfLastWindow(closing: nil)
     }
 
     func setStatus(_ value: String) {

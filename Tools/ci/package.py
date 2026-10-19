@@ -22,11 +22,7 @@ legacy_source = Path(os.environ["RUNNER_TEMP"]) / "sevo-steam-ui/sevo-steam-ui.e
 legacy_stage = stage / "Contents/Resources/SteamUI"
 legacy_stage.mkdir(exist_ok=True)
 shutil.copy2(legacy_source, legacy_stage / "sevo-steam-ui.exe")
-overlay_stage = stage / "Contents/Resources/NativeOverlay"
-overlay_stage.mkdir(exist_ok=True)
-overlay_build = Path(os.environ["RUNNER_TEMP"]) / "steam-overlay"
-for name in ("sevo-overlay-webkit.dll", "sevo-overlay-attach.exe", "manifest.json"):
-    shutil.copy2(overlay_build / name, overlay_stage / name)
+assert not (stage / "Contents/Resources/NativeOverlay").exists()
 info = plistlib.loads((stage / "Contents/Info.plist").read_bytes())
 version = info["CFBundleShortVersionString"]
 assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-fork\.[0-9]+", version), version

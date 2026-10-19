@@ -125,11 +125,10 @@ nonisolated enum SteamWindowRole {
     static func usesOriginalGameOverlay(popupName: String) -> Bool {
         let role = Self(popupName: popupName)
         if role == .gameOverlay { return true }
-        // Game child windows belong to Steam's compositor, not desktop panels.
-        // Keep the already verified corner-toast presentation unchanged.
+        // All game UI, including notifications, stays in Windows Steam.
         return instanceUID(ofPopupNamed: popupName) != 0
             && role != .desktop && role != .login && role != .bigPicture
-            && role != .context && role != .toast
+            && role != .context
     }
 
     var hasNativeFrame: Bool {

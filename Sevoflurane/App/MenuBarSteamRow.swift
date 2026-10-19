@@ -141,6 +141,7 @@ private struct FriendsButton: View {
                 hoverCount: unreadChats == 0 ? onlineFriends : nil,
                 isHovered: isHovered,
             )
+            .frame(width: 96, height: ZoneMetrics.controlHeight)
             .foregroundStyle(unreadChats > 0 ? AnyShapeStyle(Theme.onAccent) : AnyShapeStyle(.secondary))
             .contentShape(Capsule())
             .glassEffect(

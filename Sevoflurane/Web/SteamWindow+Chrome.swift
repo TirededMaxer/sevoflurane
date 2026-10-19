@@ -69,11 +69,6 @@ extension SteamWindow {
                 }
             }
         }
-        if isGamePopup, !usesOriginalGameOverlay {
-            window.level = .popUpMenu
-            window.hidesOnDeactivate = false
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        }
     }
 
     /// A popup that carries its own header: the macOS title bar is

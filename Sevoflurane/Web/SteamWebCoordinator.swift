@@ -61,15 +61,7 @@ extension SteamWebCoordinator: WKUIDelegate {
         _ webView: WKWebView,
         getWindowFrameWithCompletionHandler completionHandler: @escaping (CGRect) -> Void,
     ) {
-        guard let popup = host?.window(for: webView), popup.usesOriginalGameOverlay,
-              let adapter = host?.webKitOverlay else {
-            completionHandler(host?.window(for: webView)?.appKitFrame ?? .zero)
-            return
-        }
-        Task {
-            let frame = try? await adapter.windowFrame(for: popup)
-            completionHandler(frame ?? popup.appKitFrame)
-        }
+        completionHandler(host?.window(for: webView)?.appKitFrame ?? .zero)
     }
 }
 
@@ -152,24 +144,7 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
             return (nil, nil)
         }
         let args = body["args"] as? [Any] ?? []
-        if window.usesOriginalGameOverlay, !function.hasPrefix("__") {
-            do { return (try await host?.webKitOverlay.windowCall(function, args: args, popup: window), nil) }
-            catch { return (nil, String(describing: error)) }
-        }
         let result = window.perform(function, args)
-        if function == "__dragRegions", window.usesOriginalGameOverlay {
-            do { try await host?.webKitOverlay.updateDragRegions(for: window) }
-            catch { EventLog.shared.log(.window, "Steam drag-region update failed: \(window.name): \(error)") }
-        }
-        if function == "__adopt", window.usesOriginalGameOverlay, !(args.first as? String ?? "").isEmpty {
-            do {
-                try await host?.webKitOverlay.adopt(window, parameters: args.count > 1 ? args[1] as? String ?? "" : "",
-                                                   features: args.count > 2 ? args[2] as? String ?? "" : "")
-            } catch {
-                EventLog.shared.log(.window, "Steam surface creation failed: \(window.name): \(error)")
-                return (nil, String(describing: error))
-            }
-        }
         return (result, nil)
     }
 

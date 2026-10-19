@@ -15,7 +15,6 @@ common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
     DEVELOPMENT_TEAM= ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO)
 if [[ "$stage" == test || "$stage" == all ]]; then
     bash Tools/steam-ui/build-cloud.sh
-    bash Tools/steam-overlay/build.sh
     xcodebuild -version | tee "$out/toolchain.txt"
     sw_vers >> "$out/toolchain.txt"
     # Real fullscreen/modal checks need a process without other UI fixtures

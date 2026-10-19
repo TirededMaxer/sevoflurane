@@ -6,72 +6,21 @@ import WebKit
 @MainActor
 struct SteamPresentationTests {
     @Test
-    func originalGamePagesOnlyUseInvisibleNonActivatingSources() {
+    func gamePagesNeverCreateMacWindowsOrRenderingSources() {
         let host = SteamWebHost()
-        for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730"] {
+        for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730", "friendslist_uid730",
+                     "chat_1_uid730", "PopupWindow_warning_uid730", "browser_uid730",
+                     "contextmenu_1_uid730", "notificationtoasts_uid730-123"] {
             let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
                                     name: name, size: CGSize(width: 400, height: 300), origin: nil, host: host)
             host.windowDidAdopt(popup)
             popup.realize()
             popup.show(activating: true)
             #expect(popup.usesOriginalGameOverlay, "\(name)")
-            #expect(popup.nsWindow?.alphaValue == 0, "\(name)")
-            #expect(popup.nsWindow?.canBecomeKey == false, "\(name)")
-            #expect(popup.nsWindow?.canBecomeMain == false, "\(name)")
-            #expect(popup.nsWindow?.ignoresMouseEvents == true, "\(name)")
+            #expect(popup.nsWindow == nil, "\(name)")
             #expect(!popup.isWindowVisible, "\(name)")
-            popup.close()
+            popup.detach(reason: .pageTeardown)
         }
-    }
-
-    @Test
-    func overlayChildrenUseBorderlessWebKitSourcesInsideTheGame() throws {
-        let host = SteamWebHost()
-        for name in ["friendslist_uid730", "chat_1_uid730", "PopupWindow_warning_uid730", "browser_uid730", "contextmenu_1_uid730"] {
-            let popup = SteamWindow(webView: WKWebView(), role: SteamWindowRole(popupName: name),
-                                    name: name, size: CGSize(width: 400, height: 300), origin: nil, host: host)
-            popup.realize()
-            defer { popup.detach(reason: .pageTeardown) }
-            let window = try #require(popup.nsWindow as? NSPanel)
-            popup.show(activating: true)
-            #expect(popup.usesOriginalGameOverlay)
-            #expect(!window.styleMask.contains(.titled))
-            #expect(window.styleMask.contains(.nonactivatingPanel))
-            #expect(window.standardWindowButton(.closeButton) == nil)
-            #expect(window.alphaValue == 0)
-            #expect(!window.canBecomeKey && !window.canBecomeMain)
-            #expect(window.ignoresMouseEvents)
-            #expect(!popup.isWindowVisible)
-            #expect(window.contentView === popup.webView)
-            #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
-        }
-    }
-
-    @Test
-    func gamePopupRetainsOriginalHeaderAndControlsWhileReportingDragRegions() async throws {
-        let reports = DragReports()
-        let controller = WKUserContentController()
-        controller.add(reports, name: SteamWebCoordinator.handlerName)
-        let configuration = WKWebViewConfiguration()
-        configuration.userContentController = controller
-        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300), configuration: configuration)
-        web.loadHTMLString("""
-        <style>body{margin:0}.title-area{height:30px;width:400px;position:relative}
-        .title-bar-actions{position:absolute;right:0;top:0;width:90px;height:30px}</style>
-        <div class="TitleBar title-area">Original title<div class="title-bar-actions"><button onclick="calls++">Close</button></div></div>
-        <script>window.calls=0;window.ready=true</script>
-        """, baseURL: nil)
-        try await ready(web)
-        let before = try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String
-        _ = try await web.evaluateJavaScript(SteamDesktopChrome.gamePopupScript)
-        for _ in 0..<80 {
-            if reports.last != nil { break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(try await web.evaluateJavaScript("document.documentElement.outerHTML") as? String == before)
-        #expect(reports.last == [[0,0,310,30]])
-        _ = try await web.evaluateJavaScript("document.querySelector('button').click()")
-        #expect(try await web.evaluateJavaScript("calls") as? Int == 1)
     }
 
     @Test
@@ -378,7 +327,7 @@ struct SteamClientShapeTests {
     }
 
     @Test
-    func overlayCallsAndCallbacksUseTheSameBridgeAsTheRestOfSteam() async throws {
+    func desktopContextDoesNotMirrorNativeGameSurfaces() async throws {
         let shape = #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1},"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#
         let web = try await load(shape: shape, messages: BrowserViewReports())
         let result = try await web.callAsyncJavaScript("""
@@ -394,16 +343,15 @@ struct SteamClientShapeTests {
           var b=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(()=>changed++);
           var c=SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged((app,pid)=>focus.push([app,pid]));
           var registrations=sentCommands.filter(m=>m.cmd==='sc');
-          registrations.forEach((m,i)=>fixtureSocket.onmessage({data:JSON.stringify({type:'sc_callback',cb:m.args[0].__sevoCb,args:i===2?[730,42]:[]})}));
+          registrations.forEach(m=>fixtureSocket.onmessage({data:JSON.stringify({type:'sc_callback',cb:m.args[0].__sevoCb,args:[730,42]})}));
           var info=await SteamClient.Overlay.GetOverlayBrowserInfo();
           var chats=await SteamClient.WebChat.GetOverlayChatBrowserInfo();
           a.unregister();b.unregister();c.unregister();
           return JSON.stringify({changed,focus,info,chats,
             calls:sentCommands.filter(m=>m.cmd==='sc').map(m=>m.path),
-            unregisters:sentCommands.filter(m=>m.cmd==='sc_unregister').length,
-            snapshot:typeof __sevoUpdateNativeOverlay});
+            unregisters:sentCommands.filter(m=>m.cmd==='sc_unregister').length});
         """, arguments: [:], in: nil, contentWorld: .page) as? String
-        #expect(result == #"{"changed":2,"focus":[[730,42]],"info":[{"unPID":42,"nBrowserID":12}],"chats":[{"chatBrowserID":13}],"calls":["SteamClient.Overlay.RegisterOverlayBrowserInfoChanged","SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged","SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged","SteamClient.Overlay.GetOverlayBrowserInfo","SteamClient.WebChat.GetOverlayChatBrowserInfo"],"unregisters":3,"snapshot":"undefined"}"#)
+        #expect(result == #"{"changed":0,"focus":[[730,42]],"info":[],"chats":[],"calls":["SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged"],"unregisters":1}"#)
     }
 
     @Test
@@ -416,10 +364,10 @@ struct SteamClientShapeTests {
           }}}},postMessage:function(message){created.push(message);},addEventListener:function(){}};};
         """
         let web = try await load(shape: "{}", beforeShim: setup)
-        _ = try await web.evaluateJavaScript("window.open('about:blank?pid=42&createflags=18','friendslist_uid42','width=300,height=650')")
+        _ = try await web.evaluateJavaScript("window.open('about:blank?createflags=18','friendslist_uid0','width=300,height=650')")
         try await Task.sleep(for: .milliseconds(100))
         #expect(try await web.evaluateJavaScript("created.length") as? Int == 0)
-        #expect(try await web.evaluateJavaScript("JSON.stringify(requests[0].args)") as? String == #"["friendslist_uid42","pid=42&createflags=18","width=300,height=650"]"#)
+        #expect(try await web.evaluateJavaScript("JSON.stringify(requests[0].args)") as? String == #"["friendslist_uid0","createflags=18"]"#)
         _ = try await web.evaluateJavaScript("acknowledge(null)")
         for _ in 0..<40 {
             if (try? await web.evaluateJavaScript("created.length")) as? Int == 1 { break }

@@ -78,13 +78,6 @@ actor CDPClient {
         _ = try await send(method: "Runtime.addBinding", params: ["name": "__sevo"])
     }
 
-    func connectInputMirror(socketURL: URL) async throws {
-        // Each game window has a persistent input connection. Keep those
-        // sockets out of the root bridge's six-connection HTTP pool.
-        try await connect(socketURL: socketURL, consumingBindings: true, independentSession: true)
-        _ = try await send(method: "Runtime.addBinding", params: ["name": "__sevo"])
-    }
-
     /// How long the handshake may take. Every other call is bounded by its
     /// caller, whose budget it knows; the handshake has one budget wherever
     /// it is made.
@@ -97,10 +90,10 @@ actor CDPClient {
     /// bridge's persistent connection needs: `Runtime.bindingCalled` is what
     /// carries the client's callbacks back, and `Runtime.evaluate` answers
     /// without the domain enabled; one-shot sessions leave it off.
-    func connect(socketURL: URL, consumingBindings: Bool, independentSession: Bool = false) async throws {
+    func connect(socketURL: URL, consumingBindings: Bool) async throws {
         do {
             try await withDeadline(Self.connectBudget) {
-                try await self.handshake(socketURL: socketURL, consumingBindings: consumingBindings, independentSession: independentSession)
+                try await self.handshake(socketURL: socketURL, consumingBindings: consumingBindings)
             }
         } catch {
             markClosed()
@@ -114,9 +107,9 @@ actor CDPClient {
     /// host, and a cancelled task can sit in that pool.
     private var ephemeralSession: URLSession?
 
-    private func handshake(socketURL: URL, consumingBindings: Bool, independentSession: Bool) async throws {
+    private func handshake(socketURL: URL, consumingBindings: Bool) async throws {
         let session: URLSession
-        if consumingBindings && !independentSession {
+        if consumingBindings {
             session = .shared
         } else {
             session = URLSession(configuration: .ephemeral)

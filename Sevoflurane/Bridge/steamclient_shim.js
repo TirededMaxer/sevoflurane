@@ -449,6 +449,14 @@
 
   function mk(path, node) {
     var fn = function () {
+      // Game surfaces belong exclusively to Windows Steam. The desktop UI
+      // must not create a second set of overlay windows or notifications.
+      if (path === "SteamClient.Overlay.GetOverlayBrowserInfo"
+          || path === "SteamClient.WebChat.GetOverlayChatBrowserInfo") return Promise.resolve([]);
+      if (path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged"
+          || path === "SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") {
+        return { unregister: function () {} };
+      }
       var routed = nativeRoute(path, arguments);
       if (routed) return routed;
       nativeTap(path, arguments);
@@ -948,7 +956,7 @@
         var handler = nativeWindowHandler(win);
         var adopted = handler ? handler.postMessage({
             fn: "__adopt",
-            args: [String(name || ""), String(url || "").split("?")[1] || "", String(arguments[2] || "")],
+            args: [String(name || ""), String(url || "").split("?")[1] || ""],
           }) : Promise.resolve();
         win.SteamClient = popupSteamClient(win);
         win.WebSocket = window.WebSocket;

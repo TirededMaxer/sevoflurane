@@ -102,7 +102,6 @@ extension SteamWebHost {
     }
 
     func windowDidHide(_ window: SteamWindow) {
-        guard window === desktop else { return }
         ActivationPolicy.recedeIfLastWindow(closing: window.nsWindow)
     }
 

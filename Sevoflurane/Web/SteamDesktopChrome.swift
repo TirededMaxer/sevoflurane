@@ -6,18 +6,14 @@ enum SteamDesktopChrome {
     static let script = dragScript(desktop: true)
     static let popupScript = dragScript(desktop: false)
     static let popupChromeScript = dragScript(desktop: false, popupHeader: true)
-    /// Report Steam's original header regions without adding native chrome.
-    static let gamePopupScript = dragScript(desktop: false, nativeChrome: false)
 
-    private static func dragScript(desktop: Bool, popupHeader: Bool = false, nativeChrome: Bool = true) -> String {
+    private static func dragScript(desktop: Bool, popupHeader: Bool = false) -> String {
         """
         (function () {
           if (window.__sevoOriginalDrag) { window.__sevoOriginalDrag(); return "reapplied"; }
           var desktop = \(desktop ? "true" : "false");
           var popupHeader = \(popupHeader ? "true" : "false");
-          var nativeChrome = \(nativeChrome ? "true" : "false");
           function restyle() {
-            if (!nativeChrome) return;
             if (!document.head || document.getElementById("sevo-macos-chrome")) return;
             var style = document.createElement("style"); style.id = "sevo-macos-chrome";
             style.textContent = ".TitleBar.title-area .title-bar-actions,.title-bar-actions.window-controls{display:none!important}";
@@ -37,7 +33,7 @@ enum SteamDesktopChrome {
             if (!row) return [];
             var r = row.getBoundingClientRect();
             if (!r.width || !r.height) return [];
-            var spans = [[Math.max(r.left, nativeChrome ? 80 : 0), r.right]];
+            var spans = [[Math.max(r.left, 80), r.right]];
             var controls = Array.from(row.querySelectorAll(
               'button,a,input,select,textarea,[role="button"],[role="menuitem"],[tabindex],.title-bar-actions,.title-area-icon,[class*="Button"],[class*="button"],[class*="Account"],[class*="account"]'));
             if (desktop) Array.from(row.children).forEach(function (node) {
