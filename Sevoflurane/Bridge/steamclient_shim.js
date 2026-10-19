@@ -447,30 +447,53 @@
     return hit;
   };
 
+  var overlayMirror = { browsers: [], chats: [], app: 0, pid: 0 };
+  var overlayListeners = { browsers: [], chats: [], focus: [] };
+  function overlaySubscription(kind, fn) {
+    overlayListeners[kind].push(fn);
+    return {unregister:function () {
+      var i=overlayListeners[kind].indexOf(fn);if(i>=0)overlayListeners[kind].splice(i,1);
+    }};
+  }
+  window.__sevoUpdateNativeOverlay = function (value) {
+    ["browsers", "chats"].forEach(function (kind) {
+      var next=value[kind]||[];
+      if(JSON.stringify(next)===JSON.stringify(overlayMirror[kind]))return;
+      overlayMirror[kind]=next;
+      overlayListeners[kind].slice().forEach(function (fn) { fn(); });
+    });
+    if(value.app!==overlayMirror.app||value.pid!==overlayMirror.pid) {
+      overlayMirror.app=value.app||0;overlayMirror.pid=value.pid||0;
+      overlayListeners.focus.slice().forEach(function (fn) { fn(overlayMirror.app,overlayMirror.pid); });
+    }
+  };
+
   function mk(path, node) {
     var fn = function () {
       // These browser instances belong to CEF's game renderer. Forwarding
       // another UI's single-callback registration into SharedJSContext
       // replaces Steam's own store subscription and leaves the game blank.
-      // The WebKit desktop has no game browser instances of its own.
+      // Local listeners consume the original store's read-only snapshots.
       if (nativeWindowHandler(window)) {
         // This realm hosts desktop windows and the sole general-toast queue.
         // Games and their focus stay in CEF. Replaying this single-slot native
         // subscription would also take the real game's focus away from CEF.
         if (path === "SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged") {
-          var alive = true, focusCallback = arguments[0];
+          var focusCallback = arguments[0];
+          var subscription = overlaySubscription("focus",focusCallback);
           Promise.resolve().then(function () {
-            if (alive && typeof focusCallback === "function") focusCallback(0, 0);
+            if (overlayListeners.focus.indexOf(focusCallback)>=0)
+              focusCallback(overlayMirror.app,overlayMirror.pid);
           });
-          return { unregister: function () { alive = false; } };
+          return subscription;
         }
         if (path === "SteamClient.Overlay.GetOverlayBrowserInfo"
             || path === "SteamClient.WebChat.GetOverlayChatBrowserInfo") {
-          return Promise.resolve(window.__sevoNativeOverlayInfo || []);
+          return Promise.resolve(path === "SteamClient.Overlay.GetOverlayBrowserInfo" ? overlayMirror.browsers : overlayMirror.chats);
         }
         if (path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged"
             || path === "SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") {
-          return { unregister: function () {} };
+          return overlaySubscription(path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged" ? "browsers" : "chats",arguments[0]);
         }
       }
       var routed = nativeRoute(path, arguments);

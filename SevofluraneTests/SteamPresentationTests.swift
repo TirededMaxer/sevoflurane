@@ -315,6 +315,22 @@ struct SteamClientShapeTests {
         #expect(result == #"{"focus":[[0,0]],"forwarded":[]}"#)
     }
 
+    @Test
+    func gameBrowserSnapshotsKeepIndependentShapesAndLocalSubscriptions() async throws {
+        let web = try await load(shape: #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1}}"#, messages: BrowserViewReports())
+        let result = try await web.callAsyncJavaScript("""
+          var a=0,b=0;
+          var first=SteamClient.Overlay.RegisterOverlayBrowserInfoChanged(()=>a++);
+          var second=SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged(()=>b++);
+          var snapshot={browsers:[{unPID:42,nBrowserID:12}],chats:[{chatBrowserID:13}],app:730,pid:42};
+          __sevoUpdateNativeOverlay(snapshot);__sevoUpdateNativeOverlay(snapshot);
+          first.unregister();snapshot.browsers=[];__sevoUpdateNativeOverlay(snapshot);second.unregister();
+          return JSON.stringify({a:a,b:b,info:await SteamClient.Overlay.GetOverlayBrowserInfo(),
+            chats:await SteamClient.WebChat.GetOverlayChatBrowserInfo(),forwarded:sentCommands});
+        """, arguments: [:], in: nil, contentWorld: .page) as? String
+        #expect(result == #"{"a":1,"b":1,"info":[],"chats":[{"chatBrowserID":13}],"forwarded":[]}"#)
+    }
+
     private func load(shape: String, messages: BrowserViewReports? = nil) async throws -> WKWebView {
         let url = try #require(Bundle.main.url(forResource: "steamclient_shim", withExtension: "js"))
         let shim = try String(contentsOf: url, encoding: .utf8)

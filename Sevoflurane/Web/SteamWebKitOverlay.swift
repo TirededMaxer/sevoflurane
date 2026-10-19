@@ -60,16 +60,12 @@ final class SteamWebKitOverlay {
             guard let root else { return }
             let info = try await root.evaluate("""
             (async()=>JSON.stringify({browsers:await SteamClient.Overlay.GetOverlayBrowserInfo(),
+              chats:await SteamClient.WebChat.GetOverlayChatBrowserInfo(),
               app:window.FocusedAppWindowStore?.GetFocusedOverlayAppID()||0,
               pid:window.FocusedAppWindowStore?.GetFocusedOverlayPID()||0}))()
             """) ?? "{}"
             if info != lastInfo {
-                _ = await host.evaluateInContext("""
-                (function(){var x=\(info);window.__sevoNativeOverlayInfo=x.browsers||[];
-                  if(window.overlayStore)overlayStore.OnOverlayBrowserInfoChanged();
-                  if(window.FocusedAppWindowStore)FocusedAppWindowStore.OnOverlayGameWindowFocusChanged(x.app,x.pid);
-                  return 'mirrored';})()
-                """)
+                _ = await host.evaluateInContext("window.__sevoUpdateNativeOverlay?.(\(info));'mirrored'")
                 lastInfo = info
             }
             let gameTargets = targets.filter { target in
