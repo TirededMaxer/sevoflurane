@@ -76,7 +76,7 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `game chat follows original show requests through the native window adapter`() {
+    func `game chat never orders a desktop window`() {
         let host = SteamWebHost()
 
         let owner = chat(named: "chat_ChatWindow_5_uid1320", host: host)
@@ -84,7 +84,8 @@ struct OverlayPopupChromeTests {
         owner.window = window
 
         owner.show(activating: false)
-        #expect(window.orderCount == 1)
+        #expect(owner.usesOriginalGameOverlay)
+        #expect(window.orderCount == 0)
     }
 
     @Test
