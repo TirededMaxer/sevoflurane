@@ -27,9 +27,11 @@ final class SteamWebKitOverlay {
         let client: CDPClient
         let popup: SteamWindow
         let renderer: SevoNativeWebRenderer
+        let viewport: [Double]
         var inputInstalled = false
-        init(client: CDPClient, popup: SteamWindow, renderer: SevoNativeWebRenderer) {
-            self.client = client; self.popup = popup; self.renderer = renderer
+        var receivedFrame = false
+        init(client: CDPClient, popup: SteamWindow, renderer: SevoNativeWebRenderer, viewport: [Double]) {
+            self.client = client; self.popup = popup; self.renderer = renderer; self.viewport = viewport
         }
     }
 
@@ -81,7 +83,18 @@ final class SteamWebKitOverlay {
             for target in gameTargets {
                 guard let id = target["id"] as? String else { continue }
                 if let mirror = mirrors[id] {
+                    let size = try await mirror.client.evaluate("JSON.stringify([innerWidth,innerHeight,devicePixelRatio])") ?? "[]"
+                    let dimensions = (try? JSONSerialization.jsonObject(with: Data(size.utf8)) as? [NSNumber])?.map { $0.doubleValue }
+                    if dimensions != mirror.viewport {
+                        mirror.renderer.stop(); await mirror.client.disconnect(); mirrors.removeValue(forKey: id)
+                        try await adopt(target, id: id)
+                        continue
+                    }
                     if attached, mirror.renderer.frames > 0 {
+                        if !mirror.receivedFrame, mirror.renderer.consumedFrames > 0 {
+                            mirror.receivedFrame = true
+                            EventLog.shared.log(.window, "Steam consumed WebKit overlay frames: \(mirror.popup.name)")
+                        }
                         if !mirror.inputInstalled {
                             _ = try await mirror.client.evaluate(inputScript)
                             mirror.inputInstalled = true
@@ -130,11 +143,12 @@ final class SteamWebKitOverlay {
             window.collectionBehavior = [.stationary, .ignoresCycle]
             window.contentView = view; window.orderBack(nil); popup.window = window
         }
+        popup.window?.setContentSize(view.frame.size)
         guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(pixelWidth), height: UInt32(pixelHeight), framePath: frame.path, cefID: cefID)
         else { try? FileManager.default.removeItem(at: frame); await scoped.disconnect(); return }
         let path = SteamBottle.windowsPath(for: frame)
         try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(pixelWidth)x\(pixelHeight).path"), options: .atomic)
-        mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer)
+        mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer, viewport: [Double(width), Double(height), scale])
         EventLog.shared.log(.window, "WebKit overlay connected: \(name), \(width)×\(height)")
     }
 
