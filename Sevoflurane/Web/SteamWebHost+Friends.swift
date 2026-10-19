@@ -19,21 +19,6 @@ extension SteamWebHost {
         runInContext(Self.friendsScript, describedAs: "friends list")
     }
 
-    /// Read Steam's own online counter only when the launcher requests it.
-    func readOnlineFriendCount() async -> Int? {
-        guard let raw = await evaluateInContext(Self.onlineFriendCountScript),
-              let count = Int(raw), count >= 0 else { return nil }
-        return count
-    }
-
-    static let onlineFriendCountScript = """
-    (function () {
-      var store = window.friendStore && window.friendStore.m_FriendsUIFriendStore;
-      if (!store || !store.friends_list_ready || typeof store.GetOnlineFriendCount !== "function") return null;
-      return String(store.GetOnlineFriendCount());
-    })()
-    """
-
     /// Opens one friend's chat window, by the 32-bit account id Steam's own
     /// chat calls take. Notification clicks land here.
     func openChat(accountID: String) {

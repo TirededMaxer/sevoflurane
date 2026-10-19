@@ -12,8 +12,13 @@ assert os.environ.get("GITHUB_ACTIONS") == "true", "Run through GitHub Actions"
 repo = Path(os.environ["GITHUB_WORKSPACE"])
 work = Path(os.environ["RUNNER_TEMP"]) / "sevo-build"
 out = Path(os.environ["RUNNER_TEMP"]) / "sevo-output"
-summary = json.loads((out / "test-summary.json").read_text())
-assert summary["passedTests"] > 0 and summary["failedTests"] == 0, summary
+tests_run = os.environ.get("SEVO_SKIP_TESTS") != "true"
+if tests_run:
+    summary = json.loads((out / "test-summary.json").read_text())
+    assert summary["passedTests"] > 0 and summary["failedTests"] == 0, summary
+else:
+    summary = {"status": "not_run", "reason": "explicit workflow input"}
+    (out / "test-summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 source = work / "Release/Build/Products/Release/Sevoflurane.app"
 stage = work / "dmg-root/Sevoflurane.app"
 shutil.copytree(source, stage, symlinks=True)
@@ -79,12 +84,13 @@ run("hdiutil", "verify", str(dmg))
 digest = hashlib.sha256(dmg.read_bytes()).hexdigest()
 (out / "SHA256SUMS.txt").write_text(f"{digest}  {dmg.name}\n")
 notes = (repo / "RELEASE_NOTES.md").read_text()
-notes += (f"\n\nCloud validation: {summary['passedTests']} passed, {summary['failedTests']} failed, "
-          f"{summary['skippedTests']} skipped. CLI/MCP, signatures and DMG integrity verified.\n"
+test_note = (f"{summary['passedTests']} passed, {summary['failedTests']} failed, {summary['skippedTests']} skipped."
+             if tests_run else "Test suites not run, as explicitly requested.")
+notes += (f"\n\nCloud validation: {test_note} CLI/MCP, signatures and DMG integrity verified.\n"
           f"Source: `{os.environ['GITHUB_SHA']}`\n\n"
           f"[Build and test run]({os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
           f"/actions/runs/{os.environ['GITHUB_RUN_ID']})\n")
 (out / "release-notes.md").write_text(notes)
 (out / "manifest.json").write_text(json.dumps({"version": version, "dmg": dmg.name,
-    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": False}, indent=2) + "\n")
+    "sha256": digest, "source": os.environ["GITHUB_SHA"], "mcpTools": len(tools), "experimental": False, "testsRun": tests_run}, indent=2) + "\n")
 print(f"Verified {version}: {len(tools)} MCP tools, SHA-256 {digest}")

@@ -4563,17 +4563,6 @@
         }
       }
     },
-    "Friends · %lld online" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "好友 · %lld 人在线"
-          }
-        }
-      }
-    },
     "Friends · %lld new messages" : {
       "localizations" : {
         "zh-Hans" : {

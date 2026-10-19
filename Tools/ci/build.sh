@@ -57,6 +57,12 @@ print(f"Cloud tests: {summary['passedTests']} passed; {summary['failedTests']} f
 PY_SUMMARY
 fi
 if [[ "$stage" == release || "$stage" == all ]]; then
+    # A build-only run still needs the Win32 UI helper in the application.
+    if [[ ! -f "$RUNNER_TEMP/sevo-steam-ui/sevo-steam-ui.exe" ]]; then
+        bash Tools/steam-ui/build-cloud.sh
+        xcodebuild -version > "$out/toolchain.txt"
+        sw_vers >> "$out/toolchain.txt"
+    fi
     xcodebuild "${common[@]}" -configuration Release -derivedDataPath "$work/Release" \
         CODE_SIGNING_ALLOWED=NO ENABLE_HARDENED_RUNTIME=YES ENABLE_TESTABILITY=NO build \
         > "$out/build.log" 2>&1 || { tail -100 "$out/build.log"; exit 1; }

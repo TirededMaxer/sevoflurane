@@ -7,6 +7,10 @@ on:
         description: Publish the verified build and retain only the newest Release
         type: boolean
         default: true
+      run_tests:
+        description: Run the test suites before building
+        type: boolean
+        default: true
       build_run_id:
         description: Optional previously verified build run, for retrying publication only
         type: string
@@ -40,7 +44,7 @@ jobs:
           merge-multiple: true
           path: ${{ runner.temp }}/sevo-output/
       - name: Test on a fresh Apple Silicon runner
-        if: inputs.build_run_id == ''
+        if: inputs.build_run_id == '' && inputs.run_tests
         timeout-minutes: 12
         run: bash Tools/ci/build.sh test
       - name: Build the Release application
@@ -49,6 +53,8 @@ jobs:
         run: bash Tools/ci/build.sh release
       - name: Sign, verify and package
         if: inputs.build_run_id == ''
+        env:
+          SEVO_SKIP_TESTS: ${{ !inputs.run_tests }}
         run: python3 Tools/ci/package.py
       - name: Upload build and test evidence
         if: always() && inputs.build_run_id == ''

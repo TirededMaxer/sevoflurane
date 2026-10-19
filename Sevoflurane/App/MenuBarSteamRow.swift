@@ -35,7 +35,6 @@ private struct HoverLabel: View {
     let word: LocalizedStringResource
     /// Shown whatever the hover: a count that is news.
     var badge: String?
-    var hoverCount: Int?
     let isHovered: Bool
 
     var body: some View {
@@ -45,13 +44,10 @@ private struct HoverLabel: View {
                 .contentTransition(.symbolEffect(.replace))
                 .accessibilityHidden(true)
             if isHovered {
-                Group {
-                    if let hoverCount { Text(hoverCount, format: .number).monospacedDigit() }
-                    else { Text(word) }
-                }
-                .font(.system(size: 11))
-                .fixedSize()
-                .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
+                Text(word)
+                    .font(.system(size: 11))
+                    .fixedSize()
+                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
             }
             if let badge {
                 Text(badge)
@@ -125,23 +121,15 @@ private struct StatusChip: View {
 private struct FriendsButton: View {
     let host: SteamWebHost
     @State private var isHovered = false
-    @State private var onlineFriends: Int?
 
     var body: some View {
         let unreadChats = host.unreadChats
-        let description = if unreadChats == 0, let onlineFriends {
-            String(localized: "Friends · \(onlineFriends) online")
-        } else {
-            MenuBarView.friendsLabel(unreadChats: unreadChats)
-        }
         Button { host.openFriends() } label: {
             HoverLabel(
                 symbol: "person.2.fill", word: "Friends",
                 badge: unreadChats > 0 ? "\(unreadChats)" : nil,
-                hoverCount: unreadChats == 0 ? onlineFriends : nil,
                 isHovered: isHovered,
             )
-            .frame(width: 96, height: ZoneMetrics.controlHeight)
             .foregroundStyle(unreadChats > 0 ? AnyShapeStyle(Theme.onAccent) : AnyShapeStyle(.secondary))
             .contentShape(Capsule())
             .glassEffect(
@@ -153,15 +141,9 @@ private struct FriendsButton: View {
         .onHover { hovering in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { isHovered = hovering }
         }
-        .task(id: isHovered && unreadChats == 0) {
-            guard isHovered, unreadChats == 0 else { onlineFriends = nil; return }
-            let count = await host.readOnlineFriendCount()
-            guard !Task.isCancelled else { return }
-            onlineFriends = count
-        }
         .keyboardShortcut("f")
-        .accessibilityLabel(description)
-        .help(description)
+        .accessibilityLabel(MenuBarView.friendsLabel(unreadChats: unreadChats))
+        .help(MenuBarView.friendsLabel(unreadChats: unreadChats))
     }
 }
 
