@@ -120,7 +120,11 @@ final class SteamWindow: NSObject {
     /// `ShowWindow` or `BringToFront`. Creating it visible would flash an empty
     /// frame before the UI paints.
     func realize() {
-        guard window == nil, role != .context, !usesOriginalGameOverlay else { return }
+        guard window == nil, role != .context else { return }
+        if usesOriginalGameOverlay {
+            host?.webKitOverlay.prepareSource(for: self)
+            return
+        }
 
         if role == .toast { host?.refreshToastViewport() }
         let content = NSRect(origin: .zero, size: requestedSize)

@@ -6,7 +6,7 @@ import WebKit
 @MainActor
 struct SteamPresentationTests {
     @Test
-    func originalGamePagesNeverAcquireNativeMirrorWindows() {
+    func originalGamePagesOnlyUseInvisibleNonActivatingSources() {
         let host = SteamWebHost()
         for name in ["desktopoverlay_uid730", "gamepadoverlay_uid730", "friendslist_uid730",
                      "chat_ChatWindow_1_uid730", "contextmenu_4_uid730", "PopupWindow_warning_uid730",
@@ -17,7 +17,16 @@ struct SteamPresentationTests {
             popup.realize()
             popup.show(activating: true)
             #expect(popup.usesOriginalGameOverlay, "\(name)")
-            #expect(popup.nsWindow == nil, "\(name)")
+            #expect(popup.nsWindow?.alphaValue == 0, "\(name)")
+            #expect(popup.nsWindow?.canBecomeKey == false, "\(name)")
+            #expect(popup.nsWindow?.canBecomeMain == false, "\(name)")
+            #expect(popup.nsWindow?.ignoresMouseEvents == true, "\(name)")
+            #expect(!popup.isWindowVisible, "\(name)")
+            if name == "new_steam_game_panel_uid730" {
+                _ = popup.perform("__bv", [91, "create"])
+                #expect(popup.browserViewStatuses.map(\.id) == [91])
+            }
+            popup.close()
         }
     }
 

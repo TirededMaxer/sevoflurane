@@ -3,7 +3,10 @@ import WebKit
 
 @MainActor
 enum NativeOverlayInput {
-    private static var pressed: [ObjectIdentifier: NSView] = [:]
+    private struct Press { let view: NSView; let button: Int }
+    private static var pressed: [ObjectIdentifier: Press] = [:]
+
+    static func reset(_ web: WKWebView) { pressed.removeValue(forKey: ObjectIdentifier(web)) }
 
     static func deliver(_ packet: [String: Any], to popup: SteamWindow) {
         guard let window = popup.window, let content = window.contentView,
@@ -42,7 +45,7 @@ enum NativeOverlayInput {
         let y = (packet["y"] as? NSNumber)?.doubleValue ?? 0
         let point = NSPoint(x: x, y: content.bounds.height-y)
         let local = content.convert(point, to: nil)
-        let view = pressed[id] ?? content.hitTest(content.superview?.convert(local, from: nil) ?? local) ?? web
+        let view = pressed[id]?.view ?? content.hitTest(content.superview?.convert(local, from: nil) ?? local) ?? web
         popup.relayReactHover(contentPoint: point, contentHeight: content.bounds.height)
         if kind == "wheel" {
             let dx = (packet["dx"] as? NSNumber)?.doubleValue ?? 0
@@ -55,16 +58,16 @@ enum NativeOverlayInput {
             let relative = Selector(("_eventRelativeToWindow:"))
             guard event.responds(to: relative),
                   let targeted = event.perform(relative, with: window)?.takeUnretainedValue() as? NSEvent else { return }
-            web.scrollWheel(with: targeted); return
+            view.scrollWheel(with: targeted); return
         }
-        let button = packet["button"] as? Int ?? 0
-        let right = button == 2
+        let button = kind == "mousemove" ? (pressed[id]?.button ?? 0) : (packet["button"] as? Int ?? 0)
+        let right = button == 2, middle = button == 1
         let type: NSEvent.EventType
         if kind == "mousedown" {
-            window.makeFirstResponder(web); pressed[id] = view
-            type = right ? .rightMouseDown : .leftMouseDown
-        } else if kind == "mouseup" { type = right ? .rightMouseUp : .leftMouseUp }
-        else if pressed[id] != nil { type = .leftMouseDragged }
+            window.makeFirstResponder(web); pressed[id] = Press(view: view, button: button)
+            type = right ? .rightMouseDown : middle ? .otherMouseDown : .leftMouseDown
+        } else if kind == "mouseup" { type = right ? .rightMouseUp : middle ? .otherMouseUp : .leftMouseUp }
+        else if pressed[id] != nil { type = right ? .rightMouseDragged : middle ? .otherMouseDragged : .leftMouseDragged }
         else { type = .mouseMoved }
         guard let event = NSEvent.mouseEvent(with: type, location: local, modifierFlags: flags,
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
@@ -75,6 +78,10 @@ enum NativeOverlayInput {
         case .rightMouseDown: view.rightMouseDown(with: event)
         case .rightMouseUp: view.rightMouseUp(with: event); pressed.removeValue(forKey: id)
         case .leftMouseDragged: view.mouseDragged(with: event)
+        case .rightMouseDragged: view.rightMouseDragged(with: event)
+        case .otherMouseDown: view.otherMouseDown(with: event)
+        case .otherMouseUp: view.otherMouseUp(with: event); pressed.removeValue(forKey: id)
+        case .otherMouseDragged: view.otherMouseDragged(with: event)
         default: view.mouseMoved(with: event)
         }
     }

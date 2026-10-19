@@ -85,7 +85,7 @@ final class SteamWebKitOverlay {
             }
             let live = Set(gameTargets.compactMap { $0["id"] as? String })
             for id in mirrors.keys where !live.contains(id) {
-                if let old = mirrors.removeValue(forKey: id) { old.renderer.stop(); await old.client.disconnect() }
+                if let old = mirrors.removeValue(forKey: id) { old.renderer.stop(); NativeOverlayInput.reset(old.popup.webView); await old.client.disconnect() }
             }
             for target in gameTargets {
                 guard let id = target["id"] as? String else { continue }
@@ -93,7 +93,7 @@ final class SteamWebKitOverlay {
                     let size = try await mirror.client.evaluate("JSON.stringify([innerWidth,innerHeight,devicePixelRatio])") ?? "[]"
                     let dimensions = (try? JSONSerialization.jsonObject(with: Data(size.utf8)) as? [NSNumber])?.map { $0.doubleValue }
                     if dimensions != mirror.viewport {
-                        mirror.renderer.stop(); await mirror.client.disconnect(); mirrors.removeValue(forKey: id)
+                        mirror.renderer.stop(); NativeOverlayInput.reset(mirror.popup.webView); await mirror.client.disconnect(); mirrors.removeValue(forKey: id)
                         try await adopt(target, id: id)
                         continue
                     }
@@ -143,13 +143,7 @@ final class SteamWebKitOverlay {
         view.frame = NSRect(x: 0, y: 0, width: width, height: height)
         view.wantsLayer = true
         SteamWebHost.setOcclusionDetection(false, on: view)
-        if popup.window == nil {
-            let window = NativeOverlaySourceWindow(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            window.alphaValue = 0; window.isOpaque = false; window.backgroundColor = .clear
-            window.ignoresMouseEvents = true; window.hidesOnDeactivate = false
-            window.collectionBehavior = [.stationary, .ignoresCycle]
-            window.contentView = view; window.orderBack(nil); popup.window = window
-        }
+        prepareSource(for: popup)
         popup.window?.setContentSize(view.frame.size)
         guard let renderer = SevoNativeWebRenderer(webView: view, width: UInt32(pixelWidth), height: UInt32(pixelHeight), framePath: frame.path, cefID: cefID)
         else { try? FileManager.default.removeItem(at: frame); await scoped.disconnect(); return }
@@ -157,6 +151,24 @@ final class SteamWebKitOverlay {
         try Data(path.utf8).write(to: directory.appendingPathComponent("stream-\(cefID)-\(pixelWidth)x\(pixelHeight).path"), options: .atomic)
         mirrors[id] = Mirror(client: scoped, popup: popup, renderer: renderer, viewport: [Double(width), Double(height), scale])
         EventLog.shared.log(.window, "WebKit overlay connected: \(name), \(width)×\(height)")
+    }
+
+    /// Make the invisible backing available before Steam creates embedded
+    /// BrowserViews. Its normal popup-created event may run before discovery.
+    func prepareSource(for popup: SteamWindow) {
+        guard popup.window == nil else { return }
+        let view = popup.webView
+        if view.frame.width < 1 || view.frame.height < 1 {
+            view.frame = NSRect(origin: .zero, size: popup.requestedSize)
+        }
+        let window = NativeOverlaySourceWindow(contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.isExcludedFromWindowsMenu = true
+        window.alphaValue = 0; window.isOpaque = false; window.backgroundColor = .clear
+        window.ignoresMouseEvents = true; window.hidesOnDeactivate = false
+        window.collectionBehavior = [.stationary, .ignoresCycle]
+        SteamWebHost.setOcclusionDetection(false, on: view)
+        window.contentView = view; window.orderBack(nil); popup.window = window
     }
 
     private func attach() async throws {
@@ -221,7 +233,7 @@ final class SteamWebKitOverlay {
 
     private func reset() async {
         for mirror in mirrors.values {
-            mirror.renderer.stop()
+            mirror.renderer.stop(); NativeOverlayInput.reset(mirror.popup.webView)
             _ = try? await mirror.client.evaluate("window.__sevoOverlayInput?.stop();'stopped'")
             await mirror.client.disconnect()
         }
