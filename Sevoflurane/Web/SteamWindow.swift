@@ -100,7 +100,7 @@ final class SteamWindow: NSObject {
     /// an anonymous `about:blank` and the safe default is to keep rendering.
     private func applyOcclusionPolicy() {
         SteamWebHost.setOcclusionDetection(
-            role.allowsOcclusionDetection && !occlusionDetectionSuspended, on: webView,
+            role.allowsOcclusionDetection && !isGamePopup && !occlusionDetectionSuspended, on: webView,
         )
     }
 
