@@ -43,10 +43,10 @@ enum NativeOverlayInput {
         }
         let x = (packet["x"] as? NSNumber)?.doubleValue ?? 0
         let y = (packet["y"] as? NSNumber)?.doubleValue ?? 0
-        let point = NSPoint(x: x, y: content.bounds.height-y)
+        let point = NSPoint(x: x, y: content.isFlipped ? y : content.bounds.height-y)
         let local = content.convert(point, to: nil)
         let view = pressed[id]?.view ?? content.hitTest(content.superview?.convert(local, from: nil) ?? local) ?? web
-        popup.relayReactHover(contentPoint: point, contentHeight: content.bounds.height)
+        popup.relayReactHover(contentPoint: NSPoint(x: x, y: content.bounds.height-y), contentHeight: content.bounds.height)
         if kind == "wheel" {
             let dx = (packet["dx"] as? NSNumber)?.doubleValue ?? 0
             let dy = (packet["dy"] as? NSNumber)?.doubleValue ?? 0

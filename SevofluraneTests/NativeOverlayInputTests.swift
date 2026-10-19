@@ -65,4 +65,33 @@ struct NativeOverlayInputTests {
         } catch is CancellationError {} catch { Issue.record("Unexpected failure: \(error)") }
     }
 
+
+    @Test
+    func nativeClickHitsTopButtonInInvisibleWebKitSource() async throws {
+        let host = SteamWebHost()
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        let popup = SteamWindow(webView: web, role: .gameOverlay, name: "desktopoverlay_uid1",
+            size: CGSize(width: 400, height: 300), origin: nil, host: host)
+        popup.realize()
+        defer { NativeOverlayInput.reset(web); popup.close() }
+        web.loadHTMLString("""
+        <button id="action" style="position:absolute;left:10px;top:10px;width:120px;height:40px"
+          onclick="window.clicks++">Original action</button><script>window.clicks=0;window.ready=true</script>
+        """, baseURL: nil)
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready")) as? Bool == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(try await web.evaluateJavaScript("window.ready") as? Bool == true)
+        NativeOverlayInput.deliver(["event":"mousedown","x":30,"y":30,"button":0], to: popup)
+        NativeOverlayInput.deliver(["event":"mouseup","x":30,"y":30,"button":0], to: popup)
+        for _ in 0..<50 {
+            if (try? await web.evaluateJavaScript("window.clicks")) as? Int == 1 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await web.evaluateJavaScript("window.clicks") as? Int == 1)
+        #expect(popup.nsWindow?.canBecomeKey == false)
+        #expect(popup.nsWindow?.alphaValue == 0)
+    }
+
 }
