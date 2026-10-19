@@ -17,6 +17,7 @@ import WebKit
 @MainActor
 @Observable
 final class SteamWebHost {
+    @ObservationIgnored lazy var webKitOverlay = SteamWebKitOverlay(host: self)
     /// Steam's own `steamui` bundle, served with the `SteamClient` shim
     /// injected and proxied to the client running in the bottle.
     static let uiURL = URL(string: "http://127.0.0.1:\(BridgePorts.steamUI)/")!
@@ -422,6 +423,7 @@ final class SteamWebHost {
         installToastPlacementObservers()
         applyUserStyles()
         createContextPage()
+        webKitOverlay.start()
     }
 
     /// Tears the context page down to nothing and boots a fresh one: a new web
@@ -563,6 +565,7 @@ final class SteamWebHost {
     /// Drops every adopted popup, telling each why. One writer for all three
     /// teardowns, so none of them can forget the guard.
     private func detachPopups(reason: SteamWindow.DetachReason) {
+        webKitOverlay.invalidate()
         isTearingDownPage = true
         defer { isTearingDownPage = false }
         for popup in popups.values {

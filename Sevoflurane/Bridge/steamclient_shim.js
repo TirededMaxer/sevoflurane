@@ -466,7 +466,7 @@
         }
         if (path === "SteamClient.Overlay.GetOverlayBrowserInfo"
             || path === "SteamClient.WebChat.GetOverlayChatBrowserInfo") {
-          return Promise.resolve([]);
+          return Promise.resolve(window.__sevoNativeOverlayInfo || []);
         }
         if (path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged"
             || path === "SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") {

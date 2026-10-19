@@ -12,6 +12,10 @@ fi
 # This executes Microsoft x64-ABI callbacks from the same observer.c under Rosetta.
 # It is not a Windows or Steam runtime acceptance test.
 /usr/bin/arch -x86_64 /usr/bin/true
+clang -arch arm64 -std=c11 -O2 -Wall -Wextra -Werror -pthread transport_test.c -o "$work/transport-test"
+"$work/transport-test" | tee "$out/transport-tests.log"
+clang -arch x86_64 -std=c11 -O2 -Wall -Wextra -Werror -pthread transport_test.c -o "$work/transport-x64-test"
+/usr/bin/arch -x86_64 "$work/transport-x64-test" | tee -a "$out/transport-tests.log"
 clang -arch x86_64 -std=c11 -O2 -fno-inline-functions -Wall -Wextra -Werror -pthread observer_test.c -o "$work/observer-abi-test"
 /usr/bin/arch -x86_64 "$work/observer-abi-test" "$work/stats-fixture.bin" | tee "$out/abi-tests.log"
 clang -arch x86_64 -std=c11 -O2 -fno-inline-functions -Wall -Wextra -Werror -pthread cpp_observer_test.c -o "$work/cpp-observer-abi-test"

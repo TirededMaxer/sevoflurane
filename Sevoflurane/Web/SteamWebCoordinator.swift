@@ -141,7 +141,11 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
               let window = host?.window(for: webView) else {
             return (nil, nil)
         }
-        return (window.perform(function, body["args"] as? [Any] ?? []), nil)
+        let args = body["args"] as? [Any] ?? []
+        if window.usesOriginalGameOverlay, !function.hasPrefix("__") {
+            return (await host?.webKitOverlay.windowCall(function, args: args, popup: window), nil)
+        }
+        return (window.perform(function, args), nil)
     }
 
     /// Whether a message comes from Steam's UI: the top document of one of

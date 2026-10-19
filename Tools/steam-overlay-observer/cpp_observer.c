@@ -4,6 +4,7 @@
 #include <string.h>
 #include <wchar.h>
 #include "cpp_observer.h"
+#include "../../Sevoflurane/Web/NativeOverlayTransport.h"
 #ifdef SEVO_OBSERVER_TEST
 #include <pthread.h>
 #include <time.h>
@@ -56,6 +57,67 @@ static cpp_frame_header cpp_frame;
 static cpp_frame_stats *cpp_frame_counts;
 static const void *cpp_frame_pixels;
 static uint64_t cpp_frame_started,cpp_frame_restored;
+#ifdef SEVO_OBSERVER_TEST
+static const void *cpp_stream_read(uint32_t id,int width,int height,int *restore) {
+    (void)id;(void)width;(void)height;(void)restore;return NULL;
+}
+static void cpp_stream_release(void) {}
+#else
+static wchar_t cpp_stream_directory[2048];
+static SRWLOCK cpp_stream_mutex=SRWLOCK_INIT;
+static _Thread_local int cpp_stream_locked;
+typedef struct { uint32_t id,front;int width,height,used;uint64_t checked;SevoNativeFrame *map;wchar_t path[2048]; } cpp_stream;
+static cpp_stream cpp_streams[16];
+static uint64_t cpp_wall_ms(void) {
+    FILETIME ft;GetSystemTimeAsFileTime(&ft);
+    return (((uint64_t)ft.dwHighDateTime<<32)|ft.dwLowDateTime)/10000-11644473600000ULL;
+}
+static const void *cpp_stream_read(uint32_t id,int width,int height,int *restore) {
+    if(!id||!cpp_stream_directory[0]||!SevoNativeFrameSize((uint32_t)width,(uint32_t)height)||
+       !TryAcquireSRWLockExclusive(&cpp_stream_mutex))return NULL;
+    cpp_stream_locked=1;cpp_stream *s=NULL;
+    for(int i=0;i<16;i++)if(cpp_streams[i].id==id){s=&cpp_streams[i];break;}
+    if(!s){
+        wchar_t registry[2304];
+        swprintf(registry,2304,L"%ls\\stream-%u-%dx%d.path",cpp_stream_directory,id,width,height);
+        if(GetFileAttributesW(registry)==INVALID_FILE_ATTRIBUTES)return NULL;
+        for(int i=0;i<16;i++)if(!cpp_streams[i].id){s=&cpp_streams[i];s->id=id;break;}
+    }
+    if(!s)return NULL;
+    uint64_t now=cpp_wall_ms();
+    if(s->width!=width||s->height!=height||now-s->checked>1000){
+        wchar_t registry[2304],path[2048]={0};char utf8[4096]={0};
+        swprintf(registry,2304,L"%ls\\stream-%u-%dx%d.path",cpp_stream_directory,id,width,height);
+        FILE *f=_wfopen(registry,L"rb");
+        if(f){size_t n=fread(utf8,1,sizeof(utf8)-1,f);fclose(f);
+            while(n&&(utf8[n-1]=='\n'||utf8[n-1]=='\r'))utf8[--n]=0;
+            if(n)MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,utf8,-1,path,2048);
+        }
+        s->checked=now;
+        if(path[0]&&(s->width!=width||s->height!=height||wcscmp(s->path,path))){
+            HANDLE file=CreateFileW(path,GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+                NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);LARGE_INTEGER size={0};
+            if(file!=INVALID_HANDLE_VALUE){
+                if(GetFileSizeEx(file,&size)&&(uint64_t)size.QuadPart==SevoNativeFrameSize((uint32_t)width,(uint32_t)height)){
+                    HANDLE mapping=CreateFileMappingW(file,NULL,PAGE_READWRITE,0,0,NULL);
+                    if(mapping){SevoNativeFrame *h=MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,0);CloseHandle(mapping);
+                        if(h&&SevoNativeFrameValid(h,id,width,height)){
+                            if(s->map)UnmapViewOfFile(s->map);
+                            s->map=h;s->front=0;s->width=width;s->height=height;wcscpy(s->path,path);
+                        }else if(h)UnmapViewOfFile(h);
+                    }
+                }CloseHandle(file);
+            }
+        }
+    }
+    const void *pixels=s->map&&s->width==width&&s->height==height?SevoNativeFrameRead(s->map,&s->front,now):NULL;
+    if(pixels)s->used=1;else if(s->used){*restore=1;s->used=0;}
+    return pixels;
+}
+static void cpp_stream_release(void) {
+    if(cpp_stream_locked){cpp_stream_locked=0;ReleaseSRWLockExclusive(&cpp_stream_mutex);}
+}
+#endif
 static int cpp_frame_valid(cpp_frame_header h) {
     return !memcmp(h.magic,"SEVOFRM1",8)&&h.width>=64&&h.height>=64&&h.width<=8192&&h.height<=8192&&
         h.target && (uint64_t)h.width*h.height*4==h.bytes && h.bytes<=128u*1024u*1024u;
@@ -136,7 +198,15 @@ static void CPP_ABI cpp_on_cpu(void *self,void *browser_ref,int type,const void 
     if(!original){cpp_count(CPP_MISSING_ORIGINAL);cpp_set_error(error);return;}
     cpp_note(self,type,0,width,height);
     uint32_t cef_id=0;uint64_t identity=0;
-    if(cpp_frame_pixels&&cpp_cef_id(browser_ref,&cef_id))identity=((uint64_t)1<<32)|cef_id;
+    if(cpp_cef_id(browser_ref,&cef_id))identity=((uint64_t)1<<32)|cef_id;
+    int stream_restore=0;
+    const void *stream_pixels=type==0&&identity?cpp_stream_read(cef_id,width,height,&stream_restore):NULL;
+    if(stream_pixels||stream_restore){
+        int full[4]={0,0,width,height};const void *vector[3]={full,full+4,full+4};
+        cpp_set_error(error);original(self,browser_ref,type,vector,stream_pixels?stream_pixels:pixels,width,height,scroll,scale);
+        error=cpp_error();cpp_stream_release();cpp_set_error(error);return;
+    }
+    cpp_stream_release();
     int frame_choice=cpp_frame_use(identity,type,width,height);
     if(frame_choice){
         /* REA 11a640 reads a borrowed MSVC vector's begin/end, then its full-view rect.
@@ -220,6 +290,7 @@ static int cpp_create_stats(void) {
     char line[4096]={0};size_t n=fread(line,1,sizeof(line)-1,f);fclose(f);
     while(n&&(line[n-1]=='\n'||line[n-1]=='\r'))line[--n]=0;
     if(!n||!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,line,-1,directory,2048))return 0;
+    wcscpy(cpp_stream_directory,directory);
     FILETIME created,exited,kernel,user;
     if(!GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user))return 0;
     uint64_t start=((uint64_t)created.dwHighDateTime<<32)|created.dwLowDateTime;

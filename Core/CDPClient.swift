@@ -78,6 +78,11 @@ actor CDPClient {
         _ = try await send(method: "Runtime.addBinding", params: ["name": "__sevo"])
     }
 
+    func connectInputMirror(socketURL: URL) async throws {
+        try await connect(socketURL: socketURL, consumingBindings: true)
+        _ = try await send(method: "Runtime.addBinding", params: ["name": "__sevo"])
+    }
+
     /// How long the handshake may take. Every other call is bounded by its
     /// caller, whose budget it knows; the handshake has one budget wherever
     /// it is made.
