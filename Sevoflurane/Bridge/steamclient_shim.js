@@ -475,9 +475,8 @@
       // replaces Steam's own store subscription and leaves the game blank.
       // Local listeners consume the original store's read-only snapshots.
       if (nativeWindowHandler(window)) {
-        // This realm hosts desktop windows and the sole general-toast queue.
-        // Games and their focus stay in CEF. Replaying this single-slot native
-        // subscription would also take the real game's focus away from CEF.
+        // A local copy of Steam's focus snapshot selects its original UI
+        // context without occupying the native single-callback subscription.
         if (path === "SteamClient.System.UI.RegisterForOverlayGameWindowFocusChanged") {
           var focusCallback = arguments[0];
           var subscription = overlaySubscription("focus",focusCallback);
