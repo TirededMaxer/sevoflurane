@@ -144,7 +144,7 @@ struct NativeOverlayInputTests {
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('browser')") as? String == "196610")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('openerid')") as? String == "7")
         #expect(try await web.evaluateJavaScript("new URL(opened[0].url).searchParams.get('centerOnBrowserID')") as? String == "4")
-        _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:surface})")
+        _ = try await web.evaluateJavaScript("g_PopupManager.GetExistingPopup=()=>({m_popup:surface});'ready'")
         #expect(try await web.evaluateJavaScript("\(call)(\(request))") as? String == "71")
         #expect(try await web.evaluateJavaScript("opened.length") as? Int == 1)
         #expect(try await web.evaluateJavaScript("nativeCloses") as? Int == 0)
