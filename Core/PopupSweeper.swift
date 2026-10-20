@@ -7,9 +7,8 @@ enum PopupSweepScope: String, Sendable {
     /// on the Wine desktop is one this app already renders natively.
     case everything
     /// Only the client's copies of what this app puts on screen itself
-    /// (``SteamWindowRole/twinRoles``). A notification's sweep asks for this:
-    /// the window it came for is the toast twin, and an install dialog or a
-    /// game's own popup that happens to be up is not its to take away.
+    /// (``SteamWindowRole/twinRoles``), leaving unrelated install dialogs
+    /// and game popups alone.
     case twins
 }
 
@@ -20,54 +19,28 @@ struct PopupSweep: Sendable {
     let names: [String]
 }
 
-/// The one place a sweep of the bottled client's own popup windows is
-/// scheduled from.
-///
-/// A sweep used to be a task per notification, four delays deep, each delay
-/// opening a DevTools session per popup target. Two notifications a second
-/// apart put eight overlapping schedules on a CEF that then answered nothing
-/// on `/json` for thirty-two seconds while its process sat idle. One actor
-/// holds the schedule instead: a request that arrives while a sweep is in
-/// flight joins it, consecutive sweeps are ``minimumInterval`` apart, and a
-/// notification arriving mid-schedule extends the schedule rather than
-/// starting a second one.
+/// Coalesces lifecycle sweeps so concurrent stop and supervisor requests
+/// share one CDP evaluation. Notification presentation has no sweep schedule.
 actor PopupSweeper {
     static let shared = PopupSweeper()
 
     /// Sweeps happen no closer together than this, whoever asks.
     static let minimumInterval: Duration = .seconds(1)
 
-    /// How soon after a notification the first sweep runs. The client's twin
-    /// toast is on screen within half a second, and a sweep that waits a full
-    /// interval lets the user see it.
-    static let firstSweepDelay: Duration = .milliseconds(500)
-
-    /// How long a notification's schedule keeps sweeping. One notification
-    /// raises more than one window and they do not arrive together: the toast
-    /// is up within a second, and a chat window the twin opens behind it takes
-    /// several more.
-    static let scheduleLength: Duration = .seconds(6)
-
     private let interval: Duration
-    private let length: Duration
     private let hide: @Sendable (PopupSweepScope) async -> [String]
     private var lastSweep: ContinuousClock.Instant?
     private var inFlight: Task<PopupSweep, Never>?
-    private var scheduleEnd: ContinuousClock.Instant?
-    private var schedule: Task<Void, Never>?
-    private var report: (@Sendable (PopupSweep) -> Void)?
 
     /// `hide` reads the hook at each sweep rather than capturing it, because
     /// the app installs the bridge's sweep after the shared sweeper exists.
     init(
         minimumInterval: Duration = PopupSweeper.minimumInterval,
-        scheduleLength: Duration = PopupSweeper.scheduleLength,
         hide: @escaping @Sendable (PopupSweepScope) async -> [String] = { scope in
             await ClientLifecycle.hidePopupsOverBridge(scope)
         },
     ) {
         interval = minimumInterval
-        length = scheduleLength
         self.hide = hide
     }
 
@@ -93,33 +66,5 @@ actor PopupSweeper {
         lastSweep = .now
         inFlight = nil
         return hidden
-    }
-
-    /// Runs a client notification's schedule of sweeps, handing each run's
-    /// names to `report`. A notification arriving while a schedule is running
-    /// pushes its end out and leaves its own reporter behind, rather than
-    /// starting a schedule of its own.
-    func sweepAfterNotification(report: @escaping @Sendable (PopupSweep) -> Void) {
-        let end = ContinuousClock.now + length
-        scheduleEnd = max(scheduleEnd ?? end, end)
-        self.report = report
-        guard schedule == nil else { return }
-        schedule = Task(name: "Sweep the client's popups after a notification") {
-            await self.runSchedule()
-        }
-    }
-
-    private func runSchedule() async {
-        try? await Task.sleep(for: Self.firstSweepDelay)
-        while scheduleEnd != nil {
-            let hidden = await sweep(.twins)
-            if !hidden.names.isEmpty { report?(hidden) }
-            // Read after the sweep: a notification that arrived during it
-            // pushed the end out, and this schedule is the one that serves it.
-            guard let end = scheduleEnd, ContinuousClock.now < end else { break }
-        }
-        scheduleEnd = nil
-        report = nil
-        schedule = nil
     }
 }

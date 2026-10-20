@@ -308,6 +308,22 @@ struct SteamClientShapeTests {
     }
 
     @Test
+    func friendNotificationsConsumeNativeEventsWithoutProducingDuplicates() async throws {
+        let web = try await load(shape: #"{"ClientNotifications":{"DisplayClientNotification":1},"Notifications":{"RegisterForNotifications":1}}"#)
+        _ = try await web.evaluateJavaScript("""
+        window.notifications=[];
+        var subscription=SteamClient.Notifications.RegisterForNotifications(function(id,type){notifications.push([id,type])});
+        SteamClient.ClientNotifications.DisplayClientNotification(2,'{"tag":"message_fixture"}',function(){});
+        var registration=sentCommands.find(m=>m.path==='SteamClient.Notifications.RegisterForNotifications');
+        fixtureSocket.onmessage({data:JSON.stringify({type:'sc_callback',cb:registration.args[0].__sevoCb,args:[42,8]})});
+        """)
+        #expect(try await web.evaluateJavaScript("JSON.stringify(sentCommands.filter(m=>m.cmd==='sc').map(m=>m.path))") as? String
+            == #"["SteamClient.Notifications.RegisterForNotifications"]"#)
+        #expect(try await web.evaluateJavaScript("JSON.stringify(notifications)") as? String == "[[42,8]]")
+        _ = try await web.evaluateJavaScript("subscription.unregister()")
+    }
+
+    @Test
     func desktopContextDoesNotMirrorNativeGameSurfaces() async throws {
         let shape = #"{"Overlay":{"GetOverlayBrowserInfo":1,"RegisterOverlayBrowserInfoChanged":1},"WebChat":{"GetOverlayChatBrowserInfo":1,"RegisterOverlayChatBrowserInfoChanged":1},"System":{"UI":{"RegisterForOverlayGameWindowFocusChanged":1}}}"#
         let web = try await load(shape: shape, messages: BrowserViewReports())

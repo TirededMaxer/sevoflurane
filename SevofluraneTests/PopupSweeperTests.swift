@@ -25,20 +25,6 @@ struct PopupSweeperTests {
         }
     }
 
-    /// A one-way switch a sweep hook and a test can both read.
-    private final class Flag: @unchecked Sendable {
-        private let lock = NSLock()
-        private var value = false
-
-        func set() {
-            lock.withLock { value = true }
-        }
-
-        var isSet: Bool {
-            lock.withLock { value }
-        }
-    }
-
     @Test
     func `concurrent asks share one sweep`() async {
         let sweeps = Counter()
@@ -72,99 +58,16 @@ struct PopupSweeperTests {
     }
 
     @Test
-    func `a second notification extends the schedule instead of racing it`() async {
-        let sweeps = Counter()
-        let sweeper = PopupSweeper(
-            minimumInterval: .milliseconds(50), scheduleLength: .milliseconds(150),
-        ) { _ in
-            ["notificationtoasts_\(sweeps.bump())_desktop"]
-        }
-        let reported = Counter()
-        await sweeper.sweepAfterNotification { _ in _ = reported.bump() }
-        await sweeper.sweepAfterNotification { _ in _ = reported.bump() }
-        // Past the delay before the first sweep and the schedule's own length,
-        // so nothing is still in flight.
-        try? await Task.sleep(for: .seconds(1))
-        #expect(sweeps.count >= 1)
-        // One schedule ran, so every sweep was reported exactly once. Two
-        // racing schedules would report each other's sweeps as well.
-        #expect(reported.count == sweeps.count)
-    }
-
-    @Test
-    func `a notification during the last sweep extends the schedule`() async {
-        let sweeps = Counter()
-        let inFirstSweep = Flag()
-        let released = Flag()
-        let sweeper = PopupSweeper(minimumInterval: .zero, scheduleLength: .milliseconds(100)) { _ in
-            let number = sweeps.bump()
-            if number == 1 {
-                // Held until the second notification is in, which puts it
-                // past the first schedule's end and inside its last sweep.
-                inFirstSweep.set()
-                while !released.isSet { try? await Task.sleep(for: .milliseconds(10)) }
-            }
-            return ["notificationtoasts_\(number)_desktop"]
-        }
-        await sweeper.sweepAfterNotification { _ in }
-        while !inFirstSweep.isSet { try? await Task.sleep(for: .milliseconds(10)) }
-        await sweeper.sweepAfterNotification { _ in }
-        released.set()
-        for _ in 0 ..< 300 where sweeps.count < 2 {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(sweeps.count >= 2)
-    }
-
-    @Test
-    func `a notification's schedule asks only for the twins`() async {
-        let scopes = Scopes()
-        let sweeper = PopupSweeper(
-            minimumInterval: .milliseconds(50), scheduleLength: .milliseconds(150),
-        ) { scope in
-            scopes.note(scope)
-            return ["notificationtoasts_1_desktop"]
-        }
-        await sweeper.sweepAfterNotification { _ in }
-        // The schedule waits out `firstSweepDelay` and then sweeps on a task
-        // of its own, so how soon the first scope arrives is up to the
-        // machine: waiting a fixed span asserts that this Mac dispatches
-        // promptly. Wait for the scope instead, and only give up on it after
-        // long enough that a busy host is not the reason.
-        for _ in 0 ..< 200 where scopes.taken.isEmpty {
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-        #expect(!scopes.taken.isEmpty)
-        #expect(scopes.taken.allSatisfy { $0 == .twins })
-    }
-
-    @Test
     func `a sweep says what it was allowed to hide`() async {
         let sweeper = PopupSweeper(minimumInterval: .zero) { _ in ["SP Desktop_uid0"] }
         #expect(await sweeper.sweep().scope == .everything)
         #expect(await sweeper.sweep(.twins).names == ["SP Desktop_uid0"])
     }
 
-    /// The scopes the hook was asked for, in order.
-    private final class Scopes: @unchecked Sendable {
-        private let lock = NSLock()
-        private var scopes: [PopupSweepScope] = []
 
-        func note(_ scope: PopupSweepScope) {
-            lock.lock()
-            defer { lock.unlock() }
-            scopes.append(scope)
-        }
-
-        var taken: [PopupSweepScope] {
-            lock.lock()
-            defer { lock.unlock() }
-            return scopes
-        }
-    }
 }
 
-/// Which of the client's own windows a notification's sweep may put away: the
+/// Which of the client's own windows a narrow lifecycle sweep may put away: the
 /// copies of what this app draws itself, and nothing the client alone has.
 struct PopupSweepClassificationTests {
     private func allowed(_ name: String) -> Bool {

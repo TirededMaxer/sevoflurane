@@ -29,10 +29,16 @@ if build_run:
     assert run["repository"]["full_name"] == repo
     jobs = json.loads(gh("api", f"repos/{repo}/actions/runs/{build_run}/jobs"))["jobs"]
     successful = {step["name"] for job in jobs for step in job["steps"] if step["conclusion"] == "success"}
-    assert {"Test and build on a fresh Apple Silicon runner", "Sign, verify and package",
+    assert {"Build the Release application", "Sign, verify and package",
             "Upload build and test evidence"} <= successful, "Original build checks must have passed"
     summary = json.loads((out / "test-summary.json").read_text())
-    assert summary["passedTests"] > 0 and summary["failedTests"] == 0
+    if manifest.get("testsRun", True):
+        assert "Test on a fresh Apple Silicon runner" in successful
+        assert summary["passedTests"] > 0 and summary["failedTests"] == 0
+    else:
+        skipped = {step["name"] for job in jobs for step in job["steps"] if step["conclusion"] == "skipped"}
+        assert "Test on a fresh Apple Silicon runner" in skipped, "Build-only run must explicitly skip tests"
+        assert summary["status"] == "not_run" and summary["reason"] == "explicit workflow input"
 else:
     assert manifest["source"] == os.environ["GITHUB_SHA"]
 assert hashlib.sha256(files[0].read_bytes()).hexdigest() == manifest["sha256"]

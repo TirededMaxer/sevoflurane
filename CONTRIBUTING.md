@@ -31,7 +31,7 @@ changing Releases. If only publication failed after build and packaging passed,
 set `build_run_id` to that Actions run ID to reuse its verified cloud artifact.
 The publisher checks the original run, commit and successful build steps before
 using it. When publishing, update the version/build number and
-RELEASE_NOTES.md first. Cloud checks include the full test suite, Release build,
+RELEASE_NOTES.md first. Cloud checks include the test suite when enabled, Release build,
 CLI/MCP, hardened-runtime signatures, microphone entitlements and DMG integrity.
 Assets are downloaded and hash-checked before and after publication; only then
 are predecessor Releases removed. Git tags remain available.
@@ -40,41 +40,25 @@ Install the verified cloud DMG after normally quitting the app. Existing engines
 Steam bottles, games and saves remain in place. Debug test hosts never start a
 client or register a background helper (`TestHost.isHosting`).
 
-## Simulating a Steam event
+## Inspecting Steam events
 
-Most of what this app reacts to arrives from Steam and needs a friend on the
-other end. Both halves of that can be driven instead.
+Windows Steam remains the sole producer of friend and group notifications.
+The WebKit shim receives `Notifications.RegisterForNotifications` callbacks and
+renders Steam's original pages; it does not forward
+`ClientNotifications.DisplayClientNotification` back into the client. Both
+roots receive friend events, so forwarding that producer creates two native
+notification IDs for one message. Notification clicks stay with the original
+page handlers. Game notification pages remain Windows Steam's responsibility.
 
-**Without a client.** The decisions are values, so the tests need no bottle,
-no window, and no sleep: `UnaskedChatPolicy` takes its clock as an argument
-and answers whether a chat window Steam is showing was asked for;
-`SteamNotification` decodes the payload the context page posts, and
-`SteamNotifications.Presentation` turns it into words and a route. Drive
-those directly — `SevofluraneTests/IncomingChatTests.swift` is the worked
-example. Running the tests launches the app, because they link against it,
-so the app returns immediately when `XCTestConfigurationFilePath` is in its
-environment (`TestHost.isHosting`): a test run starts no bridge, no
-supervisor, and no client, and never registers or restarts the background
-helper. The guard is in the app, not behind `#if DEBUG`, because the
-configuration a test action builds is the scheme's to choose.
+For a real incoming message, compare notification IDs and window creation
+counts. A manually injected toast alone does not exercise the two producers.
+Do not send messages to other people as part of diagnosis without authorization.
 
-**Against a running client**, `Tools/chat-scenarios.sh` synthesizes an
-arriving message through Steam's own objects — no second account. It calls
-`UIStore.ShowAndOrActivateChat(context, chat, false)`, which is exactly what
-Steam's `IncomingMessage` handler calls, and pushes a notification payload
-into the context page's `__steamNotification` handler, which is where the
-`NotificationStore` subscription delivers. It asserts through
-`:8764/windows` and `:8764/log/tail`, prints PASS/FAIL per scenario, and
-restarts nothing.
-
-The three endpoints behind it are the general tools, each needing the
-token described under [Who may call the ports](#who-may-call-the-ports): `GET :8764/windows`
-lists every window the app owns with its role and whether it is visible,
-`GET :8764/log/tail?n=N` is the log without a file path, and
-`POST :8764/chat/open?accountid=N` makes the call a clicked notification
-makes. `sevo eval` runs JavaScript in the app's context page; `sevo cdp`
-runs it in the bottled client's own `SharedJSContext`, which is a second
-copy of the same UI and reacts to the same events.
+`sevo eval` reads the WebKit context, and `sevo cdp` reads the bottled client's
+`SharedJSContext`. Control endpoints include `GET :8764/windows`,
+`GET :8764/log/tail?n=N`, and `POST :8764/chat/open?accountid=N`. Each needs the
+token described under [Who may call the ports](#who-may-call-the-ports).
+Debug test hosts never start a client or register the background helper.
 
 ## Fidelity rules
 
@@ -205,7 +189,7 @@ no header of ours.
 
 A script calling the ports reads the file and sends the header, never on a
 command line (`ps` shows arguments to every account): `curl -H @-` reads it
-from stdin, as `Tools/chat-scenarios.sh` does.
+from stdin.
 
 ### Testing against a real bottle
 

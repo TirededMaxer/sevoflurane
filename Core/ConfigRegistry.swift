@@ -123,7 +123,11 @@ nonisolated enum ConfigRegistry {
             }
         }
         for entry in written where !wantedPlaces.contains(entry.place) {
-            _ = await run(["reg", "delete", entry.path, "/v", entry.name, "/f"])
+            if !(await run(["reg", "delete", entry.path, "/v", entry.name, "/f"])) {
+                // Keep a failed deletion on record so the next reconcile
+                // retries it instead of silently leaving a stale override.
+                landed.append(entry)
+            }
         }
         setRecord(landed, prefix: prefix)
     }

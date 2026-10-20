@@ -61,14 +61,16 @@ extension SteamWebHost {
                 "matched macOS power preference (low power=\(lowPower), reduce motion=\(reduceMotion)) — eased Steam's rendering",
             )
         } else if let baseline = Preferences.app.string(forKey: Self.renderBaselineKey) {
-            Preferences.app.removeObject(forKey: Self.renderBaselineKey)
             guard let values = try? JSONDecoder().decode([String: Bool].self, from: Data(baseline.utf8))
             else { return }
-            _ = await evaluateInContext(Self.setRenderSettingsScript(
+            guard await evaluateInContext(Self.setRenderSettingsScript(
                 lowPerf: values["library_low_perf_mode"] ?? false,
                 reduceMotion: values["accessibility_reduce_motion"] ?? false,
                 smoothScroll: values["smooth_scroll_webviews"] ?? true,
-            ))
+            )) == "ok" else { return }
+            // A reloading page may not have its Settings binding yet. Keep
+            // the original values until a page accepts the restore.
+            Preferences.app.removeObject(forKey: Self.renderBaselineKey)
             EventLog.shared.log(.app, "macOS power preference cleared — restored Steam's rendering")
         }
     }

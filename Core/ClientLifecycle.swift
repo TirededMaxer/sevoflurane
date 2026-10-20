@@ -577,8 +577,8 @@ nonisolated enum ClientLifecycle {
     /// answers the names it hid for the caller's log.
     ///
     /// The sweep is a single evaluate over the bridge's live connection, and
-    /// every ask for one — the supervisor's cycle, a stop's polls, a client
-    /// notification's schedule — goes through ``PopupSweeper``, which is what
+    /// every ask for one — the supervisor's cycle or a stop's polls — goes
+    /// through ``PopupSweeper``, which is what
     /// keeps two of them from running at the same millisecond.
     static func hideVisibleClientPopups(
         _ scope: PopupSweepScope = .everything,

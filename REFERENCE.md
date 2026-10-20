@@ -413,7 +413,7 @@ runs on CrossOver.
 - Open Steam (⌘O), Friends (⌘F, with an unread count) and a status chip.
 - The ⋯ menu: Reload Steam UI, Restart Steam Client, Restart Windows,
   Force-Quit Steam, Force-Quit Everything, Open Event Log, Debug Mode,
-  Streamer Mode, Auto Update.
+  Streamer Mode.
 - A renderer switch in the footer, and a quit confirmation.
 
 ### Playing games

@@ -449,6 +449,11 @@
 
   function mk(path, node) {
     var fn = function () {
+      // Both Steam roots receive friend events. Only the original client
+      // submits them to the native notification service; WebKit receives
+      // that service's existing RegisterForNotifications callback to render.
+      // Forwarding this producer would mint a second native notification ID.
+      if (path === "SteamClient.ClientNotifications.DisplayClientNotification") return Promise.resolve();
       // Game surfaces belong exclusively to Windows Steam. The desktop UI
       // must not create a second set of overlay windows or notifications.
       if (path === "SteamClient.Overlay.GetOverlayBrowserInfo"

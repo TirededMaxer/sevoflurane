@@ -20,7 +20,7 @@ extension SteamWebHost {
     }
 
     /// Opens one friend's chat window, by the 32-bit account id Steam's own
-    /// chat calls take. Notification clicks land here.
+    /// chat calls take. Used by the explicit chat-open control endpoint.
     func openChat(accountID: String) {
         guard !accountID.isEmpty, let id = Int(accountID) else {
             openFriends()

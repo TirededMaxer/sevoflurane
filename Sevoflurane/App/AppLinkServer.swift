@@ -126,9 +126,7 @@ final class AppLinkServer {
             host.showSteam()
             return Self.json(#"{"ok":true,"note":"showing Steam; poll /windows"}"#)
         case ("POST", "/chat/open"):
-            // The call a clicked notification makes, reachable from outside
-            // so `Tools/chat-scenarios.sh` can drive the asked path without
-            // a friend and a real banner to click.
+            // Open an explicitly requested chat through Steam's own UI.
             let accountID = Self.value(of: "accountid", in: request.query)
             guard let id = UInt32(accountID) else {
                 return .error(400, "pass ?accountid=<32-bit account id>")
