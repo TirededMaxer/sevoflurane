@@ -18,7 +18,12 @@ enum SteamDesktopChrome {
             if (desktop) style.textContent +=
               "div:has(> .TitleBar.title-area){display:none!important}"+
               "div:has(> div > .TitleBar.title-area)>:first-child{display:none!important}";
-            else style.textContent += ".TitleBar.title-area{padding-inline-start:80px!important}";
+            else style.textContent +=
+              ".TitleBar.title-area{box-sizing:border-box!important;padding-inline-start:80px!important}"+
+              // Steam's own macOS header layouts: the avatar and chat tabs
+              // are siblings of TitleBar, so insetting TitleBar alone misses them.
+              ".friendListHeaderContainer .currentUserContainer{padding-top:10px!important}"+
+              ".chatTabSetContainer.inclient{padding-inline-start:101px!important;padding-inline-end:0!important}";
             document.head.appendChild(style);
           }
           function regions() {
