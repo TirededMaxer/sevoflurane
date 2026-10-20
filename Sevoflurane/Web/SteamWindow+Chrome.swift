@@ -8,6 +8,7 @@ extension SteamWindow {
         switch role {
         case .auxiliary, .controllerConfig, .friends, .chat:
             applyPopupChrome(to: window)
+            window.collectionBehavior.insert(.fullScreenPrimary)
         case .desktop, .login:
             applyDesktopChrome(to: window)
         case .bigPicture:
@@ -40,10 +41,9 @@ extension SteamWindow {
         case .gameOverlay:
             break // Owned by the original game renderer; never realized here.
         case .dialog:
-            // A modal over the desktop window: it keeps Steam's own frame and
-            // stays up while another app is frontmost, since it may be the
-            // last thing the user sees of a quit.
-            window.backgroundColor = Self.steamBackground
+            // Reconnect and other web dialogs share the page-integrated
+            // controls used by sign-in. Keep their existing modal behavior.
+            applyPopupChrome(to: window)
             window.hasShadow = true
             window.hidesOnDeactivate = false
         case .toast:
@@ -84,8 +84,6 @@ extension SteamWindow {
         window.titlebarAppearsTransparent = true
         window.title = webView.title ?? "Steam"
         window.backgroundColor = Self.steamBackground
-        window.collectionBehavior.insert(.fullScreenPrimary)
-
     }
 
     /// The desktop and sign-in windows, whose title bar Steam draws itself.

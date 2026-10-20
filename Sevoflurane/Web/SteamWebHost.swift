@@ -742,7 +742,7 @@ final class SteamWebHost {
             desktopShowIsPending = false
             window.webView.evaluateJavaScript(SteamDesktopChrome.popupScript)
         } else if window.role.hasPopupChrome {
-            window.webView.evaluateJavaScript(SteamDesktopChrome.popupChromeScript)
+            window.webView.evaluateJavaScript(SteamDesktopChrome.popupScript)
         }
         if Preferences.userStyles {
             window.webView.evaluateJavaScript(SteamUserCSS.script(css: userStylesheet))

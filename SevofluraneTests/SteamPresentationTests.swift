@@ -150,17 +150,21 @@ struct SteamPresentationTests {
     }
 
     @Test
-    func popupChromeReservesNativeTitlebarSpaceWithoutReplacingContentActions() async throws {
+    func popupChromeIntegratesControlsWithoutAddingASecondHeader() async throws {
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 500, height: 300))
         web.loadHTMLString("""
-        <div id="header"><div class="TitleBar title-area"></div><button id="status">Online</button>
+        <style>body{margin:0}.TitleBar{height:28px;box-sizing:border-box}</style>
+        <div id="header"><div class="TitleBar title-area">Reconnect</div><button id="status">Online</button>
         <div class="title-bar-actions window-controls"><button id="windowsClose">Close</button></div></div>
         <script>window.ready=true;window.clicks=0;document.getElementById('status').onclick=()=>clicks++;</script>
         """, baseURL: nil)
         try await ready(web)
-        _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupChromeScript)
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupScript)
         #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.window-controls')).display") as? String == "none")
-        #expect(try await web.evaluateJavaScript("getComputedStyle(document.getElementById('header')).paddingTop") as? String == "28px")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.getElementById('header')).paddingTop") as? String == "0px")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.TitleBar')).paddingInlineStart") as? String == "80px")
+        #expect(try await web.evaluateJavaScript("document.querySelector('.TitleBar').getBoundingClientRect().top") as? Double == 0)
+        #expect(try await web.evaluateJavaScript("document.querySelector('.TitleBar').getBoundingClientRect().height") as? Double == 28)
         _ = try await web.evaluateJavaScript("document.getElementById('status').click();'clicked'")
         #expect(try await web.evaluateJavaScript("clicks") as? Int == 1)
         #expect(try await web.evaluateJavaScript("document.getElementById('status').textContent") as? String == "Online")
@@ -178,6 +182,12 @@ struct SteamPresentationTests {
             #expect((window.standardWindowButton(.closeButton) != nil) == role.hasNativeFrame)
             #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == false)
             if role != .toast { #expect(window.canBecomeKey) }
+            if role.hasNativeFrame, role != .bigPicture {
+                #expect(window.styleMask.contains(.fullSizeContentView))
+                #expect(window.titlebarAppearsTransparent)
+                #expect(window.titleVisibility == .hidden)
+                if role != .desktop { #expect(window.toolbar == nil) }
+            }
             // Standard AppKit windows become main only after they are visible.
             if !role.isPanel { #expect(!window.isVisible && !window.canBecomeMain) }
         }
