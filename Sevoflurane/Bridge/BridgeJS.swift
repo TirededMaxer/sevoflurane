@@ -48,6 +48,77 @@ nonisolated enum BridgeJS {
     })()
     """#
 
+    /// Each renderer has its own NotificationStore. Share only the identities
+    /// removed for presentation, leaving Steam's tray, unread state and per-app
+    /// prompts alone. This factory runs unchanged in CEF and WebKit.
+    static let toastSync = #"""
+    window.__sevoInstallToastSync = function (store, emit) {
+      if (!store || typeof store.PopNextToastNotification !== 'function'
+          || typeof store.DispatchNextToast !== 'function') return null;
+      if (store.__sevoToastSync) {
+        store.__sevoToastSync.emit = emit;
+        return store.__sevoToastSync;
+      }
+      var consumed = new Set(), pruning = false;
+      var sync = { store: store, emit: emit,
+        epoch: String(Date.now()) + ':' + Math.random(),
+        snapshot: function () { return Array.from(consumed); },
+        receive: function (keys) {
+          keys.forEach(function (key) { if (typeof key === 'string') consumed.add(key); });
+          prune();
+        },
+        reset: function (keys) { consumed.clear(); sync.receive(keys); }
+      };
+      function key(item) {
+        if (!item || item.notificationID == null) return null;
+        // Server rollups reuse their group ID for later messages. Match the
+        // underlying server item too, so a new rollup is not mistaken for an old toast.
+        var serverItem = item.eSource === 2 && item.data && item.data.item;
+        return JSON.stringify([item.eSource, item.eType, String(item.notificationID),
+          serverItem ? String(serverItem.notification_id) : '']);
+      }
+      function prune() {
+        if (pruning) return;
+        pruning = true;
+        try {
+          // ExpireToast compares just the rollup ID and could also remove a
+          // newer server item in that rollup. Remove only the exact consumed
+          // identity here; notify subscribers through Steam's original dispatch.
+          var queue = store.m_rgNotificationToasts || [];
+          var remaining = queue.filter(function (item) { return !consumed.has(key(item)); });
+          if (remaining.length !== queue.length) {
+            store.m_rgNotificationToasts = remaining;
+            if (queue[0] !== remaining[0]) store.DispatchNextToast();
+          }
+        } finally { pruning = false; }
+      }
+      var dispatch = store.DispatchNextToast;
+      store.DispatchNextToast = function () {
+        prune();
+        return dispatch.apply(this, arguments);
+      };
+      var pop = store.PopNextToastNotification;
+      store.PopNextToastNotification = function () {
+        prune();
+        var pending = (store.m_rgNotificationToasts || [])[0];
+        var item = pop.apply(this, arguments);
+        // The original method can instead return an app-only Shift+Tab or
+        // achievement prompt. Those queues belong exclusively to Steam.
+        if (item && item === pending) {
+          var id = key(item);
+          if (id && !consumed.has(id)) {
+            consumed.add(id);
+            try { sync.emit([id]); }
+            catch (e) { console.error('[sevo] toast consumption sync:', e); }
+          }
+        }
+        return item;
+      };
+      store.__sevoToastSync = sync;
+      return sync;
+    };
+    """#
+
     /// Opens the relay socket from inside SharedJSContext. `%RELAY_PORT%` is
     /// substituted before evaluation.
     static let tunnel = #"""

@@ -123,7 +123,7 @@ actor SteamBridge {
             // relay port below, so the shim, BridgePorts, and
             // WebSessionCookies cannot drift apart.
             let hosts = Self.jsonText(WebSessionCookies.domains) ?? "[]"
-            shim = text
+            shim = BridgeJS.toastSync + "\n" + text
                 .replacingOccurrences(of: "%PAGE_PORT%", with: String(BridgePorts.pageWS))
                 .replacingOccurrences(of: "%STEAM_HOSTS%", with: hosts)
         } else {
@@ -504,8 +504,15 @@ actor SteamBridge {
     /// one page, and delivering it anywhere else would run the wrong page's
     /// handler on this page's data. A callback whose page is gone is dropped.
     private func deliverCallback(_ payload: String) {
-        guard let message = Self.jsonObject(payload),
-              message["type"] as? String == "sc_callback",
+        guard let message = Self.jsonObject(payload) else { return }
+        if let type = message["type"] as? String,
+           type == "toast_state" || type == "toast_consumed" {
+            // Consumption belongs to the Steam context, not one WebKit socket.
+            // A reloaded page receives the same lifetime ledger on registration.
+            for session in pages.values { session.ws.send(text: payload) }
+            return
+        }
+        guard message["type"] as? String == "sc_callback",
               let cb = message["cb"] as? String,
               let owner = callbackOwner[cb],
               let session = pages[owner] else { return }

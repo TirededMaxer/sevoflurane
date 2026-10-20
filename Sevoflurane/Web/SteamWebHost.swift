@@ -505,8 +505,8 @@ final class SteamWebHost {
         loadContextPage(webView)
     }
 
-    /// Load Steam's own root unchanged. Its original focused UI context owns
-    /// toast selection, queue consumption, sounds and game-only prompts.
+    /// Load Steam's own root. Steam selects the focused toast renderer; the
+    /// bridge synchronizes consumed IDs between its two UI contexts.
     private func loadContextPage(_ webView: WKWebView) {
         webView.load(URLRequest(url: Self.uiURL))
     }

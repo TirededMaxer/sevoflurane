@@ -100,6 +100,18 @@ extension SteamBridge {
             switch cmd {
             case "sc":
                 try await forwardSteamClient(request, ws: ws, id: id, cdp: cdp)
+            case "toast_consumed":
+                guard let epoch = request["epoch"] as? String,
+                      let keys = request["keys"] as? [String], !keys.isEmpty else { return }
+                _ = try await cdp.evaluate("""
+                (function () {
+                  var sync = window.NotificationStore && NotificationStore.__sevoToastSync;
+                  if (!sync || sync.epoch !== \(JSLiteral.string(epoch))) return;
+                  var keys = \(Self.jsonText(keys) ?? "[]");
+                  sync.receive(keys);
+                  sync.emit(keys);
+                })()
+                """)
             case "sc_unregister":
                 if let rid = request["id"] as? Int, let session = pages[id] {
                     try await unregister([Self.handle(session.serial, rid)], cdp: cdp)
@@ -294,8 +306,18 @@ extension SteamBridge {
     /// The expression that makes one call in SharedJSContext and reports
     /// its outcome as JSON text.
     private static func forwardExpression(path: String, handleJS: String, argsJS: [String]) -> String {
-        """
+        let notificationSetup = path == "SteamClient.Notifications.RegisterForNotifications" ? """
+        \(BridgeJS.toastSync)
+        var toastSync = window.__sevoInstallToastSync(window.NotificationStore, function (keys) {
+          window.__sevo(JSON.stringify({type: 'toast_consumed', epoch: toastSync.epoch, keys: keys}));
+        });
+        if (toastSync) window.__sevo(JSON.stringify({
+          type: 'toast_state', epoch: toastSync.epoch, keys: toastSync.snapshot()
+        }));
+        """ : ""
+        return """
         (async () => {
+          \(notificationSetup)
           window.__sevoRet = window.__sevoRet || {};
           try {
             const r = await \(path)(\(argsJS.joined(separator: ",")));

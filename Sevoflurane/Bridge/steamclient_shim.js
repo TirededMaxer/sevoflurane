@@ -229,6 +229,13 @@
           console.error("[sevo] callback " + m.cb + " " + fn.path + ": "
             + (e && e.message ? e.message : String(e)));
         }
+      } else if (m.type === "toast_state" || m.type === "toast_consumed") {
+        if (toastSync && typeof m.epoch === "string" && Array.isArray(m.keys)) {
+          if (toastEpoch && toastEpoch !== m.epoch) toastSync.reset(m.keys);
+          else toastSync.receive(m.keys);
+          toastEpoch = m.epoch;
+          if (m.type === "toast_state") publishConsumedToasts(toastSync.snapshot());
+        }
       } else if (m.type === "ws_event") {
         var sock = tunnels.get(m.id);
         if (sock) sock.__event(m);
@@ -313,6 +320,14 @@
   function send(obj) {
     var s = JSON.stringify(obj);
     if (ws && ws.readyState === 1) ws.send(s); else queue.push(s);
+  }
+
+  // Mirror dequeue identities, never notification content or unread state.
+  // The native context owns the epoch so a Steam restart cannot reuse stale IDs.
+  var toastSync = null, toastEpoch = null;
+  function publishConsumedToasts(keys) {
+    if (toastEpoch && keys.length)
+      send({ cmd: "toast_consumed", epoch: toastEpoch, keys: keys });
   }
 
   /* Register* handlers return {unregister}, everything else returns a Promise.
@@ -461,6 +476,10 @@
       if (path === "SteamClient.Overlay.RegisterOverlayBrowserInfoChanged"
           || path === "SteamClient.WebChat.RegisterOverlayChatBrowserInfoChanged") {
         return { unregister: function () {} };
+      }
+      if (path === "SteamClient.Notifications.RegisterForNotifications"
+          && window.__sevoInstallToastSync) {
+        toastSync = window.__sevoInstallToastSync(window.NotificationStore, publishConsumedToasts);
       }
       var routed = nativeRoute(path, arguments);
       if (routed) return routed;

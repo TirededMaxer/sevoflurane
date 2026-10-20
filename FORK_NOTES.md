@@ -1,4 +1,4 @@
-# TirededMaxer fork — 1.7.0-fork.5
+# TirededMaxer fork — 1.7.0-fork.9
 
 保留上游署名和许可证，以及本机现有 CrossOver 引擎、Steam 容器、游戏、存档与运行时补丁。
 
@@ -6,21 +6,8 @@
 
 - Steam 页面沿用其原有 HTML、CSS、脚本、字体和内容布局，由 WebKit/AppKit 承载。带窗口控制的界面使用 AppKit 原生窗框与红黄绿按钮，网页重复按钮隐藏。Steam、View、Friends、Games、Help 五项菜单映射回 macOS 菜单栏，选择仍交给原网页命令，Edit 与 Window 提供系统快捷键。登录成功后停留后台，仅明确请求打开 Steam 才显示主界面。大屏幕模式读取 Steam 的 FullScreen 创建标记，不重写 Steam 的模式切换。
 - 嵌入网页的 alert/confirm 通过原版 BrowserView 事件及回答接口交回 Steam 原有弹窗组件。
-- 游戏叠加层中的原 Steam 页面由 WebKit 运行，画面接回原 CEF 绘制入口；原注入、窗口合成、Shift+Tab、焦点、光标及开关动画仍由 Steam 控制。主画布输入在原 CEF 显示窗口与对应 WebKit 文档之间做平台转换；叠加层子窗口使用不激活游戏外应用的 AppKit 面板，直接接收原生输入。Overlay、WebChat 和游戏焦点调用与注册通过既有 SteamClient 桥接直通，不维护第二套状态快照和本地订阅。
-- 桌面通知使用 Steam 原有 notificationtoasts 网页与动画，由不抢焦点的窗口承载并显示在全屏游戏之上。macOS 通知中心模块已移除。
-- 首次点击获取焦点；主窗口空白标题区支持拖动、双击缩放；登录与主窗口进入普通桌面空间；窗口首次居中，此后记住位置和大小。菜单保留原版悬浮规则并清除离开后的残留状态。
-- 游戏名称下方复用原有状态行显示云存档上传中/失败；上传完成即恢复原状。只读取本地 cloud_log.txt，上传中阻止启动该游戏。
-- 应用自动更新、统计、崩溃/游戏报告和其他数据上传模块已删除。保留只读兼容性与修复信息、手动引擎/渲染器/着色器下载，以及 Steam 自身更新、联网、云存档和 Discord 功能。
-- 米哈游入口、管理实现、Sophon 依赖和专用启动辅助已删除。原作者主页菜单链接及底栏版本文字已移除；版本在“关于”中查看。
-- [CrossOver 驱动补丁](Tools/crossover-ui/README.md) 限定 Steam 基础进程，并要求 SEVO_OWNER_PID 与 CX_HIDE_STEAM_DOCK=1。隐藏窗口、Dock 身份和托盘，不为隐藏图标强杀进程。游戏和安装程序窗口保留原有处理。
-
-## 覆盖边界与验收
-
-构建 50–53 均未通过用户游戏内验收；构建 51 后按钮可交互，但子窗口不可见且点击卡顿，构建 53 仍无有效改善。构建 54/55 去掉状态快照/订阅分支和定时补建/回收原生子窗口的管理器，改为原网页 window.open 直接完成窗口适配，原生绑定完成后再交付 popup-created。保留图像、窗口 API 与输入协议转换；不重写 Steam 的通知队列、页面动作、动画、Shift+Tab 或光标规则。尚待用户实际验收，不把云端夹具检查或传输计数当作游戏测试。按用户要求安装后关闭，不自动启动 CS2。
-
-标准 Win32 Steam 对话框通过 Tools/steam-ui 协议读取原 HWND 和标准控件，由 WebKit 按原坐标、字体与颜色绘制客户区，标题栏使用 AppKit；按钮、编辑、默认/取消和关闭交回原进程。自绘 VGUI、复杂列表/树和其他非标准控件仍未完整覆盖。字体从现有 Steam 容器读取，不安装字体，也不放出 CrossOver 原窗口。
-
-通知使用 Steam 原有 notificationtoasts 页面及 NotificationStore：不替换 DispatchNextToast、PopNextToastNotification 或 PlayNotificationSound，不清空或复制其通知队列。游戏焦点与浏览器列表通过现有 SteamClient 查询和注册取得，供原网页选择通知呈现场所；位置绑定遵循此前验收的右下角贴底行为。旧的通知队列所有权补丁已删除。
+- 游戏叠加层的画面、子窗口、输入、Shift+Tab、焦点、光标、动画及位置全部由 Windows Steam 原版处理。桌面 WebKit 不创建游戏浏览器；此前的 WebKit 叠加层实验及其绘制、输入适配已移除。
+- 桌面通知仍使用 Steam 原有 notificationtoasts 页面及 NotificationStore。构建 64 阻止 WebKit 重复提交好友通知；构建 65 在原始出队、队列更新入口旁同步已消费 ID，按来源、类型、通知 ID 和服务器项目 ID 精确移除另一端待显示副本，并通过原队列更新入口通知页面，不清空整条队列、不改未读或通知中心记录、不包装 PlayNotificationSound。原客户端页面生命周期内保留 ID 记录，页面重载时交接；Steam 新会话使用新的标识。游戏专属队列不参与同步，提示位置遵循 Steam 原设置。
 
 网页主窗口、菜单、好友聊天、网页模态警告及通知均加载 Steam 自带文档；BrowserView 的 alert/confirm 经原事件及 DialogResponse 回答。平台适配负责窗口、输入、像素传递及 WebKit/CEF 的 API 差异。上游的可选兼容性标记、原生 macOS 游戏入口、用户 CSS 和隐私遮罩是独立附加功能，不能据此声称整个应用没有自定义界面。已停用的安装拦截及原生兼容性警告已删除。
 
