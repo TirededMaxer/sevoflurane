@@ -32,23 +32,29 @@ extension SteamWebHost {
             NSWorkspace.shared.open(url)
             return
         }
+        showSteam()
         Task(name: "Open Steam web link") { [weak self] in
             guard let self else { return }
-            let result = await evaluateInContext("""
-            (function () {
-              var instance = window.SteamUIStore && SteamUIStore.WindowStore
-                && SteamUIStore.WindowStore.MainWindowInstance;
-              if (!instance || typeof instance.NavigateToSteamWeb !== 'function') return 'unavailable';
-              instance.NavigateToSteamWeb(\(JSLiteral.string(url.absoluteString)));
-              return 'opened';
-            })()
-            """)
-            guard result == "opened" else {
-                EventLog.shared.log(.window, "Steam web link could not find its desktop navigator")
-                return
+            // showSteam may rebuild a closed desktop and route its initial
+            // library. Navigate only after that route, so it cannot erase
+            // the link the user selected.
+            for _ in 0 ..< 40 {
+                if desktop != nil, hasRoutedDesktop, !isRoutingDesktop {
+                    let result = await evaluateInContext("""
+                    (function () {
+                      if (!window.__sevoIsReady || !__sevoIsReady()) return 'unavailable';
+                      var instance = window.SteamUIStore && SteamUIStore.WindowStore
+                        && SteamUIStore.WindowStore.MainWindowInstance;
+                      if (!instance || typeof instance.NavigateToSteamWeb !== 'function') return 'unavailable';
+                      instance.NavigateToSteamWeb(\(JSLiteral.string(url.absoluteString)));
+                      return 'opened';
+                    })()
+                    """)
+                    if result == "opened" { return }
+                }
+                try? await Task.sleep(for: .milliseconds(250))
             }
-            hasRoutedDesktop = true
-            showSteam()
+            EventLog.shared.log(.window, "Steam web link could not find its ready desktop navigator")
         }
     }
 

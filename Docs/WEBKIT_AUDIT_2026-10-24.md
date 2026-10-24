@@ -7,7 +7,7 @@
 - 原 Windows 焦点高亮与原生窗框叠加。去掉重复 title-area-highlight/singleWindowFocusBar，并关闭原生标题栏分隔线。搜索标签保留原动画和状态，仅限制单行裁剪并在搜索状态隐藏。
 - 桌面旧 CSS 使用全局 :has(TitleBar) 隐藏父节点，可能误伤同页模态窗口。现只标记桌面首个非模态标题行，不对所有后代标题的父节点执行隐藏。
 - 两类 WKUIDelegate 都缺少 runOpenPanelWithParameters。Apple SDK 明确说明：macOS 未实现等同用户取消。新增公共文件选择器，供顶层窗口和嵌入 BrowserView 复用，支持多选、目录和取消。
-- WebChat.OpenURLInClient 原样转发会导航到隐藏 CEF 根页面。桌面链接现调用可见页面的原 NavigateToSteamWeb；明确的外部链接交给默认浏览器，游戏 PID 目标继续转发 Windows。
+- WebChat.OpenURLInClient 原样转发会导航到隐藏 CEF 根页面。桌面链接现调用可见页面的原 NavigateToSteamWeb；明确的外部链接交给默认浏览器，游戏 PID 目标继续转发 Windows。主窗口关闭后的链接先等待窗口重建及初始路由完成，防止目标被首页覆盖。
 - Browser.Paste/StartDownload/SetPendingFilePath 曾发给隐藏页面。现交回调用窗口的 WebKit 与 AppKit；已有文件仍通过原 Steam 生成的特殊 input 获取，不复刻上传业务。
 - BrowserView.Paste/FindInPage/StopFindInPage/SetSteamURLCallback 是空函数。现接入原生粘贴、WebKit 查找及原 Steam 回调。原页内查找栏沿用原组件，Cmd-F 通知其已有入口。显示计数取当前主文档的可见文本；跨源 iframe 的计数不在此 DOM 统计中。
 - 嵌入网页的新标签和关闭请求原来直接跳到外部浏览器或无人接收。现发出原 new-tab / before-close 事件，由 Steam 原有处理函数决定窗口生命周期。

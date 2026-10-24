@@ -221,8 +221,8 @@ final class BrowserViewChild: NSObject {
         configuration.wraps = true
         Task { [weak self] in
             guard let self else { return }
-            if !again { webView.evaluateJavaScript("window.getSelection().removeAllRanges()") }
-            let result = await webView.find(query, configuration: configuration)
+            if !again { _ = try? await webView.evaluateJavaScript("window.getSelection().removeAllRanges()") }
+            let result = try? await webView.find(query, configuration: configuration)
             guard generation == findGeneration else { return }
             // WebKit selects and scrolls to the match. The original Steam
             // find bar also needs a count for the visible document text.
@@ -236,7 +236,7 @@ final class BrowserViewChild: NSObject {
             })(\(JSLiteral.string(query)))
             """)
             guard generation == findGeneration else { return }
-            let count = result.matchFound ? max(1, (raw as? NSNumber)?.intValue ?? 0) : 0
+            let count = result?.matchFound == true ? max(1, (raw as? NSNumber)?.intValue ?? 0) : 0
             if count == 0 { activeFindIndex = 0 }
             else if !again { activeFindIndex = backwards ? count : 1 }
             else { activeFindIndex = (activeFindIndex - 1 + (backwards ? -1 : 1) + count) % count + 1 }
