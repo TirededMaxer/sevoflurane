@@ -68,7 +68,9 @@ struct WindowChromeRegressionTests {
             window.orderFront(nil)
             web.loadHTMLString("""
             <style>html,body{margin:0;background:#111;height:100%}#edge{position:fixed;top:0;left:0;right:0;height:8px;background:#ff00ff}</style>
-            <div id="edge"></div><button style="position:absolute;left:100px;top:10px" onclick="window.clicked=true">Tab</button>
+            <style>.friendListHeaderContainer{box-shadow:inset #555 1px 1px 1px 0}.titleBarContainer.ChatTabs{padding-top:4px;border-top:1px solid black;box-shadow:inset 1px 1px #555}</style>
+            <div id="edge"></div><div class="friendListHeaderContainer"><div class="TitleBar title-area"></div><div class="currentUserContainer">Profile</div></div>
+            <div class="titleBarContainer ChatTabs"><div class="chatTabSetContainer inclient"><button onclick="window.clicked=true">Tab</button></div></div>
             <script>window.ready=true;</script>
             """, baseURL: nil)
             var ready = false
@@ -77,6 +79,10 @@ struct WindowChromeRegressionTests {
                 try await Task.sleep(for: .milliseconds(25))
             }
             #expect(ready)
+            _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupScript)
+            #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.friendListHeaderContainer')).boxShadow") as? String == "none")
+            #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.ChatTabs')).paddingTop") as? String == "0px")
+            #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.ChatTabs')).borderTopWidth") as? String == "0px")
             let dimensions = popup.dimensions()
             #expect(dimensions["height"] as? CGFloat == web.bounds.height)
             #expect(dimensions["width"] as? CGFloat == web.bounds.width)
