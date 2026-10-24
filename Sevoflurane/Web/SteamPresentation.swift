@@ -35,7 +35,7 @@ nonisolated enum SteamPresentation {
               if (doc.documentElement) doc.documentElement.removeAttribute("data-sevo-macos-ui");
             } catch (e) {}
           }
-          var map = window.g_PopupManager && g_PopupManager.m_mapPopups;
+          var map = window.g_PopupManager && window.g_PopupManager.m_mapPopups;
           if (map) map.forEach(function (record) { clean(record && record.m_popup); });
           return "original";
         })()

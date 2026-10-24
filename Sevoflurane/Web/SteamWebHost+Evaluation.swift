@@ -1,3 +1,4 @@
+import AppKit
 import WebKit
 
 extension SteamWebHost {
@@ -16,6 +17,39 @@ extension SteamWebHost {
         _ script: String, webView: WKWebView, timeout: Duration = .seconds(20),
     ) async -> String? {
         await evaluator.evaluateInWebView(script, webView: webView, timeout: timeout)
+    }
+
+    /// A desktop link must navigate the visible WebKit instance, rather
+    /// than the hidden Windows client's desktop. Steam still chooses its
+    /// store/community route through the original NavigateToSteamWeb method.
+    func openClientURL(_ url: URL, externally: Bool) {
+        if url.scheme?.lowercased() == "steam" {
+            executeSteamURL(url)
+            return
+        }
+        guard url.scheme == "http" || url.scheme == "https" else { return }
+        if externally {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        Task(name: "Open Steam web link") { [weak self] in
+            guard let self else { return }
+            let result = await evaluateInContext("""
+            (function () {
+              var instance = window.SteamUIStore && SteamUIStore.WindowStore
+                && SteamUIStore.WindowStore.MainWindowInstance;
+              if (!instance || typeof instance.NavigateToSteamWeb !== 'function') return 'unavailable';
+              instance.NavigateToSteamWeb(\(JSLiteral.string(url.absoluteString)));
+              return 'opened';
+            })()
+            """)
+            guard result == "opened" else {
+                EventLog.shared.log(.window, "Steam web link could not find its desktop navigator")
+                return
+            }
+            hasRoutedDesktop = true
+            showSteam()
+        }
     }
 
     /// Runs a `steam://` URL against the handlers this page registered — the

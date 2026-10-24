@@ -1,8 +1,11 @@
-# TirededMaxer fork — 1.7.0-fork.9
+# TirededMaxer fork — 1.7.0-fork.10
 
 保留上游署名和许可证，以及本机现有 CrossOver 引擎、Steam 容器、游戏、存档与运行时补丁。
 
 ## 当前实现
+
+构建 66 补齐网页文件选择、原文件上传交接、粘贴、下载、原页内查找和浏览数据清理；桌面内链接使用原 NavigateToSteamWeb，原 BrowserView Steam URL 回调优先接收特定命令。AppKit 红绿灯为原生按钮，移出会截走网页点击的透明标题栏容器。重复焦点线隐藏；标题区根据真实网页控件排除拖动范围，搜索标签只做裁剪。详见 [WebKit 入口检查](Docs/WEBKIT_AUDIT_2026-10-24.md)。
+
 
 - Steam 页面沿用其原有 HTML、CSS、脚本、字体和内容布局，由 WebKit/AppKit 承载。带窗口控制的界面使用 AppKit 原生窗框与红黄绿按钮，网页重复按钮隐藏。Steam、View、Friends、Games、Help 五项菜单映射回 macOS 菜单栏，选择仍交给原网页命令，Edit 与 Window 提供系统快捷键。登录成功后停留后台，仅明确请求打开 Steam 才显示主界面。大屏幕模式读取 Steam 的 FullScreen 创建标记，不重写 Steam 的模式切换。
 - 嵌入网页的 alert/confirm 通过原版 BrowserView 事件及回答接口交回 Steam 原有弹窗组件。

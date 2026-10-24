@@ -110,7 +110,7 @@ extension SteamWebHost {
         """
         (function () {
           try {
-            var popups = window.g_PopupManager && g_PopupManager.m_mapPopups;
+            var popups = window.g_PopupManager && window.g_PopupManager.m_mapPopups;
             var entry = popups && popups.get(\(JSLiteral.string(name)));
             var win = entry && entry.m_popup;
             if (!win || win.closed) return "";

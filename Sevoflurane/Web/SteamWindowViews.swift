@@ -155,3 +155,36 @@ final class SteamToastPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
+
+
+/// Native traffic lights over a page header, without an invisible native
+/// titlebar intercepting the page's tabs and buttons underneath it.
+final class SteamWindowControls: NSView {
+    init(window: NSWindow, content: NSView) {
+        let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let buttons = kinds.compactMap { window.standardWindowButton($0) }
+        let nativeTitlebar = buttons.first?.superview
+        let titlebarContainer = nativeTitlebar?.superview
+        super.init(frame: NSRect(x: 12, y: content.bounds.height - 24, width: 62, height: 16))
+        autoresizingMask = [.minYMargin, .maxXMargin]
+        for (index, button) in buttons.enumerated() {
+            button.removeFromSuperview()
+            button.setFrameOrigin(NSPoint(x: CGFloat(index * 20), y: 0))
+            addSubview(button)
+        }
+        // Only hide the titlebar subtree, never the NSThemeFrame which also
+        // owns the content. Window controls remain the original NSButtons.
+        if let titlebarContainer, titlebarContainer !== content.superview {
+            titlebarContainer.isHidden = true
+        } else {
+            nativeTitlebar?.isHidden = true
+        }
+    }
+
+    required init?(coder: NSCoder) { return nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
+    }
+}

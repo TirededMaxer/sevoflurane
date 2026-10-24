@@ -12,6 +12,21 @@ final class SteamWebView: WKWebView {
     }
 }
 
+/// Embedded pages use Steam's existing find bar. Cmd-F must notify that
+/// bar instead of vanishing into the unimplemented CEF keyboard shortcut.
+final class SteamBrowserWebView: WKWebView {
+    var onFind: (() -> Void)?
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "f", let onFind {
+            onFind()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 // MARK: - WebKit plumbing
 
 /// The WebKit delegates, kept off ``SteamWebHost`` so the observable state is
@@ -28,6 +43,20 @@ final class SteamWebCoordinator: NSObject {
 }
 
 extension SteamWebCoordinator: WKUIDelegate {
+    func webView(
+        _ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame _: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void,
+    ) {
+        Task { [weak self] in
+            if let url = await self?.host?.window(for: webView)?.takePendingUpload() {
+                completionHandler([url])
+            } else {
+                SteamFilePicker.present(for: webView, parameters: parameters, completionHandler: completionHandler)
+            }
+        }
+    }
+
     func webView(
         _: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
@@ -85,12 +114,25 @@ func steamNavigationPolicy(for url: URL?, host: SteamWebHost?) -> WKNavigationAc
 }
 
 extension SteamWebCoordinator: WKNavigationDelegate {
+    func webView(_: WKWebView, navigationAction _: WKNavigationAction, didBecome download: WKDownload) {
+        SteamDownloads.shared.adopt(download)
+    }
+
+    func webView(_: WKWebView, navigationResponse _: WKNavigationResponse, didBecome download: WKDownload) {
+        SteamDownloads.shared.adopt(download)
+    }
+
+    func webView(_: WKWebView, decidePolicyFor response: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+        response.canShowMIMEType ? .allow : .download
+    }
+
     func webView(
         _: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
     ) async
         -> WKNavigationActionPolicy {
-        steamNavigationPolicy(for: navigationAction.request.url, host: host)
+        if navigationAction.shouldPerformDownload { return .download }
+        return steamNavigationPolicy(for: navigationAction.request.url, host: host)
     }
 
     func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
@@ -144,6 +186,12 @@ extension SteamWebCoordinator: WKScriptMessageHandlerWithReply {
             return (nil, nil)
         }
         let args = body["args"] as? [Any] ?? []
+        if function == "__clearWebData" {
+            await WKWebsiteDataStore.default().removeData(
+                ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast,
+            )
+            return (nil, nil)
+        }
         let result = window.perform(function, args)
         return (result, nil)
     }

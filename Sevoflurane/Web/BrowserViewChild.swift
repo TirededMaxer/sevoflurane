@@ -92,7 +92,7 @@ final class BrowserViewChild: NSObject {
         configuration.userContentController.addScriptMessageHandler(
             StoreCompatHandler(), contentWorld: .page, name: SteamCompatBadge.storeHandler,
         )
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = SteamBrowserWebView(frame: .zero, configuration: configuration)
         webView.isHidden = true
         webView.allowsBackForwardNavigationGestures = true
         webView.isInspectable = true
@@ -104,6 +104,9 @@ final class BrowserViewChild: NSObject {
         super.init()
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        (webView as? SteamBrowserWebView)?.onFind = { [weak self] in
+            self?.fire("toggle-find-in-page", "[]")
+        }
         // Steam re-sends bounds on layout changes; between those, a flexible
         // bottom margin keeps the view pinned to its top-left in AppKit's
         // flipped terms.
@@ -207,6 +210,47 @@ final class BrowserViewChild: NSObject {
         )
     }
 
+    private var findGeneration = 0
+    private var activeFindIndex = 0
+
+    func find(_ query: String, again: Bool, backwards: Bool) {
+        findGeneration += 1
+        let generation = findGeneration
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.wraps = true
+        Task { [weak self] in
+            guard let self else { return }
+            if !again { webView.evaluateJavaScript("window.getSelection().removeAllRanges()") }
+            let result = await webView.find(query, configuration: configuration)
+            guard generation == findGeneration else { return }
+            // WebKit selects and scrolls to the match. The original Steam
+            // find bar also needs a count for the visible document text.
+            let raw = try? await webView.evaluateJavaScript("""
+            (function (query) {
+              if (!query || !document.body) return 0;
+              var text = document.body.innerText.toLocaleLowerCase(), count = 0, at = 0;
+              query = query.toLocaleLowerCase();
+              while ((at = text.indexOf(query, at)) >= 0) { count++; at += query.length; }
+              return count;
+            })(\(JSLiteral.string(query)))
+            """)
+            guard generation == findGeneration else { return }
+            let count = result.matchFound ? max(1, (raw as? NSNumber)?.intValue ?? 0) : 0
+            if count == 0 { activeFindIndex = 0 }
+            else if !again { activeFindIndex = backwards ? count : 1 }
+            else { activeFindIndex = (activeFindIndex - 1 + (backwards ? -1 : 1) + count) % count + 1 }
+            fire("find-in-page-results", "[\(count),\(activeFindIndex)]")
+        }
+    }
+
+    func stopFinding() {
+        findGeneration += 1
+        activeFindIndex = 0
+        webView.evaluateJavaScript("window.getSelection().removeAllRanges()")
+        fire("find-in-page-results", "[0,0]")
+    }
+
     func destroy() {
         respondToJavaScriptDialog(false)
         observations = []
@@ -257,12 +301,34 @@ final class BrowserViewChild: NSObject {
 }
 
 extension BrowserViewChild: WKNavigationDelegate {
+    func webView(_: WKWebView, navigationAction _: WKNavigationAction, didBecome download: WKDownload) {
+        SteamDownloads.shared.adopt(download)
+    }
+
+    func webView(_: WKWebView, navigationResponse _: WKNavigationResponse, didBecome download: WKDownload) {
+        SteamDownloads.shared.adopt(download)
+    }
+
+    func webView(_: WKWebView, decidePolicyFor response: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+        response.canShowMIMEType ? .allow : .download
+    }
+
     func webView(
         _: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
     ) async
         -> WKNavigationActionPolicy {
-        steamNavigationPolicy(for: navigationAction.request.url, host: host)
+        if navigationAction.shouldPerformDownload { return .download }
+        if let url = navigationAction.request.url, url.scheme == "steam" {
+            let handled = try? await hostPage.evaluateJavaScript("""
+            (function () {
+              var view = window.__sevoBV && window.__sevoBV[\(id)];
+              return !!(view && view.steamURL && view.steamURL(\(JSLiteral.string(url.absoluteString))));
+            })()
+            """)
+            if handled as? Bool == true { return .cancel }
+        }
+        return steamNavigationPolicy(for: navigationAction.request.url, host: host)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
@@ -309,6 +375,14 @@ extension BrowserViewChild: WKNavigationDelegate {
 }
 
 extension BrowserViewChild: WKUIDelegate {
+    func webView(
+        _ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame _: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void,
+    ) {
+        SteamFilePicker.present(for: webView, parameters: parameters, completionHandler: completionHandler)
+    }
+
     func webView(_: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
                  initiatedByFrame _: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable () -> Void) {
         requestJavaScriptDialog("alert-dialog", message: message) { _ in completionHandler() }
@@ -319,8 +393,8 @@ extension BrowserViewChild: WKUIDelegate {
         requestJavaScriptDialog("confirm-dialog", message: message, response: completionHandler)
     }
 
-    /// `target=_blank` in embedded web content is an external link; it belongs
-    /// in the user's browser.
+    /// New tabs belong to Steam's existing browser manager when it has a
+    /// listener. Otherwise open the URL in the visible desktop instance.
     func webView(
         _: WKWebView,
         createWebViewWith _: WKWebViewConfiguration,
@@ -329,9 +403,24 @@ extension BrowserViewChild: WKUIDelegate {
     ) -> WKWebView? {
         if let url = navigationAction.request.url,
            url.scheme == "http" || url.scheme == "https" {
-            NSWorkspace.shared.open(url)
+            Task { [weak self] in
+                guard let self else { return }
+                let result = try? await hostPage.evaluateJavaScript("""
+                (function () {
+                  var view = window.__sevoBV && window.__sevoBV[\(id)];
+                  return view ? view('new-tab', [\(JSLiteral.string(url.absoluteString)), false]) : 0;
+                })()
+                """)
+                if (result as? NSNumber)?.intValue ?? 0 == 0 {
+                    host?.openClientURL(url, externally: false)
+                }
+            }
         }
         return nil
+    }
+
+    func webViewDidClose(_: WKWebView) {
+        fire("before-close", "[]")
     }
 }
 

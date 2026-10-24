@@ -367,6 +367,7 @@
   var NATIVE_ROUTES = {
     "SteamClient.System.OpenLocalDirectoryInSystemExplorer": "__openLocalDirectory",
     "SteamClient.System.OpenInSystemBrowser": "__openExternalURL",
+    "SteamClient.WebChat.OpenURLInClient": "__openClientURL",
     "SteamClient.System.OpenFileDialog": "__openFileDialog",
     "SteamClient.Apps.BrowseScreenshotForApp": "__browseScreenshots",
     "SteamClient.Screenshots.ShowScreenshotsOnDisk": "__browseScreenshots",
@@ -411,6 +412,8 @@
       && window.webkit.messageHandlers.sevoWindow;
     if (!handler) return null;
     var list = Array.prototype.slice.call(args);
+    // Game-targeted links remain in the original Windows overlay.
+    if (path === "SteamClient.WebChat.OpenURLInClient" && Number(args[1])) return null;
     var fn = NATIVE_ROUTES[path];
     /* A route that answers `__sevoReject` is reporting the outcome the caller
        catches rather than a value it can use — a cancelled file dialog. */
@@ -481,6 +484,8 @@
           && window.__sevoInstallToastSync) {
         toastSync = window.__sevoInstallToastSync(window.NotificationStore, publishConsumedToasts);
       }
+      if (path === "SteamClient.URL.ExecuteSteamURL" && window.__sevoRunSteamURL(arguments[0]) !== 0)
+        return Promise.resolve();
       var routed = nativeRoute(path, arguments);
       if (routed) return routed;
       nativeTap(path, arguments);
@@ -519,6 +524,13 @@
           return undefined;
         }
         var child = node ? node[prop] : undefined;
+        // Some Steam revisions removed these native entry points, while the
+        // desktop bundle still calls them without feature detection. This
+        // desktop mirror deliberately has no game browsers in either revision.
+        if (child === undefined && (
+            (path === "SteamClient.WebChat" && (prop === "GetOverlayChatBrowserInfo" || prop === "RegisterOverlayChatBrowserInfoChanged"))
+            || (path === "SteamClient.Overlay" && (prop === "GetOverlayBrowserInfo" || prop === "RegisterOverlayBrowserInfoChanged"))))
+          return mk(path + "." + String(prop), null);
         if (child === undefined) return undefined;
         return mk(path + "." + String(prop), child === 1 ? null : child);
       },
@@ -780,6 +792,18 @@
     var real = forwarded.Browser;
     return new Proxy({}, {
       get: function (t, prop) {
+        var routes = { Paste: "__paste", StartDownload: "__download", SetPendingFilePath: "__pendingUpload" };
+        if (routes[prop]) return function () {
+          var handler = nativeWindowHandler(win);
+          if (!handler) return real[prop].apply(real, arguments);
+          return handler.postMessage({fn: routes[prop], args: Array.prototype.slice.call(arguments)});
+        };
+        if (prop === "ClearAllBrowsingData") return function () {
+          var args = arguments, handler = nativeWindowHandler(win);
+          var local = handler ? handler.postMessage({fn:"__clearWebData", args:[]}) : Promise.resolve();
+          return local.then(function () { return real[prop].apply(real, args); });
+        };
+        if (prop === "NotifyUserActivation") return function () { return Promise.resolve(); };
         if (prop === "GetBrowserID") {
           return function () { return win.__sevoBrowserID || 1; };
         }
@@ -826,9 +850,11 @@
       if (ev === "can-go-back-forward-changed" && args) {
         history = { bCanGoBack: !!args[0], bCanGoForward: !!args[1] };
       }
-      (listeners[ev] || []).forEach(function (f) {
+      var handlers = listeners[ev] || [];
+      handlers.forEach(function (f) {
         try { f.apply(null, args || []); } catch (e) { console.error("[sevo] bv " + ev, e); }
       });
+      return handlers.length;
     }
     host.__sevoBV = host.__sevoBV || {};
     host.__sevoBV[id] = fire;
@@ -854,6 +880,10 @@
       CanGoBackward: function () { return history.bCanGoBack; },
       CanGoForward: function () { return history.bCanGoForward; },
       DialogResponse: function (accepted) { send("dialogResponse", [!!accepted]); },
+      Paste: function () { send("paste"); },
+      FindInPage: function (query, again, backwards) { send("find", [String(query), !!again, !!backwards]); },
+      StopFindInPage: function () { send("stopFind"); },
+      SetSteamURLCallback: function (callback) { fire.steamURL = callback; },
       PostMessage: function (type, data) {
         send("postMessage", [String(type), JSON.stringify(data === undefined ? null : data)]);
         return true;
@@ -865,9 +895,9 @@
       __params: params,
     };
     ["SetWindowStackingOrder", "AddGlass", "EnableSteamInput", "NotifyUserActivation",
-     "SetTouchGesturesToCancel", "HandleContextMenuCommand", "SetSteamURLCallback",
-     "SetShowContextMenuCallback", "SetBlockedProtocols", "Paste", "FindInPage",
-     "StopFindInPage", "SetVRKeyboardVisibility", "AddHeader",
+     "SetTouchGesturesToCancel", "HandleContextMenuCommand",
+     "SetShowContextMenuCallback", "SetBlockedProtocols",
+     "SetVRKeyboardVisibility", "AddHeader",
     ].forEach(function (name) { view[name] = function () {}; });
     return view;
   }

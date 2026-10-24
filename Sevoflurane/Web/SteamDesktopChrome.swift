@@ -12,12 +12,26 @@ enum SteamDesktopChrome {
           if (window.__sevoOriginalDrag) { window.__sevoOriginalDrag(); return "reapplied"; }
           var desktop = \(desktop ? "true" : "false");
           function restyle() {
-            if (!document.head || document.getElementById("sevo-macos-chrome")) return;
+            if (!document.head) return;
+            if (desktop) {
+              var header = document.querySelector('.TitleBar.title-area');
+              if (header && !header.closest('.ModalDialogPopup,.FullModalOverlay,[role="dialog"]')) {
+                var titleRow = header.parentElement;
+                var menuRow = titleRow && titleRow.parentElement && titleRow.parentElement.firstElementChild;
+                [titleRow, menuRow].forEach(function (row) {
+                  if (row && !row.hasAttribute('data-sevo-native-title-row'))
+                    row.setAttribute('data-sevo-native-title-row', '');
+                });
+              }
+            }
+            if (document.getElementById("sevo-macos-chrome")) return;
             var style = document.createElement("style"); style.id = "sevo-macos-chrome";
-            style.textContent = ".TitleBar.title-area .title-bar-actions,.title-bar-actions.window-controls{display:none!important}";
+            style.textContent = ".title-bar-actions.window-controls{display:none!important}"+
+              ".TitleBar .title-area-highlight,.singleWindowFocusBar{display:none!important}"+
+              ".socialListTab .tabLabel{white-space:nowrap;overflow:hidden}"+
+              ".socialListTab.TabSearchActive .tabLabel{visibility:hidden}";
             if (desktop) style.textContent +=
-              "div:has(> .TitleBar.title-area){display:none!important}"+
-              "div:has(> div > .TitleBar.title-area)>:first-child{display:none!important}";
+              "[data-sevo-native-title-row]{display:none!important}";
             else style.textContent +=
               ".TitleBar.title-area{box-sizing:border-box!important;padding-inline-start:80px!important}"+
               // Steam's own macOS header layouts: the avatar and chat tabs
@@ -33,8 +47,15 @@ enum SteamDesktopChrome {
             var r = row.getBoundingClientRect();
             if (!r.width || !r.height) return [];
             var spans = [[Math.max(r.left, 80), r.right]];
-            var controls = Array.from(row.querySelectorAll(
-              'button,a,input,select,textarea,[role="button"],[role="menuitem"],[tabindex],.title-bar-actions,.title-area-icon,[class*="Button"],[class*="button"],[class*="Account"],[class*="account"]'));
+            // Popup controls (including chat tabs) can be siblings of the
+            // absolute TitleBar. Do not turn their clicks into native drags.
+            var scope = !desktop && area.parentElement ? area.parentElement : row;
+            var controls = Array.from(scope.querySelectorAll("*")).filter(function (node) {
+              if (node.matches('button,a,input,select,textarea,[role="button"],[role="tab"],[role="menuitem"],[tabindex],.no-drag,[draggable="true"]')) return true;
+              var key = Object.keys(node).find(function (key) { return key.indexOf("__reactProps$") === 0; });
+              var props = key && node[key];
+              return props && (props.onClick || props.onMouseDown || props.onPointerDown || props.onDragStart);
+            });
             if (desktop) Array.from(row.children).forEach(function (node) {
               if (node.children.length || node.textContent.trim()) controls.push(node);
             });

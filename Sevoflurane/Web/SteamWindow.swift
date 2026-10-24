@@ -137,6 +137,10 @@ final class SteamWindow: NSObject {
         window.isRestorable = false
         applyRoleChrome(to: window)
         window.contentView = makeContentView(content: content)
+        if role.hasNativeFrame, role != .desktop, role != .bigPicture,
+           let contentView = window.contentView {
+            contentView.addSubview(SteamWindowControls(window: window, content: contentView))
+        }
 
         if let minimumSize { window.contentMinSize = minimumSize }
         if let maximumSize { window.contentMaxSize = maximumSize }
@@ -324,6 +328,23 @@ final class SteamWindow: NSObject {
             }
         case "__openFileDialog":
             return openFileDialog(options: args.first as? [String: Any] ?? [:])
+        case "__paste":
+            window?.makeKeyAndOrderFront(nil)
+            window?.makeFirstResponder(webView)
+            NSApp.sendAction(Selector(("paste:")), to: nil, from: webView)
+        case "__download":
+            SteamDownloads.shared.start(string(args, 0), in: webView)
+        case "__pendingUpload":
+            if let url = SteamBottle.macURL(fromWindowsPath: string(args, 1)),
+               FileManager.default.fileExists(atPath: url.path) {
+                pendingUpload = (string(args, 0), url)
+                return true
+            }
+            return false
+        case "__openClientURL":
+            if let url = URL(string: string(args, 0)) {
+                host?.openClientURL(url, externally: args.count > 2 && (args[2] as? Bool == true))
+            }
         case "__openExternalURL":
             if let url = URL(string: string(args, 0)),
                url.scheme == "http" || url.scheme == "https" {
@@ -698,6 +719,17 @@ final class SteamWindow: NSObject {
         detach(reason: .steamClosedIt)
     }
 
+    private var pendingUpload: (token: String, url: URL)?
+
+    func takePendingUpload() async -> URL? {
+        guard let pending = pendingUpload else { return nil }
+        let selector = "input[type=file][accept=" + JSLiteral.string(".valvefile" + pending.token) + "]"
+        let matches = try? await webView.evaluateJavaScript("!!document.querySelector(\(JSLiteral.string(selector)))")
+        guard matches as? Bool == true else { return nil }
+        pendingUpload = nil
+        return pending.url
+    }
+
     /// Steam's file picker, as an `NSOpenPanel`.
     ///
     /// Runs modally, which is what the caller expects: the client's own dialog
@@ -799,6 +831,15 @@ final class SteamWindow: NSObject {
             window?.makeFirstResponder(view.webView)
         case "postMessage":
             view.postMessage(type: string(args, 0), dataJSON: string(args, 1))
+        case "paste":
+            window?.makeKeyAndOrderFront(nil)
+            window?.makeFirstResponder(view.webView)
+            NSApp.sendAction(Selector(("paste:")), to: nil, from: view.webView)
+        case "find":
+            view.find(string(args, 0), again: args.count > 1 && args[1] as? Bool == true,
+                      backwards: args.count > 2 && args[2] as? Bool == true)
+        case "stopFind":
+            view.stopFinding()
         case "dialogResponse":
             view.respondToJavaScriptDialog(args.first as? Bool ?? false)
         case "destroy":

@@ -82,6 +82,7 @@ extension SteamWindow {
         // Control and the Window menu.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.title = webView.title ?? "Steam"
         window.backgroundColor = Self.steamBackground
     }
@@ -91,6 +92,7 @@ extension SteamWindow {
         // The AppKit titlebar supplies native controls over Steam's top strip.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
         window.backgroundColor = Self.steamBackground
         // These are ordinary app windows, even when first created by the
         // menu-bar accessory. Never inherit membership in another app's
