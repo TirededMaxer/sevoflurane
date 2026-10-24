@@ -27,6 +27,22 @@ final class SteamBrowserWebView: WKWebView {
     }
 }
 
+extension WKWebView {
+    /// These pages already reserve space for the traffic lights. Automatic
+    /// native titlebar insets would add a second strip above their content.
+    func usePageIntegratedTitlebar() {
+        let selector = Selector(("_setAutomaticallyAdjustsContentInsets:"))
+        if responds(to: selector) {
+            typealias SetInsets = @convention(c) (AnyObject, Selector, ObjCBool) -> Void
+            let setInsets = unsafeBitCast(method(for: selector), to: SetInsets.self)
+            setInsets(self, selector, false)
+        }
+        if #available(macOS 26.0, *) {
+            obscuredContentInsets = NSEdgeInsetsZero
+        }
+    }
+}
+
 // MARK: - WebKit plumbing
 
 /// The WebKit delegates, kept off ``SteamWebHost`` so the observable state is

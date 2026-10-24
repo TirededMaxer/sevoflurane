@@ -197,6 +197,9 @@ final class SteamWindow: NSObject {
         // when a menu is up — that is what keeps its mouse-out logic (menu
         // dismissal) alive.
         container.relaysHover = true
+        if role.hasNativeFrame, role != .desktop, role != .bigPicture {
+            webView.usePageIntegratedTitlebar()
+        }
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)

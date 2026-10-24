@@ -13,6 +13,21 @@ common=(-project Sevoflurane.xcodeproj -scheme Sevoflurane
     -clonedSourcePackagesDirPath "$work/SourcePackages"
     -onlyUsePackageVersionsFromResolvedFile
     DEVELOPMENT_TEAM= ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO)
+if [[ "$stage" == chrome ]]; then
+    bash Tools/steam-ui/build-cloud.sh
+    xcodebuild "${common[@]}" -configuration Debug -derivedDataPath "$work/Debug" \
+        -only-testing:SevofluraneTests/WindowChromeRegressionTests \
+        CODE_SIGN_IDENTITY=- ENABLE_HARDENED_RUNTIME=NO \
+        -testLanguage en -testRegion US -resultBundlePath "$work/chrome.xcresult" test \
+        > "$out/chrome-tests.log" 2>&1 || { tail -80 "$out/chrome-tests.log"; exit 1; }
+    xcrun xcresulttool get test-results summary --path "$work/chrome.xcresult" > "$out/chrome-test-summary.json"
+    python3 - "$out/chrome-test-summary.json" <<'PY_CHROME'
+import json, sys
+summary = json.load(open(sys.argv[1]))
+assert summary["passedTests"] == 3 and summary["failedTests"] == 0, summary
+print("Popup chrome regressions: 3 passed")
+PY_CHROME
+fi
 if [[ "$stage" == test || "$stage" == all ]]; then
     bash Tools/steam-ui/build-cloud.sh
     xcodebuild -version | tee "$out/toolchain.txt"

@@ -197,8 +197,12 @@ extension SteamWindow {
         let rect = SteamScreenSpace.steamRect(from: window.frame)
         answer["x"] = rect.minX
         answer["y"] = rect.minY
-        answer["width"] = window.contentLayoutRect.width
-        answer["height"] = window.contentLayoutRect.height
+        // Integrated popups use the whole web viewport, including the header.
+        // contentLayoutRect still subtracts the hidden native titlebar.
+        let viewport = role.hasNativeFrame && role != .desktop && role != .bigPicture
+            ? webView.bounds : window.contentLayoutRect
+        answer["width"] = viewport.width
+        answer["height"] = viewport.height
         return answer
     }
 

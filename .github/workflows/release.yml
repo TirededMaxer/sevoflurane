@@ -11,6 +11,10 @@ on:
         description: Run the test suites before building
         type: boolean
         default: true
+      check_window_chrome:
+        description: Check popup traffic lights and top viewport regressions
+        type: boolean
+        default: false
       build_run_id:
         description: Optional previously verified build run, for retrying publication only
         type: string
@@ -47,6 +51,10 @@ jobs:
         if: inputs.build_run_id == '' && inputs.run_tests
         timeout-minutes: 12
         run: bash Tools/ci/build.sh test
+      - name: Verify popup chrome regressions
+        if: inputs.build_run_id == '' && inputs.check_window_chrome
+        timeout-minutes: 12
+        run: bash Tools/ci/build.sh chrome
       - name: Build the Release application
         if: inputs.build_run_id == ''
         timeout-minutes: 20

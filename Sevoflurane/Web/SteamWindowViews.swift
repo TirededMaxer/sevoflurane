@@ -157,28 +157,30 @@ final class SteamToastPanel: NSPanel {
 }
 
 
-/// Native traffic lights over a page header, without an invisible native
-/// titlebar intercepting the page's tabs and buttons underneath it.
+/// AppKit-created traffic lights hosted by the content, independently of
+/// the NSWindow titlebar's private layout and button visibility management.
 final class SteamWindowControls: NSView {
     init(window: NSWindow, content: NSView) {
-        let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        let buttons = kinds.compactMap { window.standardWindowButton($0) }
-        let nativeTitlebar = buttons.first?.superview
-        let titlebarContainer = nativeTitlebar?.superview
-        super.init(frame: NSRect(x: 12, y: content.bounds.height - 24, width: 62, height: 16))
+        super.init(frame: NSRect(x: 12, y: content.bounds.height - 26, width: 62, height: 18))
         autoresizingMask = [.minYMargin, .maxXMargin]
-        for (index, button) in buttons.enumerated() {
-            button.removeFromSuperview()
+        let actions: [(NSWindow.ButtonType, Selector)] = [
+            (.closeButton, #selector(NSWindow.performClose(_:))),
+            (.miniaturizeButton, #selector(NSWindow.performMiniaturize(_:))),
+            (.zoomButton, #selector(NSWindow.performZoom(_:))),
+        ]
+        for (index, item) in actions.enumerated() {
+            // Moving standardWindowButton from the live titlebar lets AppKit
+            // reclaim/hide it on a layout pass. The factory makes an independent
+            // standard button while all actions still go through NSWindow.
+            guard let button = NSWindow.standardWindowButton(item.0, for: window.styleMask) else { continue }
+            button.target = window
+            button.action = item.1
             button.setFrameOrigin(NSPoint(x: CGFloat(index * 20), y: 0))
             addSubview(button)
         }
-        // Only hide the titlebar subtree, never the NSThemeFrame which also
-        // owns the content. Window controls remain the original NSButtons.
-        if let titlebarContainer, titlebarContainer !== content.superview {
-            titlebarContainer.isHidden = true
-        } else {
-            nativeTitlebar?.isHidden = true
-        }
+        // Hide only the titlebar view itself. Never hide its container: on
+        // different macOS versions that can include the content's ancestors.
+        window.standardWindowButton(.closeButton)?.superview?.isHidden = true
     }
 
     required init?(coder: NSCoder) { return nil }
