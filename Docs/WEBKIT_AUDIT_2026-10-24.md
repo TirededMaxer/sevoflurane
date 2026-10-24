@@ -30,6 +30,8 @@ Steam 的数据、好友、云同步、聊天、上传以及游戏业务继续�
 
 构建 66 把系统拥有的标准按钮移入正文并隐藏标题栏父层，用户实测红绿灯消失。这项修改已替换为 AppKit 工厂创建的独立标准按钮，只隐藏原标题栏本身。嵌入标题栏窗口关闭 WebKit 自动原生标题栏 inset，取消正文顶部的第二层留白；尺寸 API 同步网页视口。好友头像预留完整的按钮高度，避免重新覆盖。桌面工具栏、大屏幕模式及无框菜单/通知不应用这项原生留白修改。
 
-参考 WebKit 的 `_setAutomaticallyAdjustsContentInsets:`、`obscuredContentInsets` 和 Apple 的 `NSWindow.standardWindowButton(_:for:)`。定向检查覆盖原生按钮的可见性、命中与三个原生动作，窗口改变大小/外观后的按钮状态，以及网页顶边实际像素；不发送消息，不启动游戏。
+参考 WebKit 的 `_setAutomaticallyAdjustsContentInsets:`、`obscuredContentInsets` 和 Apple 的 `NSWindow.standardWindowButton(_:for:)`。定向检查覆盖原生按钮的可见性、命中与三个原生动作，窗口改变大小/外观后的按钮状态，以及网页顶边命中、实际视口与原生 inset；不发送消息，不启动游戏。
 
 同时核对 Steam 原 CSS：好友头部含 1px inset box-shadow，聊天标题含顶部 border/inset shadow 与 4px padding。这些是独立于焦点线的 Windows 边缘，构建 66 未覆盖。现仅移除这两类头部的重复上边缘及聊天上边距，保留窗口内容样式与事件。
+
+首轮云端定向检查中，原生按钮可见性、命中和操作通过；WKWebView 像素截图检查失败，同期存在 IOSurface creation failed。当前定向检查改为验证 WebKit 视口大小、顶边命中及顶部 inset；云端未确认真实合成画面，需实机确认。
