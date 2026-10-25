@@ -139,6 +139,11 @@ extension BridgeJS {
         // Histories are merged by its original helpers, never copied from the
         // other renderer's model and never presented as a new incoming toast.
         store.FriendChatStore.LoadFriendMessageSessions();
+        // Group unread/member state is not part of the friend-session reply.
+        // Use Steam's group-state loader for a group event or reconnect.
+        if (typeof store.LoadMyChatRooms === 'function' && (event.target && event.target.group
+            || event.kind === 'all' && (store.currentChatRoomGroups || []).length))
+          store.LoadMyChatRooms();
         var list = event.kind === 'all' ? chats() : [getChat(event.target)].filter(Boolean);
         for (var chat of list) {
           if (!chat.m_bChatLogsLoaded || event.account !== account()) continue;

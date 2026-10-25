@@ -50,3 +50,5 @@
 ```
 
 本机仅做可清理的接口诊断：在现有 SharedJSContext 安装同一工厂、读取原历史并等待空闲，得到 installed=true、emitted=0、reconciled=1、failed=0；随后恢复原方法、移除诊断属性。没有发送真实聊天消息，没有启动游戏。这确认原接口可接入，不等于发送场景验收。
+
+补查群聊未读元数据属于 `GetMyChatRoomGroups`，不在私聊会话响应中。群聊事件及已有群聊的断线补齐同步调用原 `LoadMyChatRooms`，避免只补历史而遗漏群聊未读/成员状态；对应新增定向检查。

@@ -152,3 +152,10 @@ test('queued events from a previous account do not merge into the new account', 
   f.sync.receive(event('read', { account: '76561198000000001', ack: 200 }));
   await f.sync.idle(); assert.equal(f.chat.time_last_ack, 200);
 });
+
+test('group history reconciliation also reloads the original group unread metadata', async () => {
+  const f = appFixture(); await ready(f); let groups = 0;
+  f.app.ChatStore.LoadMyChatRooms = () => { groups++; };
+  f.sync.receive(event('history', { target: { group: '10', room: '20' } }));
+  await f.sync.idle(); assert.equal(groups, 1); assert.equal(f.counts.history, 1);
+});
