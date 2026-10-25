@@ -100,6 +100,18 @@ extension SteamBridge {
             switch cmd {
             case "sc":
                 try await forwardSteamClient(request, ws: ws, id: id, cdp: cdp)
+            case "chat_changed":
+                guard let event = request["event"] as? [String: Any],
+                      let json = Self.jsonText(event) else { return }
+                _ = try await cdp.evaluate("""
+                (function () {
+                  var sync = window.g_FriendsUIApp && g_FriendsUIApp.__sevoChatSync;
+                  var event = \(json);
+                  // The original context validates the account and event shape.
+                  // Echo it to all other WebKit pages after local reconciliation.
+                  if (sync && sync.receive(event)) sync.emit(event);
+                })()
+                """)
             case "toast_consumed":
                 guard let epoch = request["epoch"] as? String,
                       let keys = request["keys"] as? [String], !keys.isEmpty else { return }
@@ -315,9 +327,12 @@ extension SteamBridge {
           type: 'toast_state', epoch: toastSync.epoch, keys: toastSync.snapshot()
         }));
         """ : ""
+        let chatSetup = path == "SteamClient.SharedConnection.AllocateSharedConnection"
+            ? BridgeJS.installChatSync : ""
         return """
         (async () => {
           \(notificationSetup)
+          \(chatSetup)
           window.__sevoRet = window.__sevoRet || {};
           try {
             const r = await \(path)(\(argsJS.joined(separator: ",")));

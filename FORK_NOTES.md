@@ -1,10 +1,10 @@
-# TirededMaxer fork — 1.7.0-fork.11
+# TirededMaxer fork — 1.7.0-fork.12
 
 保留上游署名和许可证，以及本机现有 CrossOver 引擎、Steam 容器、游戏、存档与运行时补丁。
 
 ## 当前实现
 
-构建 67 修复构建 66 的红绿灯消失与原生标题栏重复留白，改为独立 AppKit 标准按钮，并同步实际网页视口尺寸。保留构建 66 的网页文件选择、导航、下载、查找等补全；游戏叠加层继续交给 Windows Steam。详见 [WebKit 入口检查](Docs/WEBKIT_AUDIT_2026-10-24.md)。
+构建 68 补齐原 Windows 叠加层与 WebKit 桌面聊天之间的本地更新交接，复用 Steam 自身的历史读取、合并和已读处理。消息发送、失败处理、窗口及游戏叠加层逻辑保持原实现。保留构建 67 的红绿灯和窗口顶部修复。
 
 
 - Steam 页面沿用其原有 HTML、CSS、脚本、字体和内容布局，由 WebKit/AppKit 承载。带窗口控制的界面使用 AppKit 原生窗框与红黄绿按钮，网页重复按钮隐藏。Steam、View、Friends、Games、Help 五项菜单映射回 macOS 菜单栏，选择仍交给原网页命令，Edit 与 Window 提供系统快捷键。登录成功后停留后台，仅明确请求打开 Steam 才显示主界面。大屏幕模式读取 Steam 的 FullScreen 创建标记，不重写 Steam 的模式切换。

@@ -72,6 +72,8 @@ print(f"Cloud tests: {summary['passedTests']} passed; {summary['failedTests']} f
 PY_SUMMARY
 fi
 if [[ "$stage" == release || "$stage" == all ]]; then
+    node --test Tools/tests/chat-sync.test.cjs > "$out/chat-sync-tests.log" 2>&1 \
+        || { cat "$out/chat-sync-tests.log"; exit 1; }
     # A build-only run still needs the Win32 UI helper in the application.
     if [[ ! -f "$RUNNER_TEMP/sevo-steam-ui/sevo-steam-ui.exe" ]]; then
         bash Tools/steam-ui/build-cloud.sh

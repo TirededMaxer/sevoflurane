@@ -190,6 +190,7 @@
   var tunnels = new Map();   // tunnel id   → TunnelSocket
   var queue = [];            // sends issued before the socket opens
   var ws;
+  var chatSync;
 
   /* Callback and tunnel ids must be unique across every page the bridge
      serves: they name a function in *this* page, and a bare counter would
@@ -204,6 +205,7 @@
       /* The bridge registers this page on its first message. */
       ws.send(JSON.stringify({ type: "hello" }));
       while (queue.length) ws.send(queue.shift());
+      if (chatSync) chatSync.reconcile();
     };
     ws.onmessage = function (ev) {
       var m = JSON.parse(ev.data);
@@ -229,6 +231,8 @@
           console.error("[sevo] callback " + m.cb + " " + fn.path + ": "
             + (e && e.message ? e.message : String(e)));
         }
+      } else if (m.type === "chat_changed") {
+        if (chatSync) chatSync.receive(m.event);
       } else if (m.type === "toast_state" || m.type === "toast_consumed") {
         if (toastSync && typeof m.epoch === "string" && Array.isArray(m.keys)) {
           if (toastEpoch && toastEpoch !== m.epoch) toastSync.reset(m.keys);
@@ -467,6 +471,12 @@
 
   function mk(path, node) {
     var fn = function () {
+      if (!chatSync && path.indexOf("SteamClient.SharedConnection.") === 0
+          && window.__sevoInstallChatSync) {
+        chatSync = window.__sevoInstallChatSync(window.g_FriendsUIApp, function (event) {
+          send({cmd: "chat_changed", event: event});
+        });
+      }
       // Both Steam roots receive friend events. Only the original client
       // submits them to the native notification service; WebKit receives
       // that service's existing RegisterForNotifications callback to render.
