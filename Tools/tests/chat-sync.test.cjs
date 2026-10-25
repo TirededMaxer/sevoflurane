@@ -45,6 +45,9 @@ function appFixture(owner = account) {
     install: emit => context.window.__sevoInstallChatSync(app, emit) };
 }
 async function ready(f) { await f.sync.idle(); f.counts.history = f.counts.sessions = 0; }
+// The observer preserves the original promise. Cross-realm promise adoption
+// in this fixture can deliver its independent notification on a later turn.
+async function observed() { await new Promise(setImmediate); }
 const event = (kind, extra = {}) => ({ account, origin: 'other', kind, target: { friend: '42' }, ...extra });
 const sendBody = { steamid: friendSteamID, chat_entry_type: 1, message: 'PRIVATE BODY NEVER RELAYED' };
 
@@ -52,7 +55,7 @@ test('successful send preserves its promise and emits only an invalidation', asy
   const f = appFixture(); await ready(f);
   const p = Promise.resolve(response()); f.setNext(p);
   assert.equal(f.transport.SendMsg('FriendMessages.SendMessage#1', request(sendBody)), p);
-  await p; await Promise.resolve();
+  await p; await observed();
   assert.equal(f.emitted.length, 1); assert.equal(f.emitted[0].target.friend, '42');
   assert.equal(JSON.stringify(f.emitted).includes('PRIVATE'), false);
   assert.equal(f.sync.receive(f.emitted[0]), false);
@@ -65,7 +68,7 @@ test('failure, rejection, typing and read-only methods produce no invalidation',
   f.setNext(Promise.resolve(response()));
   await f.transport.SendMsg('FriendMessages.SendMessage#1', request({ ...sendBody, chat_entry_type: 2 }));
   await f.transport.SendMsg('FriendMessages.GetRecentMessages#1', request(sendBody));
-  assert.equal(f.emitted.length, 0);
+  await observed(); assert.equal(f.emitted.length, 0);
 });
 test('observer failure never prevents the original call', async () => {
   const f = appFixture(); await ready(f);
@@ -75,7 +78,7 @@ test('observer failure never prevents the original call', async () => {
 test('peer reads history through Steam and does not send or echo another message', async () => {
   const a = appFixture(), b = appFixture(); await ready(a); await ready(b);
   a.install(e => b.sync.receive(e)); b.install(e => a.sync.receive(e));
-  await a.transport.SendMsg('FriendMessages.SendMessage#1', request(sendBody)); await b.sync.idle();
+  await a.transport.SendMsg('FriendMessages.SendMessage#1', request(sendBody)); await observed(); await b.sync.idle();
   assert.equal(a.counts.calls, 1); assert.equal(b.counts.calls, 0);
   assert.equal(b.counts.history, 1); assert.equal(b.sync.stats.emitted, 0);
 });
@@ -102,7 +105,7 @@ test('group send, reaction and deletion requests retain room IDs and affected ti
   await f.transport.SendMsg('ChatRoom.SendChatMessage#1', request({ chat_group_id: '10', chat_id: '20' }));
   await f.transport.SendMsg('ChatRoom.UpdateMessageReaction#1', request({ chat_group_id: '10', chat_id: '20', server_timestamp: 50 }));
   await f.transport.SendMsg('ChatRoom.DeleteChatMessages#1', request({ chat_group_id: '10', chat_id: '20', messages: [request({ server_timestamp: 40 }).Body()] }));
-  assert.equal(f.emitted.length, 3); assert.equal(f.emitted[0].target.group, '10');
+  await observed(); assert.equal(f.emitted.length, 3); assert.equal(f.emitted[0].target.group, '10');
   assert.equal(f.emitted[1].times[0], 50); assert.equal(f.emitted[2].times[0], 40);
 });
 test('burst merging retains both new-message tail and older reaction updates', async () => {
@@ -122,7 +125,7 @@ test('wrong account, own-origin, malformed events and stale send completion are 
   assert.equal(f.sync.receive(event('read', { ack: -1 })), false);
   assert.equal(f.sync.receive(event('history', { target: { friend: '../bad' } })), false);
   let settle; const p = new Promise(r => settle = r); f.setNext(p);
-  f.transport.SendMsg('FriendMessages.SendMessage#1', request(sendBody)); f.setOwner('changed'); settle(response()); await p;
+  f.transport.SendMsg('FriendMessages.SendMessage#1', request(sendBody)); f.setOwner('changed'); settle(response()); await p; await observed();
   assert.equal(f.emitted.length, 0);
 });
 test('incoming chat changes notify peers; typing/no-change packets do not', async () => {
