@@ -3,7 +3,7 @@ import Foundation
 extension BridgeJS {
     /// Notify the other renderer that authoritative Steam chat data changed.
     /// Both sides use the original Steam history/session/read helpers.
-    static let chatSync = #"""
+    nonisolated static let chatSync = #"""
     // Local invalidations only. Steam remains responsible for messages, history
     // ordering, reactions, deletion state, unread counts and all network writes.
     window.__sevoInstallChatSync = function (app, emit) {
@@ -206,7 +206,7 @@ extension BridgeJS {
     };
     """#
 
-    static var installChatSync: String {
+    nonisolated static var installChatSync: String {
         """
         \(chatSync)
         window.__sevoInstallChatSync(window.g_FriendsUIApp, function (event) {
