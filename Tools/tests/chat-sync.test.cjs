@@ -159,3 +159,13 @@ test('group history reconciliation also reloads the original group unread metada
   f.sync.receive(event('history', { target: { group: '10', room: '20' } }));
   await f.sync.idle(); assert.equal(groups, 1); assert.equal(f.counts.history, 1);
 });
+
+test('account change during a pending history read prevents late preview/unread updates', async () => {
+  const f = appFixture(); await ready(f); let finish, started = false;
+  f.chat.InternalLoadChatLogs = () => { started = true; return new Promise(r => { finish = r; }); };
+  f.chat.GetMostRecentChatMsg = () => ({ unAccountID: 1, rtTimestamp: 200, strMessage: 'old account' });
+  f.sync.receive(event('history'));
+  while (!started) await new Promise(r => setTimeout(r, 0));
+  f.setOwner('76561198000000001'); finish(); await f.sync.idle();
+  assert.equal(f.counts.previews, 0);
+});

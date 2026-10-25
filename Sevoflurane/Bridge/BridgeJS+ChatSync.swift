@@ -155,6 +155,7 @@ extension BridgeJS {
             }
           }
           if (!event.times || event.tail) await chat.InternalLoadChatLogs(true);
+          if (disposed || event.account !== account()) return;
           // Steam's own local-echo path refreshes previews and clears self-message
           // unread state. Reuse that helper only for the user's own last message;
           // replaying another sender here could repeat their toast/sound.
