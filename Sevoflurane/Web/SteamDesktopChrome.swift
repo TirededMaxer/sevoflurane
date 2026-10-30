@@ -5,12 +5,14 @@ import Foundation
 enum SteamDesktopChrome {
     static let script = dragScript(desktop: true)
     static let popupScript = dragScript(desktop: false)
+    static let dialogScript = dragScript(desktop: false, dialog: true)
 
-    private static func dragScript(desktop: Bool) -> String {
+    private static func dragScript(desktop: Bool, dialog: Bool = false) -> String {
         """
         (function () {
           if (window.__sevoOriginalDrag) { window.__sevoOriginalDrag(); return "reapplied"; }
           var desktop = \(desktop ? "true" : "false");
+          var dialog = \(dialog ? "true" : "false");
           function restyle() {
             if (!document.head) return;
             if (desktop) {
@@ -34,18 +36,19 @@ enum SteamDesktopChrome {
               "[data-sevo-native-title-row]{display:none!important}";
             else style.textContent +=
               ".TitleBar.title-area{box-sizing:border-box!important;padding-inline-start:80px!important}"+
-              // Steam login CSS module 53576 adds a border outside height:100%.
-              // Its loading component (37909) also requests 100% below a 30px
-              // title strip. Fit both inside the native content viewport.
-              ".VZ6x_grhNkIYJG__jEEyp{box-sizing:border-box!important;border:0!important;box-shadow:none!important}"+
-              ".VZ6x_grhNkIYJG__jEEyp:has(>._1TR3CCCdSmI-0MXucYBuP2){display:flex!important;flex-direction:column!important}"+
-              ".VZ6x_grhNkIYJG__jEEyp>._1TR3CCCdSmI-0MXucYBuP2{height:auto!important;min-height:0!important;flex:1!important}"+
               // Steam's own macOS header layouts: the avatar and chat tabs
               // are siblings of TitleBar, so insetting TitleBar alone misses them.
               ".friendListHeaderContainer{box-shadow:none!important}"+
               ".titleBarContainer.ChatTabs{border-top:0!important;box-shadow:none!important;padding-top:0!important}"+
               ".friendListHeaderContainer .currentUserContainer{padding-top:28px!important}"+
               ".chatTabSetContainer.inclient{padding-inline-start:101px!important;padding-inline-end:0!important}";
+            if (dialog) style.textContent +=
+              // Reauthentication reuses login CSS modules 53576 and 37909.
+              // Both the border and 100% loading height sit below a 30px
+              // title strip. Only modal pages need this fit; sign-in is unchanged.
+              ".VZ6x_grhNkIYJG__jEEyp{box-sizing:border-box!important;border:0!important;box-shadow:none!important}"+
+              ".VZ6x_grhNkIYJG__jEEyp:has(>._1TR3CCCdSmI-0MXucYBuP2){display:flex!important;flex-direction:column!important}"+
+              ".VZ6x_grhNkIYJG__jEEyp>._1TR3CCCdSmI-0MXucYBuP2{height:auto!important;min-height:0!important;flex:1!important}";
             document.head.appendChild(style);
           }
           function regions() {

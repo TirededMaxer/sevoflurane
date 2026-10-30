@@ -101,10 +101,10 @@ struct WindowChromeRegressionTests {
     }
 
     @Test
-    func transientPagesKeepSteamsRequestedSizeWhileChatRestoresItsSize() throws {
+    func modalsUseSteamsSizeWhileLoginAndChatKeepTheirExistingRestoration() throws {
         for role in [SteamWindowRole.login, .dialog, .chat] {
             let popup = SteamWindow(webView: WKWebView(), role: role, name: "size-regression",
-                                    size: CGSize(width: 700, height: 440), origin: nil, host: nil)
+                                    size: CGSize(width: 705, height: 470), origin: nil, host: nil)
             let key = popup.placementName
             let saved = NSWindow(contentRect: NSRect(x: 200, y: 100, width: 850, height: 719),
                                  styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
@@ -118,10 +118,10 @@ struct WindowChromeRegressionTests {
             popup.realize()
             let window = try #require(popup.nsWindow)
             let content = try #require(window.contentView)
-            if role == .chat {
+            if role != .dialog {
                 #expect(content.bounds.size == CGSize(width: 850, height: 719))
             } else {
-                #expect(content.bounds.size == CGSize(width: 700, height: 440))
+                #expect(content.bounds.size == CGSize(width: 705, height: 470))
                 popup.resizeTo(width: 720, height: 460)
                 popup.prepareOpeningPlacement()
                 #expect(content.bounds.size == CGSize(width: 720, height: 460))
@@ -130,10 +130,10 @@ struct WindowChromeRegressionTests {
     }
 
     @Test
-    func loginLoadingAndAccountChooserDoNotOverflowTheViewport() async throws {
+    func reauthenticationLoadingAndFormDoNotOverflowTheViewport() async throws {
         let web = WKWebView()
-        let popup = SteamWindow(webView: web, role: .login, name: "loading-regression",
-                                size: CGSize(width: 700, height: 440), origin: nil, host: nil)
+        let popup = SteamWindow(webView: web, role: .dialog, name: "loading-regression",
+                                size: CGSize(width: 705, height: 470), origin: nil, host: nil)
         popup.realize()
         defer { popup.detach(reason: .pageTeardown) }
         let window = try #require(popup.nsWindow)
@@ -158,8 +158,8 @@ struct WindowChromeRegressionTests {
             try await Task.sleep(for: .milliseconds(25))
         }
         #expect(ready)
-        _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupScript)
-        for size in [NSSize(width: 700, height: 440), NSSize(width: 850, height: 719)] {
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.dialogScript)
+        for size in [NSSize(width: 705, height: 470), NSSize(width: 850, height: 719)] {
             window.setContentSize(size)
             for state in ["_1TR3CCCdSmI-0MXucYBuP2", "_27A5ub1QLLIMmgywKVMg4z"] {
                 _ = try await web.evaluateJavaScript("document.getElementById('state').className='\(state)'; window.scrollTo(0,0)")
