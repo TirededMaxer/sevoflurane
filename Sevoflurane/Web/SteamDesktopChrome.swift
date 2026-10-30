@@ -34,6 +34,12 @@ enum SteamDesktopChrome {
               "[data-sevo-native-title-row]{display:none!important}";
             else style.textContent +=
               ".TitleBar.title-area{box-sizing:border-box!important;padding-inline-start:80px!important}"+
+              // Steam login CSS module 53576 adds a border outside height:100%.
+              // Its loading component (37909) also requests 100% below a 30px
+              // title strip. Fit both inside the native content viewport.
+              ".VZ6x_grhNkIYJG__jEEyp{box-sizing:border-box!important;border:0!important;box-shadow:none!important}"+
+              ".VZ6x_grhNkIYJG__jEEyp:has(>._1TR3CCCdSmI-0MXucYBuP2){display:flex!important;flex-direction:column!important}"+
+              ".VZ6x_grhNkIYJG__jEEyp>._1TR3CCCdSmI-0MXucYBuP2{height:auto!important;min-height:0!important;flex:1!important}"+
               // Steam's own macOS header layouts: the avatar and chat tabs
               // are siblings of TitleBar, so insetting TitleBar alone misses them.
               ".friendListHeaderContainer{box-shadow:none!important}"+

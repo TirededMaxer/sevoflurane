@@ -100,6 +100,77 @@ struct WindowChromeRegressionTests {
         }
     }
 
+    @Test
+    func transientPagesKeepSteamsRequestedSizeWhileChatRestoresItsSize() throws {
+        for role in [SteamWindowRole.login, .dialog, .chat] {
+            let popup = SteamWindow(webView: WKWebView(), role: role, name: "size-regression",
+                                    size: CGSize(width: 700, height: 440), origin: nil, host: nil)
+            let key = popup.placementName
+            let saved = NSWindow(contentRect: NSRect(x: 200, y: 100, width: 850, height: 719),
+                                 styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            saved.isReleasedWhenClosed = false
+            saved.saveFrame(usingName: key)
+            defer {
+                popup.detach(reason: .pageTeardown)
+                saved.close()
+                UserDefaults.standard.removeObject(forKey: "NSWindow Frame \(key)")
+            }
+            popup.realize()
+            let window = try #require(popup.nsWindow)
+            let content = try #require(window.contentView)
+            if role == .chat {
+                #expect(content.bounds.size == CGSize(width: 850, height: 719))
+            } else {
+                #expect(content.bounds.size == CGSize(width: 700, height: 440))
+                popup.resizeTo(width: 720, height: 460)
+                popup.prepareOpeningPlacement()
+                #expect(content.bounds.size == CGSize(width: 720, height: 460))
+            }
+        }
+    }
+
+    @Test
+    func loginLoadingAndAccountChooserDoNotOverflowTheViewport() async throws {
+        let web = WKWebView()
+        let popup = SteamWindow(webView: web, role: .login, name: "loading-regression",
+                                size: CGSize(width: 700, height: 440), origin: nil, host: nil)
+        popup.realize()
+        defer { popup.detach(reason: .pageTeardown) }
+        let window = try #require(popup.nsWindow)
+        window.orderFront(nil)
+        web.loadHTMLString("""
+        <style>
+        html,body,#root{height:100%;margin:0}
+        .VZ6x_grhNkIYJG__jEEyp{height:100%;border:1px solid #333;box-shadow:inset 1px 1px #555}
+        .title{height:30px;flex-shrink:0}
+        ._1TR3CCCdSmI-0MXucYBuP2{height:100%;width:100%;display:flex;align-items:center;justify-content:center}
+        ._27A5ub1QLLIMmgywKVMg4z{flex:1;min-height:0}
+        .VZ6x_grhNkIYJG__jEEyp:has(>._27A5ub1QLLIMmgywKVMg4z){display:flex;flex-direction:column}
+        </style>
+        <div id="root"><div class="VZ6x_grhNkIYJG__jEEyp DesktopUI">
+        <div class="title"><div class="TitleBar title-area"></div></div>
+        <div id="state" class="_1TR3CCCdSmI-0MXucYBuP2"><button>Ready</button></div>
+        </div></div><script>window.ready=true;</script>
+        """, baseURL: nil)
+        var ready = false
+        for _ in 0..<100 {
+            if (try? await web.evaluateJavaScript("window.ready === true")) as? Bool == true { ready = true; break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(ready)
+        _ = try await web.evaluateJavaScript(SteamDesktopChrome.popupScript)
+        for size in [NSSize(width: 700, height: 440), NSSize(width: 850, height: 719)] {
+            window.setContentSize(size)
+            for state in ["_1TR3CCCdSmI-0MXucYBuP2", "_27A5ub1QLLIMmgywKVMg4z"] {
+                _ = try await web.evaluateJavaScript("document.getElementById('state').className='\(state)'; window.scrollTo(0,0)")
+                let fits = try await web.evaluateJavaScript("document.documentElement.scrollHeight === innerHeight && document.documentElement.scrollWidth === innerWidth") as? Bool
+                #expect(fits == true)
+                let border = try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.VZ6x_grhNkIYJG__jEEyp')).borderTopWidth") as? String
+                #expect(border == "0px")
+            }
+        }
+    }
+
     private final class ActionWindow: NSWindow {
         var actions: [String] = []
         override func performClose(_: Any?) { actions.append("close") }

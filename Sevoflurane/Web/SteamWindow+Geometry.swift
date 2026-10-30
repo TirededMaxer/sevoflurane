@@ -22,7 +22,15 @@ extension SteamWindow {
     }
 
     func restoreForOpening(_ window: NSWindow) {
+        // Sign-in and modal pages size themselves as their contents change.
+        // Restoring a previous frame must not undo Steam's ResizeTo request.
+        let contentSize = window.contentView?.bounds.size ?? requestedSize
         WindowPlacement.restoreOrCenter(window, key: placementName, autoSave: false)
+        if role == .login || role == .dialog {
+            let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+            window.setContentSize(contentSize)
+            window.setFrameTopLeftPoint(topLeft)
+        }
     }
 
     /// Restore after Steam has finished applying a popup’s initial size.
