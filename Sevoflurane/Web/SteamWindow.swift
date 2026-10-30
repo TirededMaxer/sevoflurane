@@ -48,7 +48,7 @@ final class SteamWindow: NSObject {
         guard let window, window.isVisible else { return false }
         // Menus stay ordered in at alpha 0 so their pages keep rendering;
         // they count as visible only once faded in.
-        return role != .menu || window.alphaValue > 0
+        return !role.keepsPageVisibleWhenHidden || window.alphaValue > 0
     }
 
     /// Whether an AppKit window is this popup's, for hit-testing an event's
@@ -166,8 +166,8 @@ final class SteamWindow: NSObject {
                 return handled ? nil : event
             }
         }
-        if role == .menu {
-            // Menus stay rendered at alpha 0 until Steam asks to show them.
+        if role.keepsPageVisibleWhenHidden {
+            // Transient popups stay rendered at alpha 0 until Steam shows them.
             window.orderFront(nil)
         } else if role == .toast {
             placeToast(window)
@@ -540,10 +540,13 @@ final class SteamWindow: NSObject {
             // Install native DOM tracking before a click can make this panel
             // key and AppKit stops relaying its hover events.
             webView.evaluateJavaScript(Self.controlledMenuHoverScript)
+        }
+        if role.keepsPageVisibleWhenHidden {
             window.alphaValue = 1
             window.ignoresMouseEvents = false
         }
-        guard activating else {
+        // A hover opening must not blur the friends window that owns its target.
+        guard activating, role != .hover else {
             window.orderFront(nil)
             attachDialogToDesktop()
             enterInitialFullScreenIfRequested(window)
@@ -671,7 +674,7 @@ final class SteamWindow: NSObject {
         hasBeenShown = false
         showWasDeferredByHold = false
         guard let window else { return }
-        if role == .menu {
+        if role.keepsPageVisibleWhenHidden {
             if window.isKeyWindow { window.resignKey() }
             // Fading instead of ordering out preserves the menu page's
             // visibility state until Steam shows it again.

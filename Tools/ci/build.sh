@@ -24,8 +24,8 @@ if [[ "$stage" == chrome ]]; then
     python3 - "$out/chrome-test-summary.json" <<'PY_CHROME'
 import json, sys
 summary = json.load(open(sys.argv[1]))
-assert summary["passedTests"] == 5 and summary["failedTests"] == 0, summary
-print("Popup chrome regressions: 5 passed")
+assert summary["passedTests"] == 6 and summary["failedTests"] == 0, summary
+print("Popup chrome regressions: 6 passed")
 PY_CHROME
 fi
 if [[ "$stage" == test || "$stage" == all ]]; then

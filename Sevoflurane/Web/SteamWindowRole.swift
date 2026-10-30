@@ -23,6 +23,8 @@ nonisolated enum SteamWindowRole {
     case controllerConfig
     /// A context menu, root menu, or supernav flyout.
     case menu
+    /// Steam mini-profile hover cards, drawn without an OS titlebar.
+    case hover
     /// The friends list.
     case friends
     /// A chat window — one friend, a group, or several in tabs.
@@ -79,6 +81,7 @@ nonisolated enum SteamWindowRole {
         (.exact("SP Keyboard"), .keyboard),
         (.exact("SP Controller Configurator"), .controllerConfig),
         (.prefix("contextmenu_"), .menu),
+        (.exact("hoverpopup"), .hover),
         (.prefix("friendslist"), .friends),
         (.prefix("chat_"), .chat),
         (.prefix("notificationtoasts"), .toast),
@@ -134,7 +137,7 @@ nonisolated enum SteamWindowRole {
     var hasNativeFrame: Bool {
         switch self {
         case .desktop, .login, .bigPicture, .controllerConfig, .friends, .chat, .auxiliary, .dialog: true
-        case .context, .menu, .keyboard, .toast, .gameOverlay: false
+        case .context, .menu, .hover, .keyboard, .toast, .gameOverlay: false
         }
     }
 
@@ -143,8 +146,12 @@ nonisolated enum SteamWindowRole {
     /// own input) but must never promote the app to a regular one or steal
     /// focus on Steam's behalf.
     var isPanel: Bool {
-        self == .menu || self == .keyboard || self == .gameOverlay || self == .dialog || self == .toast
+        self == .menu || self == .hover || self == .keyboard || self == .gameOverlay || self == .dialog || self == .toast
     }
+
+    /// Steam observes these popup documents even while they are hidden.
+    /// Park the native panel transparently so visibility changes cannot dismiss it.
+    var keepsPageVisibleWhenHidden: Bool { self == .menu || self == .hover }
 
     /// Original popup headers declare their blank draggable regions. The
     /// document keeps its own title, controls, fonts and layout.
@@ -170,7 +177,7 @@ nonisolated enum SteamWindowRole {
     /// positions itself, and the overlay is placed over the game.
     var needsAReachableFrame: Bool {
         switch self {
-        case .context, .menu, .keyboard, .toast, .gameOverlay: false
+        case .context, .menu, .hover, .keyboard, .toast, .gameOverlay: false
         case .desktop, .bigPicture, .login, .controllerConfig, .auxiliary, .friends, .chat, .dialog: true
         }
     }
@@ -189,7 +196,7 @@ nonisolated enum SteamWindowRole {
     /// Steam's menu re-measure loop flickers the window.
     var allowsOcclusionDetection: Bool {
         switch self {
-        case .context, .menu, .keyboard, .toast, .gameOverlay: false
+        case .context, .menu, .hover, .keyboard, .toast, .gameOverlay: false
         case .desktop, .bigPicture, .login, .controllerConfig, .auxiliary, .friends, .chat, .dialog: true
         }
     }

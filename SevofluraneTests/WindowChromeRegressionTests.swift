@@ -171,6 +171,48 @@ struct WindowChromeRegressionTests {
         }
     }
 
+    @Test
+    func hoverCardsKeepSteamsPositionAndVisibilityWithoutNativeChrome() throws {
+        for name in ["SP Desktop_uid0", "SP DesktopLoginWindow_uid0", "friendslist_uid0", "chat_1_uid0", "PopupWindow_1_uid0"] {
+            #expect(SteamWindowRole(popupName: name).hasNativeFrame)
+        }
+        for name in ["contextmenu_1_uid0", "notificationtoasts_uid0", "SP Keyboard_uid0", "hoverpopup_uid0"] {
+            #expect(!SteamWindowRole(popupName: name).hasNativeFrame)
+        }
+        let role = SteamWindowRole(popupName: "hoverpopup_uid0")
+        #expect(role == .hover)
+        #expect(!role.hasNativeFrame)
+        #expect(!role.hasPopupChrome)
+        #expect(!role.needsAReachableFrame)
+        #expect(!role.allowsOcclusionDetection)
+        let popup = SteamWindow(webView: WKWebView(), role: role, name: "hoverpopup_uid0",
+                                size: CGSize(width: 328, height: 184), origin: nil, host: nil)
+        popup.realize()
+        defer { popup.detach(reason: .pageTeardown) }
+        let window = try #require(popup.nsWindow)
+        let content = try #require(window.contentView)
+        #expect(window is NSPanel)
+        #expect(!window.styleMask.contains(.titled))
+        #expect(window.standardWindowButton(.closeButton) == nil)
+        #expect(content.subviews.allSatisfy { !($0 is SteamWindowControls) })
+        #expect(window.isVisible && window.alphaValue == 0)
+        popup.positionRelative(toWindowNamed: "friendslist_uid0", x: 120, y: 180, width: 328, height: 184)
+        let frame = window.frame
+        let previousKeyWindow = NSApp.keyWindow
+        popup.show(activating: true)
+        #expect(window.frame == frame)
+        #expect(NSApp.keyWindow === previousKeyWindow)
+        #expect(!window.isKeyWindow)
+        #expect(popup.isWindowVisible)
+        _ = popup.perform("HideWindow", [])
+        #expect(!popup.isWindowVisible)
+        #expect(window.isVisible && window.alphaValue == 0)
+        popup.show(activating: false)
+        #expect(popup.isWindowVisible)
+        #expect(window.frame == frame)
+        #expect(SteamWindowRole.usesOriginalGameOverlay(popupName: "hoverpopup_uid730"))
+    }
+
     private final class ActionWindow: NSWindow {
         var actions: [String] = []
         override func performClose(_: Any?) { actions.append("close") }

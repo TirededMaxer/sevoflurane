@@ -15,7 +15,7 @@ extension SteamWindow {
             window.title = "Big Picture"
             window.backgroundColor = Self.steamBackground
             window.collectionBehavior.insert(.fullScreenPrimary)
-        case .menu:
+        case .menu, .hover:
             window.isOpaque = false
             window.backgroundColor = .clear
             window.hasShadow = true
