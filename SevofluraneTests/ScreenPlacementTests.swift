@@ -15,7 +15,9 @@ struct ScreenPlacementTests {
     @Test
     func independentWindowsCenterFirstAndKeepUserFrameOnReopen() throws {
         let screen = try #require(NSScreen.main ?? NSScreen.screens.first)
-        for role in [SteamWindowRole.desktop, .bigPicture, .login, .controllerConfig, .auxiliary, .friends, .chat, .dialog] {
+        // Dialogs keep the saved top-left but take their size from Steam,
+        // as covered by WindowChromeRegressionTests.
+        for role in [SteamWindowRole.desktop, .bigPicture, .login, .controllerConfig, .auxiliary, .friends, .chat] {
             let owner = SteamWindow(webView: WKWebView(), role: role, name: "center-test", size: CGSize(width: 600, height: 360), origin: CGPoint(x: 2, y: 2), host: nil)
             NSWindow.removeFrame(usingName: owner.placementName)
             owner.realize()
