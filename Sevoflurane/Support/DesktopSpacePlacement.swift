@@ -2,7 +2,7 @@ import AppKit
 import Darwin
 import ObjectiveC.runtime
 
-/// Desktop/login windows must belong to an actual user Desktop before they
+/// Steam windows must belong to an actual user Desktop before they
 /// are shown. Collection behaviors alone did not prevent a window created
 /// from the menu-bar app from joining Chrome's fullscreen Space on macOS 27.
 @MainActor
@@ -45,10 +45,14 @@ enum DesktopSpacePlacement {
         let displayID = (screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
         let uuid = displayID.flatMap { CGDisplayCreateUUIDFromDisplayID($0)?.takeRetainedValue() }
             .map { CFUUIDCreateString(nil, $0) as String }
-        let display = displays.first { row in
+        let matchingDisplay = displays.first { row in
             let key = row["Display Identifier"] as? String
-            return key == "Main" || key == uuid || key == displayID.map(String.init)
-        } ?? (displays.count == 1 ? displays.first : nil)
+            guard let key else { return false }
+            return key == uuid || key == displayID.map(String.init)
+        }
+        let display = matchingDisplay
+            ?? displays.first { $0["Display Identifier"] as? String == "Main" }
+            ?? (displays.count == 1 ? displays.first : nil)
         guard let display,
               let spaces = display["Spaces"] as? [[String: Any]] else { return nil }
         return destination(in: spaces, current: (display["Current Space"] as? [String: Any]).flatMap(spaceID),

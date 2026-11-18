@@ -165,7 +165,10 @@ final class NativeSteamDialogs {
                 continue
             }
             unsupported.removeValue(forKey: dialog.identity)
-            if let existing = windows[dialog.identity] { existing.update(dialog) }
+            if let existing = windows[dialog.identity] {
+                existing.update(dialog)
+                if !existing.window.isVisible { existing.showOriginal() }
+            }
             else if let window = NativeSteamDialogWindow(dialog: dialog, send: { [weak self] arguments in
                 self?.forward(arguments, helper: helper)
             }) {

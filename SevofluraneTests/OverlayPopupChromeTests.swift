@@ -62,15 +62,21 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `desktop chat follows Steam show while the original overlay is active`() {
+    func `desktop chat moves to a desktop before taking focus`() async {
         let host = SteamWebHost()
 
         let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
         let window = OrderWindow()
         owner.window = window
 
-        owner.show(activating: false)
+        owner.show(activating: false, placeOnDesktop: { candidate in
+            #expect(candidate === window)
+            #expect(window.orderCount == 0)
+            return true
+        })
+        await waitForOpen(window)
         #expect(window.orderCount == 1)
+        #expect(window.keyCount == 1)
         _ = owner.perform("HideWindow", [])
         #expect(window.hideCount == 1)
     }
@@ -89,14 +95,28 @@ struct OverlayPopupChromeTests {
     }
 
     @Test
-    func `desktop chat works normally when the overlay is closed`() {
+    func `desktop chat stays hidden if desktop placement fails`() async {
         let host = SteamWebHost()
         let owner = chat(named: "chat_ChatWindow_4_uid0", host: host)
         let window = OrderWindow()
         owner.window = window
 
-        owner.show(activating: false)
-        #expect(window.orderCount == 1)
+        var placementTried = false
+        owner.show(activating: false, placeOnDesktop: { _ in
+            placementTried = true
+            return false
+        })
+        for _ in 0..<30 where !placementTried {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(placementTried)
+        #expect(window.orderCount == 0)
+    }
+
+    private func waitForOpen(_ window: OrderWindow) async {
+        for _ in 0..<30 where window.orderCount == 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     private func chat(named name: String, host: SteamWebHost) -> SteamWindow {
@@ -141,6 +161,7 @@ private final class DragWindow: NSWindow {
 @MainActor
 private final class OrderWindow: NSWindow {
     var orderCount = 0
+    var keyCount = 0
     var hideCount = 0
 
     init() {
@@ -153,5 +174,6 @@ private final class OrderWindow: NSWindow {
 
     override func orderFrontRegardless() { orderCount += 1 }
     override func orderFront(_: Any?) { orderCount += 1 }
+    override func makeKeyAndOrderFront(_: Any?) { orderCount += 1; keyCount += 1 }
     override func orderOut(_: Any?) { hideCount += 1 }
 }

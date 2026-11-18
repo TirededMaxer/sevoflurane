@@ -86,8 +86,9 @@ struct ScreenPlacementTests {
         NSWindow.removeFrame(usingName: first.placementName)
         defer { NSWindow.removeFrame(usingName: first.placementName) }
         first.realize()
-        first.show(activating: false)
         let window = try #require(first.nsWindow)
+        first.prepareOpeningPlacement()
+        window.orderFront(nil)
         let screen = try #require(window.screen)
         let remembered = NSRect(x: screen.visibleFrame.minX + 80, y: screen.visibleFrame.minY + 100, width: 500, height: 400)
         window.setFrame(remembered, display: false)

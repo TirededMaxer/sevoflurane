@@ -50,8 +50,7 @@ final class NativeSteamDialogWindow: NSObject, NSWindowDelegate, WKNavigationDel
     func showOriginal() {
         Task { [weak self] in
             guard let self, !originalClosed else { return }
-            _ = await DesktopSpacePlacement.place(window)
-            guard !originalClosed else { return }
+            guard await DesktopSpacePlacement.place(window), !originalClosed else { return }
             Activation().bringAppForward()
             window.makeKeyAndOrderFront(nil)
             window.makeFirstResponder(webView)

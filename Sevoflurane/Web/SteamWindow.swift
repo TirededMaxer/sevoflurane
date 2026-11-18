@@ -474,12 +474,12 @@ final class SteamWindow: NSObject {
     /// replays the show.
     private(set) var showWasDeferredByHold = false
 
-    /// A chat window Steam opened for an incoming message, kept built and off
-    /// screen until something the user did asks for it.
-
-    func show(activating: Bool) {
+    func show(
+        activating: Bool,
+        placeOnDesktop: @escaping @MainActor (NSWindow) async -> Bool = DesktopSpacePlacement.place,
+    ) {
         guard !usesOriginalGameOverlay else { return }
-        if (role == .desktop || role == .login),
+        if role.hasNativeFrame, !role.isPanel,
            !(role == .login && host?.defersLoginWindow == true),
            host?.clientIsStopping != true,
            NSApp.activationPolicy() != .regular {
@@ -487,7 +487,9 @@ final class SteamWindow: NSObject {
             // creating/ordering a primary window. Accessory windows can
             // otherwise first appear over the frontmost fullscreen app.
             ActivationPolicy.becomeRegular()
-            DispatchQueue.main.async { [weak self] in self?.show(activating: activating) }
+            DispatchQueue.main.async { [weak self] in
+                self?.show(activating: activating, placeOnDesktop: placeOnDesktop)
+            }
             return
         }
         realize()
@@ -516,13 +518,14 @@ final class SteamWindow: NSObject {
             self.parkedDesktopContent = nil
         }
         prepareOpeningPlacement()
-        if role == .desktop || role == .login {
+        if role.hasNativeFrame {
             desktopShowWanted = true
             desktopShowActivating = desktopShowActivating || activating
+                || (!window.isVisible && host?.clientIsStopping != true)
             guard desktopShowTask == nil else { return }
             desktopShowTask = Task { [weak self, weak window] in
                 guard let self, let window else { return }
-                let placed = await DesktopSpacePlacement.place(window)
+                let placed = await placeOnDesktop(window)
                 desktopShowTask = nil
                 let requested = desktopShowWanted
                 let activate = desktopShowActivating
@@ -639,7 +642,7 @@ final class SteamWindow: NSObject {
 
     /// Brings the app and this window forward.
     private func activate(_ window: NSWindow) {
-        if !window.styleMask.contains(.nonactivatingPanel) {
+        if role.hasNativeFrame || !window.styleMask.contains(.nonactivatingPanel) {
             Activation().bringAppForward()
         }
         window.makeKeyAndOrderFront(nil)
@@ -647,9 +650,7 @@ final class SteamWindow: NSObject {
         // Until the web view is first responder, AppKit routes mouse-moved
         // events elsewhere and the page sees no hover — the "menus only
         // react after one click inside" symptom.
-        if !role.isPanel, window.firstResponder === window {
-            window.makeFirstResponder(webView)
-        }
+        if role.hasNativeFrame { ensureWebKeyboardResponder() }
     }
 
     /// Translate the original popup creation flag once the window is shown.

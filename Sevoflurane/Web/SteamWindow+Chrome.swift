@@ -46,6 +46,7 @@ extension SteamWindow {
             applyPopupChrome(to: window)
             window.hasShadow = true
             window.hidesOnDeactivate = false
+            window.collectionBehavior = [.managed, .fullScreenNone]
         case .toast:
             window.isOpaque = false
             window.backgroundColor = .clear

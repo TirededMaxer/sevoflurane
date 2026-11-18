@@ -103,7 +103,10 @@ enum ActivationPolicy {
 
     /// Prefer the frontmost existing window, then one minimized to the Dock.
     static func windowToReopen(ordered: [NSWindow], all: [NSWindow]) -> NSWindow? {
-        ordered.first(where: keepsTheDockTile)
+        ordered.first { window in
+            keepsTheDockTile(window) || (window is NSPanel && window.styleMask.contains(.titled)
+                && window.canBecomeKey && window.isVisible && window.alphaValue > 0)
+        }
             ?? all.first { $0.isMiniaturized && $0.styleMask.contains(.miniaturizable) && !($0 is NSPanel) }
     }
 }

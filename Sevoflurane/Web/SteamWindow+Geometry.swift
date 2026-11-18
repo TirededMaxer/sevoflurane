@@ -66,7 +66,10 @@ extension SteamWindow {
     /// moves with it.
     func attachDialogToDesktop() {
         guard role == .dialog, let window, window.parent == nil,
-              let parent = host?.desktop?.nsWindow, parent.isVisible else { return }
+              let parent = host?.desktop?.nsWindow, parent.isVisible,
+              !parent.styleMask.contains(.fullScreen),
+              DesktopSpacePlacement.memberships(of: parent) == DesktopSpacePlacement.memberships(of: window)
+        else { return }
         parent.addChildWindow(window, ordered: .above)
     }
 
