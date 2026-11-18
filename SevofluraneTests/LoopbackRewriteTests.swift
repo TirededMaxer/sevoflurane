@@ -1,4 +1,5 @@
 import Foundation
+import JavaScriptCore
 import Testing
 @testable import Sevoflurane
 
@@ -8,6 +9,52 @@ import Testing
 /// `postMessage` a silent no-op, and a URL that keeps the bare origin misses
 /// the route that answers it.
 struct LoopbackRewriteTests {
+    @Test
+    func `library refresh removes drag listeners after the React refs clear`() throws {
+        let source = #"""
+        class Tracker {
+          StartGlobalMouseTracking(){const Ar=(0,ur.qf)(this.m_refOuter.current);Ar.addEventListener("mouseup",this.OnGlobalMouseUp),Ar.addEventListener("mousemove",this.OnGlobalMouseMove),this.props.scrollElement.addEventListener("scroll",this.OnScrollParentScroll)}
+          StopGlobalMouseTracking(){const Ar=(0,ur.qf)(this.m_refOuter.current);Ar.removeEventListener("mouseup",this.OnGlobalMouseUp),Ar.removeEventListener("mousemove",this.OnGlobalMouseMove),this.props.scrollElement.removeEventListener("scroll",this.OnScrollParentScroll),this.m_resizeObserver?.unobserve(this.m_refSortableContainer.current)}
+        }
+        const target = new EventTarget(), scroll = new EventTarget();
+        const ur = {qf: ref => ref?.win};
+        const tracker = new Tracker();
+        let events = 0;
+        tracker.OnGlobalMouseUp = tracker.OnGlobalMouseMove = tracker.OnScrollParentScroll = () => events++;
+        tracker.m_refOuter = {current: {win: target}};
+        tracker.m_refSortableContainer = {current: null};
+        tracker.m_resizeObserver = {unobserve: () => { throw new Error("Missing element"); }};
+        tracker.props = {scrollElement: scroll};
+        tracker.StartGlobalMouseTracking();
+        target.dispatchEvent(new Event("mouseup"));
+        tracker.m_refOuter.current = null;
+        tracker.StopGlobalMouseTracking();
+        tracker.StopGlobalMouseTracking();
+        target.dispatchEvent(new Event("mouseup"));
+        target.dispatchEvent(new Event("mousemove"));
+        scroll.dispatchEvent(new Event("scroll"));
+        events === 1;
+        """#
+        let patch = LoopbackAssets.repairShowcaseListenerCleanup(source)
+        #expect(patch != source)
+        #expect(LoopbackAssets.repairShowcaseListenerCleanup(patch) == patch)
+        let context = try #require(JSContext())
+        // JavaScriptCore lacks the DOM's EventTarget. Supply just its listener
+        // behavior to check that cleanup removes exactly what was registered.
+        context.evaluateScript("""
+            class Event { constructor(type) { this.type = type; } }
+            class EventTarget {
+              listeners = new Map();
+              addEventListener(type, fn) { this.listeners.set(type, fn); }
+              removeEventListener(type, fn) {
+                if (this.listeners.get(type) === fn) this.listeners.delete(type);
+              }
+              dispatchEvent(event) { this.listeners.get(event.type)?.(); }
+            }
+            """)
+        #expect(context.evaluateScript(patch)?.toBool() == true)
+    }
+
     @Test
     func `an origin comparison becomes this server's own origin`() {
         let source = #"k(e,"https://steamloopback.host")?"https://steamloopback.host":""#

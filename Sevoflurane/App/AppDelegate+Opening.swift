@@ -176,11 +176,10 @@ extension AppDelegate {
         }
     }
 
-    /// The context page lives in a window of its own, so AppKit counts a
-    /// visible window and its own reopen logic would never fire. `host`
-    /// answers the question the user is actually asking.
+    /// The Dock raises the topmost usable window, or opens Steam if there
+    /// are none. AppKit also counts the parked context page as a window.
     func applicationShouldHandleReopen(
-        _: NSApplication,
+        _ app: NSApplication,
         hasVisibleWindows appKitSeesWindows: Bool,
     ) -> Bool {
         // AppKit's own count of visible windows is in the line because it is
@@ -192,7 +191,12 @@ extension AppDelegate {
         // a reopen can actually bring up is the assistant's.
         if setupWindow.show() {
             EventLog.shared.log(.window, "reopen request (Dock icon or Finder) — setup is unfinished; showing it (\(seen))")
-            return true
+            return false
+        }
+        if let window = ActivationPolicy.windowToReopen(ordered: app.orderedWindows, all: app.windows) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+            return false
         }
         EventLog.shared.log(
             .window,
@@ -200,6 +204,6 @@ extension AppDelegate {
                 + "\(host.isSteamOnScreen ? "on screen; bringing it forward" : "hidden; showing it") (\(seen))",
         )
         host.showSteam()
-        return true
+        return false
     }
 }

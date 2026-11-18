@@ -65,6 +65,25 @@ nonisolated enum LoopbackAssets {
         return out
     }
 
+    /// Refresh unmounts Library Home after WebKit has cleared its React refs.
+    /// Keep the Window used to register the drag listeners so cleanup can
+    /// still remove them. Match only Steam's showcase tracker in sp.js.
+    static func repairShowcaseListenerCleanup(_ text: String) -> String {
+        let start = #"StartGlobalMouseTracking\(\)\{const ([\w$]+)=(\(0,[\w$]+\.[\w$]+\)\(this\.m_refOuter\.current\));\1\.addEventListener\("mouseup",this\.OnGlobalMouseUp\),\1\.addEventListener\("mousemove",this\.OnGlobalMouseMove\),"#
+        let stop = #"StopGlobalMouseTracking\(\)\{const ([\w$]+)=\(0,[\w$]+\.[\w$]+\)\(this\.m_refOuter\.current\);\1\.removeEventListener\("mouseup",this\.OnGlobalMouseUp\),\1\.removeEventListener\("mousemove",this\.OnGlobalMouseMove\),this\.props\.scrollElement\.removeEventListener\("scroll",this\.OnScrollParentScroll\),this\.m_resizeObserver\?\.unobserve\(this\.m_refSortableContainer\.current\)\}"#
+        guard text.range(of: start, options: .regularExpression) != nil,
+              text.range(of: stop, options: .regularExpression) != nil else { return text }
+        return text.replacingOccurrences(
+            of: start,
+            with: #"StartGlobalMouseTracking(){const $1=$2;this.__sevoTrackingWindow=$1,$1.addEventListener("mouseup",this.OnGlobalMouseUp),$1.addEventListener("mousemove",this.OnGlobalMouseMove),"#,
+            options: .regularExpression,
+        ).replacingOccurrences(
+            of: stop,
+            with: #"StopGlobalMouseTracking(){const win=this.__sevoTrackingWindow;this.__sevoTrackingWindow=void 0;win?.removeEventListener("mouseup",this.OnGlobalMouseUp);win?.removeEventListener("mousemove",this.OnGlobalMouseMove);this.props.scrollElement?.removeEventListener("scroll",this.OnScrollParentScroll);const target=this.m_refSortableContainer.current;if(target)this.m_resizeObserver?.unobserve(target)}"#,
+            options: .regularExpression,
+        )
+    }
+
     /// The bytes to serve for `target` when it addresses the client's origin,
     /// or nil when the file is to be served as it sits on disk.
     ///
@@ -85,12 +104,15 @@ nonisolated enum LoopbackAssets {
         let cached = cacheDirectory.appendingPathComponent(key.name)
         if let copy = try? Data(contentsOf: cached, options: [.mappedIfSafe]) { return copy }
         guard let data = try? Data(contentsOf: target, options: [.mappedIfSafe]) else { return nil }
-        guard data.range(of: Data(clientOrigin.utf8)) != nil,
+        let hasClientOrigin = data.range(of: Data(clientOrigin.utf8)) != nil
+        let isSharedSteamUI = target.lastPathComponent == "sp.js"
+        guard hasClientOrigin || isSharedSteamUI,
               let text = String(data: data, encoding: .utf8) else {
             untouched.withLock { _ = $0.insert(key.name) }
             return nil
         }
-        let copy = Data(rewritten(text).utf8)
+        let compatible = isSharedSteamUI ? repairShowcaseListenerCleanup(text) : text
+        let copy = Data((hasClientOrigin ? rewritten(compatible) : compatible).utf8)
         store(copy, at: cached, replacing: key.family)
         return copy
     }
@@ -113,7 +135,8 @@ nonisolated enum LoopbackAssets {
             .prefix(8).map { String(format: "%02x", $0) }.joined()
         let family = "\(url.deletingPathExtension().lastPathComponent)-\(digest)-"
         let stamp = Int(modified.timeIntervalSince1970)
-        return (family, "\(family)\(size)-\(stamp)-\(BridgePorts.steamUI).\(url.pathExtension)")
+        let compatibilityRevision = url.lastPathComponent == "sp.js" ? "-1" : ""
+        return (family, "\(family)\(size)-\(stamp)-\(BridgePorts.steamUI)\(compatibilityRevision).\(url.pathExtension)")
     }
 
     /// Writes the rewritten copy and drops the ones a Steam update replaced,

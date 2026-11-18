@@ -211,6 +211,23 @@ struct SteamPresentationTests {
     }
 
     @Test
+    func closingDesktopKeepsItsPageWithTheContentOffscreen() throws {
+        let webView = WKWebView()
+        let desktop = SteamWindow(webView: webView, role: .desktop, name: "desktop-reopen-test",
+                                  size: CGSize(width: 600, height: 400), origin: nil, host: nil)
+        desktop.realize()
+        defer { desktop.detach(reason: .pageTeardown) }
+        let window = try #require(desktop.nsWindow)
+        let content = try #require(window.contentView)
+        window.orderFront(nil)
+        #expect(!desktop.windowShouldClose(window))
+        #expect(desktop.nsWindow === window)
+        #expect(!desktop.isWindowVisible)
+        #expect(webView.superview === content)
+        #expect(webView.window == nil)
+    }
+
+    @Test
     func originalMaximizeUsesTheNativeWindowAndRestoresItsGeometry() throws {
         let screen = try #require(NSScreen.main)
         let delegate = DocumentZoom(frame: screen.visibleFrame.insetBy(dx: 50, dy: 20))

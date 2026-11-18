@@ -82,5 +82,10 @@ struct ActivationPolicyTests {
         }
 
         #expect(!ActivationPolicy.isTheLastWindow(closing: steam, among: [settings, steam]))
+        #expect(ActivationPolicy.windowToReopen(ordered: [settings, steam], all: [steam, settings]) === settings)
+        steam.orderOut(nil)
+        #expect(ActivationPolicy.windowToReopen(ordered: [steam, settings], all: [steam, settings]) === settings)
+        settings.orderOut(nil)
+        #expect(ActivationPolicy.windowToReopen(ordered: [], all: [steam, settings]) == nil)
     }
 }

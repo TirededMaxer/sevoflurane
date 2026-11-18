@@ -13,6 +13,29 @@
   if (window.__sevoInstalled) return;
   window.__sevoInstalled = true;
 
+  // Steam schedules work on both SharedJSContext and the window that owns
+  // a React portal. Older WebKit versions lack this API in both realms.
+  function installIdleCallbacks(win) {
+    if (typeof win.requestIdleCallback === "function" &&
+        typeof win.cancelIdleCallback === "function") return;
+    win.requestIdleCallback = function (callback, options) {
+      var queuedAt = win.performance.now();
+      return win.setTimeout(function () {
+        var startedAt = win.performance.now();
+        var didTimeout = options != null && options.timeout != null &&
+          startedAt - queuedAt >= options.timeout;
+        callback({
+          didTimeout: didTimeout,
+          timeRemaining: function () {
+            return didTimeout ? 0 : Math.max(0, 8 - (win.performance.now() - startedAt));
+          },
+        });
+      }, 0);
+    };
+    win.cancelIdleCallback = function (handle) { win.clearTimeout(handle); };
+  }
+  installIdleCallbacks(window);
+
   /* Which call a rejection came from. Steam rejects with objects the UI
      branches on, so the path is remembered beside the value rather than
      written into it: nothing the page can read changes, and a client-origin
@@ -1009,6 +1032,7 @@
     });
     if (win) {
       try {
+        if (nativeWindowHandler(win)) installIdleCallbacks(win);
         popupWindows.push(win);
         win.__sevoBrowserID = nextBrowserWindowId++;
         browserIdWindows[win.__sevoBrowserID] = win;

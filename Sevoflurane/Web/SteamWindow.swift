@@ -21,6 +21,7 @@ final class SteamWindow: NSObject {
     private var desktopShowTask: Task<Void, Never>?
     private var desktopShowWanted = false
     private var desktopShowActivating = false
+    private var parkedDesktopContent: NSView?
 
     var window: NSWindow?
     var usesOriginalGameOverlay: Bool { SteamWindowRole.usesOriginalGameOverlay(popupName: name) }
@@ -510,6 +511,10 @@ final class SteamWindow: NSObject {
             // look. What is already on screen stays; nothing new comes up.
             return
         }
+        if let parkedDesktopContent {
+            window.contentView = parkedDesktopContent
+            self.parkedDesktopContent = nil
+        }
         prepareOpeningPlacement()
         if role == .desktop || role == .login {
             desktopShowWanted = true
@@ -797,7 +802,7 @@ final class SteamWindow: NSObject {
 
     private func performBrowserView(id: Int, method: String, args: [Any]) {
         if method == "create" {
-            guard let host, let container = window?.contentView else { return }
+            guard let host, let container = parkedDesktopContent ?? window?.contentView else { return }
             browserViews[id]?.destroy()
             browserViews[id] = BrowserViewChild(
                 id: id,
@@ -902,6 +907,7 @@ final class SteamWindow: NSObject {
         }
         browserViews.removeAll()
         webView.removeFromSuperview()
+        parkedDesktopContent = nil
         if let window {
             window.delegate = nil
             window.parent?.removeChildWindow(window)
@@ -1029,24 +1035,22 @@ extension SteamWindow {
 // MARK: - NSWindowDelegate
 
 extension SteamWindow: NSWindowDelegate {
-    func windowShouldClose(_: NSWindow) -> Bool {
-        desktopShowWanted = false
-        desktopShowActivating = false
-        savePlacement()
-        // The desktop window ends when it is closed, and overrides Steam's
-        // `SetHideOnClose` to do it: its page is the whole library, which
-        // keeps a React tree animating and committing layer trees whether or
-        // not the window is on screen. Ordering it out would leave the app's
-        // most expensive surface running behind a window nobody can see —
-        // paid for in CPU the entire time the client is "away", and in a
-        // WebKit layer-commit path that has crashed the app twice from
-        // exactly that state. `SteamWebHost.showSteam` builds a new one.
-        guard role == .desktop || !hidesOnClose else {
-            hasBeenShown = false
-            window?.orderOut(nil)
-            host?.windowDidHide(self)
+    func windowShouldClose(_ window: NSWindow) -> Bool {
+        if role == .desktop {
+            hide()
+            // Preserve the library and embedded pages but detach the view
+            // tree so WebKit has no offscreen window to commit layers into.
+            if let content = window.contentView {
+                parkedDesktopContent = content
+                window.contentView = nil
+            }
             return false
         }
+        if hidesOnClose {
+            hide()
+            return false
+        }
+        savePlacement()
         close()
         return false
     }

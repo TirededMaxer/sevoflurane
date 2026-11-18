@@ -100,4 +100,10 @@ enum ActivationPolicy {
         window.canBecomeMain && window.isVisible && window.alphaValue > 0
             && !(window is NSPanel) && SteamScreenSpace.isOnSomeScreen(window.frame)
     }
+
+    /// Prefer the frontmost existing window, then one minimized to the Dock.
+    static func windowToReopen(ordered: [NSWindow], all: [NSWindow]) -> NSWindow? {
+        ordered.first(where: keepsTheDockTile)
+            ?? all.first { $0.isMiniaturized && $0.styleMask.contains(.miniaturizable) && !($0 is NSPanel) }
+    }
 }
